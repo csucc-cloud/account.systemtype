@@ -30,27 +30,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Handle SIGN IN (btn-login-exec)
-    const loginBtn = document.getElementById('btn-login-exec');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', async () => {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-password').value;
-            
-            if (!email || !pass) {
-                showFeedback("Please enter email and password.", "text-red-300");
-                return;
-            }
+    // 3. Handle SIGN IN (btn-login-exec)
+const loginBtn = document.getElementById('btn-login-exec');
+if (loginBtn) {
+    loginBtn.addEventListener('click', async () => {
+        alert("Step 1: Button Clicked!");
 
-            showFeedback("Authenticating...", "text-blue-300");
+        const emailEl = document.getElementById('login-email');
+        const passEl = document.getElementById('login-password');
 
+        if (!emailEl || !passEl) {
+            alert("Step 2 Error: Could not find Email or Password input fields in HTML!");
+            return;
+        }
+
+        const email = emailEl.value;
+        const pass = passEl.value;
+        alert("Step 3: Attempting Supabase Login for: " + email);
+
+        try {
             const { data, error } = await authHandler.signIn(email, pass);
+            
             if (error) {
-                showFeedback(error.message, "text-red-300");
+                alert("Step 4 Error (Supabase says): " + error.message);
             } else {
+                alert("Step 4 Success: Welcome aboard!");
                 window.location.reload();
             }
-        });
-    }
+        } catch (err) {
+            alert("Step 4 Critical Failure: " + err.message);
+        }
+    });
+} else {
+    alert("System Error: The Login Button (btn-login-exec) was not found in your HTML!");
+}
 
     // 4. Handle SIGN UP (btn-signup-exec)
     const signupBtn = document.getElementById('btn-signup-exec');
