@@ -81,6 +81,7 @@ export const studentModule = {
     },
 
     async init() {
+        alert("Initializing Student Module UI...");
         this.render();
         await this.fetchAndRenderList();
     },
