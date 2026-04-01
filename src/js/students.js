@@ -2,23 +2,34 @@ import { supabase } from './auth.js';
 
 export const studentModule = {
     render() {
-        const container = document.getElementById('mod-students');
-        if (!container) return;
+    const container = document.getElementById('mod-students');
+    if (!container) return;
 
-        container.innerHTML = `
-            <div class="space-y-6">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                    <div class="relative w-full md:w-96">
-                        <input type="text" id="student-search" placeholder="Search by name or ID..." 
-                               class="w-full pl-4 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm outline-none">
-                    </div>
-                    <div class="flex gap-2 w-full md:w-auto">
-                        <input type="file" id="bulk-upload" accept=".xlsx, .csv" class="hidden">
-                        <button id="btn-import" class="flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold">Import Excel</button>
-                        <button id="btn-open-modal" class="flex-1 bg-[#000080] text-white px-6 py-2 rounded-xl text-sm font-bold">Add Student</button>
-                    </div>
+    container.innerHTML = `
+        <div class="space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <div class="relative w-full md:w-96">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </span>
+                    <input type="text" id="student-search" placeholder="Search by name or ID..." 
+                           class="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#000080]/10">
                 </div>
+                
+                <div class="flex gap-2 w-full md:w-auto">
+                    <input type="file" id="bulk-upload" accept=".xlsx, .csv" class="hidden">
+                    
+                    <button id="btn-import" class="flex items-center justify-center gap-2 flex-1 bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        Import
+                    </button>
 
+                    <button id="btn-open-modal" class="flex items-center justify-center gap-2 flex-1 bg-[#000080] text-white px-6 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-[#000080]/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                        Add Student
+                    </button>
+                </div>
+            </div>
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
