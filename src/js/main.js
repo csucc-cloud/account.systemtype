@@ -4,47 +4,74 @@ import * as lucide from 'lucide';
 
 /**
  * INITIALIZER
- * Runs when the page loads to check if we show the Login or the Dashboard.
+ * Manages the transition from the Balangay Login Screen to the Dashboard.
  */
 document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Render Icons (Lucide)
     lucide.createIcons();
     
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
-    const loginBtn = document.getElementById('btn-login');
+    const feedback = document.getElementById('auth-feedback');
 
-    // 1. Check for an existing session
+    // 2. Check Session Status
     const user = await authHandler.getCurrentUser();
 
     if (user) {
-        // User is logged in: Hide login, show dashboard
-        if(authScreen) authScreen.classList.add('hidden');
-        if(appScreen) appScreen.classList.remove('hidden');
-        initializeDashboard(user);
+        // User is logged in: Entry to the Balangay
+        if (authScreen) authScreen.classList.add('hidden');
+        if (appScreen) appScreen.classList.remove('hidden');
+        setupDashboard(user);
     } else {
-        // User is a guest: Ensure login screen is visible
-        if(authScreen) authScreen.classList.remove('hidden');
+        // Guest: Stay at the Login Card
+        if (authScreen) authScreen.classList.remove('hidden');
     }
 
-    // 2. Handle Login Button Click
+    // 3. Handle SIGN IN (btn-login-exec)
+    const loginBtn = document.getElementById('btn-login-exec');
     if (loginBtn) {
         loginBtn.addEventListener('click', async () => {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-password').value;
-            const errorMsg = document.getElementById('auth-error');
+            
+            showFeedback("Authenticating...", "text-blue-300");
 
             const { data, error } = await authHandler.signIn(email, pass);
-            
             if (error) {
-                errorMsg.innerText = error.message;
-                errorMsg.classList.remove('hidden');
+                showFeedback(error.message, "text-red-300");
             } else {
-                window.location.reload(); // Refresh to trigger the 'user exists' logic
+                window.location.reload();
             }
         });
     }
 
-    // 3. Handle Logout Button Click
+    // 4. Handle SIGN UP (btn-signup-exec)
+    const signupBtn = document.getElementById('btn-signup-exec');
+    if (signupBtn) {
+        signupBtn.addEventListener('click', async () => {
+            const name = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const pass = document.getElementById('signup-password').value;
+            const org = document.getElementById('signup-org').value;
+
+            if (!name || !email || !pass || !org) {
+                showFeedback("Missing fields. Fill out your details.", "text-red-300");
+                return;
+            }
+
+            showFeedback("Registering Officer...", "text-blue-300");
+
+            const { data, error } = await authHandler.signUp(name, email, pass, org);
+            if (error) {
+                showFeedback(error.message, "text-red-300");
+            } else {
+                alert("Success! Welcome to the Balangay. Please sign in now.");
+                window.location.reload();
+            }
+        });
+    }
+
+    // 5. Handle LOGOUT
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
@@ -55,38 +82,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * DASHBOARD SETUP
- * Fills the UI with data once the user is authenticated.
+ * DASHBOARD INITIALIZATION
+ * Connects Supabase user metadata to the "Shining" Navy Blue UI.
  */
-function initializeDashboard(user) {
+function setupDashboard(user) {
     const displayOrg = document.getElementById('display-org-name');
     const displayUser = document.getElementById('user-full-name');
+    const displayAvatar = document.getElementById('user-avatar');
 
-    // Set Organization and User names from Supabase Metadata
-    if (displayOrg) displayOrg.innerText = user.user_metadata.org_name || "Organization";
-    if (displayUser) displayUser.innerText = user.user_metadata.full_name || "Admin User";
+    // Inject Metadata
+    const fullName = user.user_metadata.full_name || "Admin User";
+    const orgName = user.user_metadata.org_name || "Organization";
 
-    // Render the Analytics Charts
+    if (displayOrg) displayOrg.innerText = orgName;
+    if (displayUser) displayUser.innerText = fullName;
+    if (displayAvatar) displayAvatar.src = `https://ui-avatars.com/api/?name=${fullName}&background=000080&color=fff`;
+
+    // Fire up the Visuals
     chartManager.renderAttendance('attendanceChart');
     chartManager.renderDistribution('deptChart');
 }
 
 /**
- * NAVIGATION LOGIC
- * Toggles between sections (Dashboard, Students, Events, etc.)
+ * UTILS
  */
-window.showSection = (sectionId) => {
-    // Hide all sections
-    const sections = document.querySelectorAll('section');
-    sections.forEach(s => s.classList.add('hidden'));
+function showFeedback(msg, colorClass) {
+    const fb = document.getElementById('auth-feedback');
+    if (fb) {
+        fb.innerText = msg;
+        fb.className = `text-center text-xs font-medium py-2 ${colorClass}`;
+        fb.classList.remove('hidden');
+    }
+}
 
-    // Show the selected section
+// Global Nav Switcher
+window.showSection = (sectionId) => {
+    // Section visibility
+    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     const target = document.getElementById(`section-${sectionId}`);
+    
+    // Sidebar Active State styling
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('bg-white/10'));
+    
     if (target) {
         target.classList.remove('hidden');
-        
-        // Update the Header Title
-        const pageTitle = document.getElementById('current-page-title');
-        if (pageTitle) pageTitle.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+        document.getElementById('current-page-title').innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     }
 };
