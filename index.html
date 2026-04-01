@@ -8,6 +8,21 @@
     </head>
 <body class="bg-slate-50 font-sans text-slate-900">
 
+    <div id="auth-screen" class="fixed inset-0 z-[100] bg-[#000080] flex items-center justify-center p-6 transition-opacity duration-500">
+    <div class="bg-white w-full max-w-md p-10 rounded-[32px] shadow-2xl space-y-6">
+        <div class="text-center">
+            <h1 class="text-2xl font-black text-[#000080]">OAS PRO</h1>
+            <p class="text-slate-400 text-sm">Please sign in to continue</p>
+        </div>
+        <div class="space-y-4">
+            <input type="email" id="login-email" placeholder="Email Address" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="password" id="login-password" placeholder="Password" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="btn-login" class="w-full bg-[#000080] text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all active:scale-95">Login</button>
+        </div>
+        <p class="text-center text-[10px] text-slate-300 uppercase tracking-widest">Authorized Personnel Only</p>
+    </div>
+</div>
+    
     <div id="app" class="flex min-h-screen">
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[#000080] text-white transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
             <div class="p-6 text-xl font-bold border-b border-blue-900 flex items-center gap-3">
