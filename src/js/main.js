@@ -8,6 +8,7 @@ import * as lucide from 'lucide';
  */
 document.addEventListener('DOMContentLoaded', async () => {
     alert("Balangay System Loaded!");
+    alert("URL Check: " + import.meta.env.VITE_SUPABASE_URL);
     // 1. Render Icons (Lucide) - Using the universal creator
     lucide.createIcons();
     
