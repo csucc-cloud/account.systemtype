@@ -169,3 +169,7 @@ window.showSection = (sectionId) => {
         }
     });
 };
+
+window.onerror = function(message, source, lineno, colno, error) {
+    alert("CRASH DETECTED: " + message + " at line " + lineno);
+};
