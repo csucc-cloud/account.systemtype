@@ -1,6 +1,9 @@
 import { supabase } from './auth.js';
 
 export const studentModule = {
+    /**
+     * 1. THE UI (HTML & MODAL)
+     */
     render() {
         const container = document.getElementById('mod-students');
         if (!container) return;
@@ -46,15 +49,15 @@ export const studentModule = {
                     <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 animate-in zoom-in-95">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-xl font-black text-[#000080]">New Student</h3>
-                            <button id="btn-close-modal" class="text-slate-400 p-2"><i data-lucide="x"></i></button>
+                            <button id="btn-close-modal" class="text-slate-400 p-2 hover:text-red-500 transition-colors"><i data-lucide="x"></i></button>
                         </div>
-                        <form id="form-student" class="space-y-4">
-                            <input type="text" id="stud-id" placeholder="ID Number" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none font-mono">
-                            <input type="text" id="stud-name" placeholder="Full Name (Last, First)" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
-                            <input type="text" id="stud-college" placeholder="College (e.g. CAS)" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
+                        <div class="space-y-4">
+                            <input type="text" id="stud-id" placeholder="ID Number (e.g. 2024-0001)" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none font-mono">
+                            <input type="text" id="stud-name" placeholder="Full Name (Last, First)" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
+                            <input type="text" id="stud-college" placeholder="College (e.g. CITTE)" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
                             <div class="grid grid-cols-2 gap-4">
-                                <input type="text" id="stud-course" placeholder="Course" required class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
-                                <select id="stud-year" required class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
+                                <input type="text" id="stud-course" placeholder="Course (e.g. BTLED)" class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
+                                <select id="stud-year" class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
                                     <option value="">Year Level</option>
                                     <option value="1">1st Year</option>
                                     <option value="2">2nd Year</option>
@@ -63,8 +66,8 @@ export const studentModule = {
                                     <option value="5">5th Year</option>
                                 </select>
                             </div>
-                            <button type="submit" id="btn-save-manual" class="w-full py-4 bg-[#000080] text-white rounded-2xl font-black shadow-lg">Save Student</button>
-                        </form>
+                            <button type="button" id="btn-save-manual" class="w-full py-4 bg-[#000080] text-white rounded-2xl font-black shadow-lg hover:bg-blue-900 transition-all">Save Student</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -86,13 +89,28 @@ export const studentModule = {
     },
 
     setupEventListeners() {
-        // Use onclick directly to avoid multiple listener issues on mobile
-        const openBtn = document.getElementById('btn-open-modal');
-        if (openBtn) openBtn.onclick = () => document.getElementById('modal-student').classList.remove('hidden');
+        // Modal Controls
+        const modal = document.getElementById('modal-student');
+        document.getElementById('btn-open-modal').onclick = () => modal.classList.remove('hidden');
+        document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
 
-        const closeBtn = document.getElementById('btn-close-modal');
-        if (closeBtn) closeBtn.onclick = () => document.getElementById('modal-student').classList.add('hidden');
+        // MANUAL SAVE (The Fix)
+        const saveBtn = document.getElementById('btn-save-manual');
+        if (saveBtn) {
+            saveBtn.onclick = async () => {
+                const id = document.getElementById('stud-id').value.trim();
+                const name = document.getElementById('stud-name').value.trim();
+                
+                if (!id || !name) {
+                    window.showAlert("Please fill in ID and Name at least", "error");
+                    return;
+                }
+                
+                await this.handleManualSave();
+            };
+        }
 
+        // Excel Import Controls
         const importBtn = document.getElementById('btn-import');
         const fileInput = document.getElementById('bulk-upload');
         if (importBtn && fileInput) {
@@ -100,14 +118,7 @@ export const studentModule = {
             fileInput.onchange = (e) => this.handleExcelImport(e.target.files[0]);
         }
 
-        const form = document.getElementById('form-student');
-        if (form) {
-            form.onsubmit = (e) => {
-                e.preventDefault();
-                this.handleManualSave(e);
-            };
-        }
-
+        // Search Bar Logic
         const searchInput = document.getElementById('student-search');
         if (searchInput) {
             let searchTimer;
@@ -124,7 +135,7 @@ export const studentModule = {
         const tbody = document.getElementById('student-table-body');
         if (!tbody) return;
 
-        tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center animate-pulse text-slate-400">Loading students...</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center animate-pulse text-slate-400 font-bold">UPDATING MASTERLIST...</td></tr>`;
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
@@ -145,59 +156,68 @@ export const studentModule = {
             if (error) throw error;
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400">No students found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400">No students recorded yet.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = data.map(s => `
-                <tr class="hover:bg-slate-50">
+                <tr class="hover:bg-slate-50 transition-colors border-b border-slate-50">
                     <td class="p-4 text-slate-500 text-sm font-mono">${s.student_id}</td>
                     <td class="p-4 font-bold text-slate-700 text-sm">${s.full_name}</td>
                     <td class="p-4 text-slate-600 text-[10px] font-bold uppercase">${s.college || 'N/A'}</td>
                     <td class="p-4 text-slate-600 text-sm">${s.course || 'N/A'}</td>
-                    <td class="p-4"><span class="px-3 py-1 bg-blue-50 text-[#000080] rounded-full text-[10px] font-black">YEAR ${s.year_level}</span></td>
+                    <td class="p-4"><span class="px-3 py-1 bg-blue-50 text-[#000080] rounded-full text-[10px] font-black uppercase">YEAR ${s.year_level}</span></td>
                     <td class="p-4 text-right"><i data-lucide="more-horizontal" class="w-4 h-4 text-slate-300"></i></td>
                 </tr>
             `).join('');
 
             if (window.lucide) window.lucide.createIcons();
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-red-500">Error: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-red-500">Sync Error: ${err.message}</td></tr>`;
         }
     },
 
-    async handleManualSave(e) {
-        window.showAlert("Saving student...", "info");
+    async handleManualSave() {
+        window.showAlert("Syncing with Supabase...", "info");
         try {
+            const courseVal = document.getElementById('stud-course').value;
             const studentData = {
                 student_id: document.getElementById('stud-id').value,
                 full_name: document.getElementById('stud-name').value,
                 college: document.getElementById('stud-college').value,
-                course: document.getElementById('stud-course').value,
-                department: this.classifyDepartment(document.getElementById('stud-course').value),
+                course: courseVal,
+                department: this.classifyDepartment(courseVal),
                 year_level: document.getElementById('stud-year').value
             };
 
             const { error } = await supabase.from('students').upsert(studentData, { onConflict: 'student_id' });
-            if (error) throw error;
+            
+            if (error) {
+                alert("Database Error: " + error.message);
+                throw error;
+            }
 
-            window.showAlert("Student Saved!", "success");
+            window.showAlert("Student Saved Successfully!", "success");
             document.getElementById('modal-student').classList.add('hidden');
-            document.getElementById('form-student').reset();
+            
+            // Clean the form
+            ['stud-id', 'stud-name', 'stud-college', 'stud-course'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('stud-year').value = '';
+
             await this.fetchAndRenderList();
         } catch (err) {
-            window.showAlert(err.message, "error");
+            window.showAlert("Error: " + err.message, "error");
         }
     },
 
     async handleExcelImport(file) {
         if (!file) return;
         if (!window.XLSX) {
-            window.showAlert("Excel library not loaded!", "error");
+            window.showAlert("Excel Engine Missing!", "error");
             return;
         }
 
-        window.showAlert("Reading Excel file...", "info");
+        window.showAlert("Processing File...", "info");
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
