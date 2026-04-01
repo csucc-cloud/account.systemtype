@@ -122,6 +122,17 @@ export const studentModule = {
         const tbody = document.getElementById('student-table-body');
         if (!tbody) return;
 
+        tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="p-12 text-center">
+                <div class="flex flex-col items-center gap-3 animate-pulse">
+                    <div class="w-12 h-12 bg-slate-100 rounded-full"></div>
+                    <div class="h-4 w-48 bg-slate-100 rounded-lg"></div>
+                </div>
+            </td>
+        </tr>
+    `;
+
         const { data: { user } } = await supabase.auth.getUser();
         const userOrg = user?.user_metadata?.org_name || "";
         const userRole = user?.user_metadata?.role || "user";
