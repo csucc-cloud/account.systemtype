@@ -61,7 +61,6 @@ export const studentModule = {
             </div>
         `;
         
-        // Use a tiny delay to ensure DOM is ready
         setTimeout(() => {
             this.setupEventListeners();
         }, 200);
@@ -83,41 +82,25 @@ export const studentModule = {
     setupEventListeners() {
         const modal = document.getElementById('modal-student');
         
-        // Open Modal
-        const btnOpen = document.getElementById('btn-open-modal');
-        if (btnOpen) {
-            btnOpen.onclick = function() {
-                modal.classList.remove('hidden');
-            };
-        }
+        // Open/Close
+        document.getElementById('btn-open-modal').onclick = () => modal.classList.remove('hidden');
+        document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
 
-        // Close Modal
-        const btnClose = document.getElementById('btn-close-modal');
-        if (btnClose) {
-            btnClose.onclick = function() {
-                modal.classList.add('hidden');
-            };
-        }
+        // Save
+        document.getElementById('btn-save-manual').onclick = () => this.handleManualSave();
 
-        // Save Button
-        const btnSave = document.getElementById('btn-save-manual');
-        if (btnSave) {
-            btnSave.onclick = () => {
-                this.handleManualSave();
-            };
-        }
-
-        // Import Button
-        const btnImport = document.getElementById('btn-import');
+        // Import
         const fileInput = document.getElementById('bulk-upload');
-        if (btnImport && fileInput) {
-            btnImport.onclick = function() {
-                fileInput.click();
-            };
-            fileInput.onchange = (e) => {
-                this.handleExcelImport(e.target.files[0]);
-            };
-        }
+        document.getElementById('btn-import').onclick = () => fileInput.click();
+        fileInput.onchange = (e) => this.handleExcelImport(e.target.files[0]);
+
+        // Search
+        const searchInput = document.getElementById('student-search');
+        let searchTimer;
+        searchInput.oninput = (e) => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => this.fetchAndRenderList(e.target.value), 400);
+        };
     },
 
     async fetchAndRenderList(searchTerm = "") {
@@ -172,5 +155,50 @@ export const studentModule = {
             document.getElementById('modal-student').classList.add('hidden');
             this.fetchAndRenderList();
         }
+    },
+
+    async handleExcelImport(file) {
+        if (!file) return;
+        if (!window.XLSX) {
+            return alert("Error: Excel library not loaded in index.html");
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+                const batch = json.map(row => {
+                    const getValue = (possibleNames) => {
+                        const key = Object.keys(row).find(k => 
+                            possibleNames.includes(k.trim().toLowerCase())
+                        );
+                        return row[key] || '';
+                    };
+
+                    const course = getValue(['course', 'program', 'course/program']);
+                    
+                    return {
+                        student_id: String(getValue(['id', 'id number', 'student id', 'studentid'])),
+                        full_name: getValue(['name', 'full name', 'student name', 'fullname']),
+                        college: getValue(['college', 'school', 'dept']),
+                        course: course,
+                        department: this.classifyDepartment(course),
+                        year_level: String(getValue(['year', 'year level', 'yr']) || '1')
+                    };
+                });
+
+                const { error } = await supabase.from('students').upsert(batch, { onConflict: 'student_id' });
+                if (error) throw error;
+
+                alert(`Successfully imported ${batch.length} students!`);
+                this.fetchAndRenderList();
+            } catch (err) {
+                alert("Import Failed: " + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
     }
 };
