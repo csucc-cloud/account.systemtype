@@ -3,131 +3,180 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAS PRO | Balangay System</title>
     <link rel="stylesheet" href="/src/css/style.css">
-    <title>OAS | Organization Automated System</title>
-    </head>
-<body class="bg-slate-50 font-sans text-slate-900">
+</head>
+<body class="bg-slate-50 font-sans text-slate-900 antialiased">
 
-    <div id="auth-screen" class="fixed inset-0 z-[100] bg-[#000080] flex items-center justify-center p-6 transition-opacity duration-500">
-    <div class="bg-white w-full max-w-md p-10 rounded-[32px] shadow-2xl space-y-6">
-        <div class="text-center">
-            <h1 class="text-2xl font-black text-[#000080]">OAS PRO</h1>
-            <p class="text-slate-400 text-sm">Please sign in to continue</p>
+    <div id="auth-screen" class="fixed inset-0 z-[200] flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-[#000080] bg-opacity-95 backdrop-blur-xl"></div>
+
+        <div class="relative bg-white/5 border border-white/10 w-full max-w-md p-10 md:p-14 rounded-[40px] shadow-2xl backdrop-blur-md space-y-8">
+            
+            <div class="text-center">
+                <div class="inline-flex p-4 rounded-3xl bg-white/10 mb-4">
+                    <i data-lucide="compass" class="w-10 h-10 text-blue-300"></i>
+                </div>
+                <h1 class="text-3xl font-black text-white tracking-tight">OAS PRO</h1>
+                <p class="text-blue-200/60 text-[10px] uppercase tracking-[0.2em] font-bold">Balangay Navigator</p>
+            </div>
+
+            <div id="form-login" class="space-y-4">
+                <input type="email" id="login-email" placeholder="Email Address" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                <input type="password" id="login-password" placeholder="Password" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                <button id="btn-login-exec" class="w-full bg-white text-[#000080] py-4 rounded-2xl font-black hover:bg-blue-50 active:scale-95 transition-all shadow-xl">Sign In</button>
+            </div>
+
+            <div id="form-signup" class="space-y-4 hidden">
+                <input type="text" id="signup-name" placeholder="Officer Full Name" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                <input type="email" id="signup-email" placeholder="Organization Email" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                <input type="password" id="signup-password" placeholder="Create Password" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                
+                <select id="signup-org" class="w-full px-6 py-4 bg-white/10 text-slate-300 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 appearance-none">
+                    <option value="" disabled selected class="text-slate-900">Select Organization</option>
+                    <option value="HERO Organization" class="text-slate-900">HERO (Education)</option>
+                    <option value="PSTTS Organization" class="text-slate-900">PSTTS (Technology)</option>
+                    <option value="CITTE LSG" class="text-slate-900">CITTE LSG (Full Admin)</option>
+                </select>
+                
+                <button id="btn-signup-exec" class="w-full bg-blue-500 text-white py-4 rounded-2xl font-black hover:bg-blue-400 active:scale-95 transition-all">Create Account</button>
+            </div>
+
+            <p id="auth-feedback" class="text-center text-xs text-red-300 font-medium hidden"></p>
+
+            <div class="text-center pt-6 border-t border-white/10">
+                <span class="text-slate-400 text-sm" id="toggle-text">New officer?</span>
+                <button onclick="toggleAuthForm()" id="btn-auth-toggle" class="text-white text-sm font-bold hover:underline ml-1">Sign up now.</button>
+            </div>
         </div>
-        <div class="space-y-4">
-            <input type="email" id="login-email" placeholder="Email Address" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500">
-            <input type="password" id="login-password" placeholder="Password" class="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="btn-login" class="w-full bg-[#000080] text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all active:scale-95">Login</button>
-        </div>
-        <p class="text-center text-[10px] text-slate-300 uppercase tracking-widest">Authorized Personnel Only</p>
     </div>
-</div>
-    
-    <div id="app" class="flex min-h-screen">
-        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[#000080] text-white transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
-            <div class="p-6 text-xl font-bold border-b border-blue-900 flex items-center gap-3">
-                <i data-lucide="layout-grid" class="text-blue-300"></i>
-                <span>OAS SYSTEM</span>
+
+    <div id="app" class="hidden flex min-h-screen">
+        <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-[#000080] text-white flex flex-col shadow-2xl transition-transform lg:translate-x-0">
+            <div class="p-8 text-xl font-black border-b border-blue-900 flex items-center gap-3 italic tracking-tighter">
+                <i data-lucide="compass" class="text-blue-300"></i>
+                BALANGAY
             </div>
             
             <nav class="flex-1 p-4 space-y-2 mt-4">
-                <button onclick="window.showSection('dashboard')" class="nav-item active w-full flex items-center p-3 rounded-2xl hover:bg-white/10 transition-all gap-3">
-                    <i data-lucide="home" class="w-5 h-5"></i> Dashboard
+                <button onclick="window.showSection('dashboard')" class="nav-item w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all gap-4">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
                 </button>
-                <button onclick="window.showSection('students')" class="nav-item w-full flex items-center p-3 rounded-2xl hover:bg-white/10 transition-all gap-3">
+                <button onclick="window.showSection('students')" class="nav-item w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all gap-4">
                     <i data-lucide="users" class="w-5 h-5"></i> Students
                 </button>
-                <button onclick="window.showSection('events')" class="nav-item w-full flex items-center p-3 rounded-2xl hover:bg-white/10 transition-all gap-3">
-                    <i data-lucide="calendar" class="w-5 h-5"></i> Events
+                <button onclick="window.showSection('events')" class="nav-item w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all gap-4">
+                    <i data-lucide="calendar-range" class="w-5 h-5"></i> Events
                 </button>
-                <button onclick="window.showSection('finance')" class="nav-item w-full flex items-center p-3 rounded-2xl hover:bg-white/10 transition-all gap-3">
-                    <i data-lucide="banknote" class="w-5 h-5"></i> Finance
+                <button onclick="window.showSection('finance')" class="nav-item w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all gap-4">
+                    <i data-lucide="wallet" class="w-5 h-5"></i> Finance
                 </button>
-                <button onclick="window.showSection('attendance')" class="nav-item w-full flex items-center p-3 rounded-2xl hover:bg-white/10 transition-all gap-3">
-                    <i data-lucide="user-check" class="w-5 h-5"></i> Attendance
+                <button onclick="window.showSection('attendance')" class="nav-item w-full flex items-center p-4 rounded-2xl hover:bg-white/10 transition-all gap-4">
+                    <i data-lucide="qr-code" class="w-5 h-5"></i> Attendance
                 </button>
             </nav>
 
-            <div class="p-4 border-t border-blue-900">
-                <div id="org-badge" class="bg-blue-900/50 p-3 rounded-xl text-xs flex flex-col gap-1">
-                    <span class="text-blue-300 uppercase tracking-widest font-bold">Organization</span>
-                    <span id="display-org-name" class="text-white truncate italic text-sm">Loading...</span>
+            <div class="p-6 border-t border-blue-900">
+                <div class="bg-blue-900/40 p-4 rounded-2xl mb-4">
+                    <p class="text-[10px] text-blue-300 font-black uppercase tracking-widest mb-1">Organization</p>
+                    <p id="display-org-name" class="text-sm font-bold truncate">Loading...</p>
                 </div>
-                <button class="mt-4 w-full flex items-center p-3 text-red-300 hover:text-red-100 transition-colors gap-3">
-                    <i data-lucide="log-out" class="w-5 h-5"></i> Logout
+                <button id="btn-logout" class="w-full flex items-center p-2 text-red-300 hover:text-red-100 font-bold text-xs gap-2">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> LOGOUT
                 </button>
             </div>
         </aside>
 
-        <main class="flex-1 lg:ml-64 min-h-screen flex flex-col">
-            <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 sticky top-0 z-40">
-                <button id="mobile-menu-btn" class="lg:hidden p-2 text-slate-600">
-                    <i data-lucide="menu"></i>
-                </button>
-                <h2 id="current-page-title" class="text-lg font-bold text-[#000080]">Dashboard</h2>
+        <main class="flex-1 lg:ml-64 bg-slate-50 min-h-screen">
+            <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
+                <h2 id="current-page-title" class="text-2xl font-black text-[#000080]">Dashboard</h2>
+                
                 <div class="flex items-center gap-4">
-                    <div class="hidden md:block text-right">
-                        <p id="user-full-name" class="text-sm font-semibold leading-none">Admin User</p>
-                        <p class="text-[10px] text-slate-400 uppercase">System Manager</p>
+                    <div class="text-right">
+                        <p id="user-full-name" class="text-sm font-bold">Admin User</p>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">Officer</p>
                     </div>
-                    <div class="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden">
-                        <img src="https://ui-avatars.com/api/?name=Admin&background=000080&color=fff" alt="Avatar">
-                    </div>
+                    <img id="user-avatar" src="https://ui-avatars.com/api/?name=Admin&background=000080&color=fff" class="w-10 h-10 rounded-full border-2 border-white shadow-sm">
                 </div>
             </header>
 
-            <div id="content-viewport" class="p-6 space-y-6">
-                <section id="section-dashboard" class="space-y-6">
+            <div id="content-viewport" class="p-8">
+                <section id="section-dashboard" class="space-y-8 animate-in fade-in duration-500">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div class="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 flex items-center gap-4">
-                            <div class="p-3 bg-blue-50 text-[#000080] rounded-2xl"><i data-lucide="users"></i></div>
+                            <div class="p-4 bg-blue-50 text-[#000080] rounded-2xl"><i data-lucide="users"></i></div>
                             <div>
-                                <p class="text-sm text-slate-500">Total Students</p>
+                                <p class="text-xs font-bold text-slate-400 uppercase">Total Students</p>
                                 <h3 id="stat-total-students" class="text-2xl font-black">0</h3>
                             </div>
                         </div>
-                        </div>
+                    </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 min-h-[350px]">
-                            <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Attendance Overview</h4>
-                            <div class="h-64 relative">
-                                <canvas id="attendanceChart"></canvas>
-                            </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 min-h-[400px]">
+                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-8">Attendance Analytics</h4>
+                            <canvas id="attendanceChart"></canvas>
                         </div>
-                        <div class="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 min-h-[350px]">
-                            <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Student Distribution</h4>
-                            <div class="h-64 relative">
-                                <canvas id="deptChart"></canvas>
-                            </div>
+                        <div class="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 min-h-[400px]">
+                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-8">Departmental Mix</h4>
+                            <canvas id="deptChart"></canvas>
                         </div>
                     </div>
                 </section>
 
-                <section id="section-students" class="hidden">
-                    <div class="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
-                        <div class="p-6 border-b border-slate-50 flex flex-wrap justify-between gap-4">
-                            <input type="text" placeholder="Search students..." class="px-4 py-2 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-[#000080]/20 w-full max-w-xs">
-                            <button class="bg-[#000080] text-white px-6 py-2 rounded-xl font-bold hover:shadow-lg transition-shadow">Add Student</button>
+                <section id="section-students" class="hidden animate-in slide-in-from-bottom-4 duration-500">
+                    <div class="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                            <h3 class="text-xl font-black text-[#000080]">Masterlist</h3>
+                            <div class="flex gap-3">
+                                <input type="text" placeholder="Filter names..." class="px-5 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-100">
+                                <button class="bg-[#000080] text-white px-8 py-3 rounded-2xl font-bold hover:shadow-xl transition-all">Import Excel</button>
+                            </div>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-50/50 text-slate-400 text-[10px] uppercase tracking-tighter">
+                        <div class="overflow-x-auto p-4">
+                            <table class="w-full text-left border-separate border-spacing-y-2">
+                                <thead class="text-slate-400 text-[10px] uppercase font-black">
                                     <tr>
-                                        <th class="px-6 py-4">Name</th>
-                                        <th class="px-6 py-4">Department</th>
+                                        <th class="px-6 py-4">Student Name</th>
+                                        <th class="px-6 py-4">Dept</th>
                                         <th class="px-6 py-4">Status</th>
+                                        <th class="px-6 py-4">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody id="student-list-body"></tbody>
+                                <tbody id="student-list-body">
+                                    </tbody>
                             </table>
                         </div>
                     </div>
                 </section>
+
+                <section id="section-events" class="hidden py-20 text-center text-slate-300 italic">Events logic setting up...</section>
+                <section id="section-finance" class="hidden py-20 text-center text-slate-300 italic">Finance logic setting up...</section>
+                <section id="section-attendance" class="hidden py-20 text-center text-slate-300 italic">Attendance logic setting up...</section>
             </div>
         </main>
     </div>
 
     <script type="module" src="/src/js/main.js"></script>
+    <script>
+        function toggleAuthForm() {
+            const loginForm = document.getElementById('form-login');
+            const signupForm = document.getElementById('form-signup');
+            const toggleText = document.getElementById('toggle-text');
+            const toggleBtn = document.getElementById('btn-auth-toggle');
+
+            if (signupForm.classList.contains('hidden')) {
+                loginForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+                toggleText.innerText = "Already an officer?";
+                toggleBtn.innerText = "Sign in now.";
+            } else {
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                toggleText.innerText = "New officer?";
+                toggleBtn.innerText = "Sign up now.";
+            }
+        }
+    </script>
 </body>
 </html>
