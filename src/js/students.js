@@ -1,5 +1,5 @@
 import { supabase } from './auth.js';
-
+alert("Student Module Loaded!");
 export const studentModule = {
     render() {
         const container = document.getElementById('mod-students');
