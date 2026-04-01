@@ -1,17 +1,18 @@
-// 1. PUT THIS AT THE VERY TOP (Before Imports)
-// LINE 1: The Emergency Handler
+/**
+ * 1. EMERGENCY ALERT SYSTEM (Must be at the very top)
+ */
 window.showAlert = function(msg, type = 'error') {
-    console.log("Alert Triggered:", msg);
     const toast = document.getElementById('toast-box');
     const toastMsg = document.getElementById('toast-msg');
     
     if (!toast) {
-        alert("CRITICAL ERROR: " + msg); // Last resort
+        alert(msg); // Fallback if HTML isn't ready
         return;
     }
 
     toastMsg.innerText = msg;
-    toast.className = "flex items-center bg-white border-2 border-[#000080] p-4 rounded-2xl shadow-2xl fixed top-5 left-1/2 -translate-x-1/2 z-[9999]";
+    // Apply styling and show
+    toast.className = "flex items-center bg-white border-2 border-[#000080] p-4 rounded-2xl shadow-2xl fixed top-5 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-top duration-300";
     
     setTimeout(() => {
         toast.classList.add('hidden');
@@ -19,173 +20,117 @@ window.showAlert = function(msg, type = 'error') {
 };
 
 window.onerror = function(message, source, lineno) {
-    window.showAlert("File Error: " + message + " at line " + lineno);
+    window.showAlert("System Error: " + message + " at line " + lineno);
 };
 
+/**
+ * 2. IMPORTS
+ */
 import { authHandler } from './auth.js';
-import { chartManager } from './charts.js';
-import * as lucide from 'lucide';
+import { dashboardModule } from './dashboard.js'; // Ensure this file exists!
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut } from 'lucide';
 
 /**
- * INITIALIZER
- * Manages the transition from the Balangay Login Screen to the Dashboard.
+ * 3. INITIALIZER
  */
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize Icons
+    createIcons({
+        icons: { Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut }
+    });
 
-createIcons({
-    icons: {
-        Compass,
-        LayoutDashboard,
-        Users,
-        CalendarRange,
-        Wallet,
-        QrCode,
-        LogOut
-    }
-});
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
 
-    // 2. Check Session Status
-    const user = await authHandler.getCurrentUser();
+    // Check Session Status
+    try {
+        const user = await authHandler.getCurrentUser();
 
-    if (user) {
-        // User is logged in: Hide login card, show Balangay app
-        if (authScreen) authScreen.classList.add('hidden');
-        if (appScreen) appScreen.classList.remove('hidden');
-        setupDashboard(user);
-    } else {
-        // Guest: Ensure login card is visible
-        if (authScreen) authScreen.classList.remove('hidden');
-        if (appScreen) appScreen.classList.add('hidden');
+        if (user) {
+            if (authScreen) authScreen.classList.add('hidden');
+            if (appScreen) appScreen.classList.remove('hidden');
+            setupUserUI(user);
+            window.showSection('dashboard'); // Auto-load dashboard
+        } else {
+            if (authScreen) authScreen.classList.remove('hidden');
+            if (appScreen) appScreen.classList.add('hidden');
+        }
+    } catch (err) {
+        window.showAlert("Auth Connection Failed: " + err.message);
     }
 
-    // 3. Handle SIGN IN (btn-login-exec)
-    // 3. Handle SIGN IN (btn-login-exec)
-const loginBtn = document.getElementById('btn-login-exec');
-if (loginBtn) {
-    loginBtn.addEventListener('click', async () => {
+    // Handle Login
+    const loginBtn = document.getElementById('btn-login-exec');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', async () => {
+            const email = document.getElementById('login-email')?.value;
+            const pass = document.getElementById('login-password')?.value;
 
-        const emailEl = document.getElementById('login-email');
-        const passEl = document.getElementById('login-password');
-
-        if (!emailEl || !passEl) {
-            return;
-        }
-
-        const email = emailEl.value;
-        const pass = passEl.value;
-        try {
-            const { data, error } = await authHandler.signIn(email, pass);
-            
-            if (error) {
-            } else {
-                window.location.reload();
-            }
-        } catch (err) {
-        }
-    });
-} else {
-}
-
-    // 4. Handle SIGN UP (btn-signup-exec)
-    const signupBtn = document.getElementById('btn-signup-exec');
-    if (signupBtn) {
-        signupBtn.addEventListener('click', async () => {
-            const name = document.getElementById('signup-name').value;
-            const email = document.getElementById('signup-email').value;
-            const pass = document.getElementById('signup-password').value;
-            const org = document.getElementById('signup-org').value;
-
-            if (!name || !email || !pass || !org) {
-                showFeedback("Missing fields. Fill out all details.", "text-red-300");
+            if (!email || !pass) {
+                window.showAlert("Please enter email and password");
                 return;
             }
 
-            showFeedback("Registering Officer...", "text-blue-300");
-
-            const { data, error } = await authHandler.signUp(name, email, pass, org);
+            const { error } = await authHandler.signIn(email, pass);
             if (error) {
-                showFeedback(error.message, "text-red-300");
+                window.showAlert(error.message);
             } else {
-                alert("Success! Welcome to the Balangay. Please sign in now.");
                 window.location.reload();
             }
         });
     }
 
-    // 5. Handle LOGOUT
+    // Handle Logout
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             await authHandler.logout();
+            window.location.reload();
         });
     }
 });
 
 /**
- * DASHBOARD INITIALIZATION
- * Connects Supabase user metadata to the Navy Blue UI.
+ * 4. UI SETUP
  */
-function setupDashboard(user) {
+function setupUserUI(user) {
     const displayOrg = document.getElementById('display-org-name');
     const displayUser = document.getElementById('user-full-name');
     const displayAvatar = document.getElementById('user-avatar');
 
-    // Extract Metadata from Supabase Profile
     const fullName = user.user_metadata?.full_name || "Admin User";
     const orgName = user.user_metadata?.org_name || "Organization";
 
     if (displayOrg) displayOrg.innerText = orgName;
     if (displayUser) displayUser.innerText = fullName;
-    
-    // Dynamic Avatar based on Name
     if (displayAvatar) {
         displayAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=000080&color=fff`;
     }
-
-    // Load Charts
-    try {
-        chartManager.renderAttendance('attendanceChart');
-        chartManager.renderDistribution('deptChart');
-    } catch (e) {
-        console.warn("Charts could not load. Ensure charts.js is correct.", e);
-    }
 }
 
 /**
- * UTILS - For showing errors inside the Balangay Card
- */
-function showFeedback(msg, colorClass) {
-    const fb = document.getElementById('auth-feedback');
-    if (fb) {
-        fb.innerText = msg;
-        // Resets classes to ensure color updates correctly
-        fb.className = `text-center text-xs font-medium py-2 ${colorClass}`;
-        fb.classList.remove('hidden');
-    }
-}
-
-/**
- * GLOBAL NAVIGATION
- * Toggles sections within the dashboard
+ * 5. GLOBAL NAVIGATION (Module Switcher)
  */
 window.showSection = (sectionId) => {
-    // 1. Hide all sections
+    // Hide all logical sections (if you have them in index.html)
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     
-    // 2. Show selected section
-    const target = document.getElementById(`section-${sectionId}`);
-    if (target) {
-        target.classList.remove('hidden');
-        
-        // 3. Update Header Title
-        const title = document.getElementById('current-page-title');
-        if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+    // Clear the dynamic module containers
+    document.querySelectorAll('.module-container').forEach(div => div.innerHTML = '');
+
+    // Show the target section or module
+    if (sectionId === 'dashboard') {
+        dashboardModule.init(); 
+    } else {
+        const target = document.getElementById(`section-${sectionId}`);
+        if (target) target.classList.remove('hidden');
     }
 
-    // 4. Update Sidebar UI Active State
+    // Update Header
+    const title = document.getElementById('current-page-title');
+    if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+
+    // Update Sidebar Active State
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.classList.remove('bg-white/10');
         if (btn.innerText.toLowerCase().includes(sectionId)) {
@@ -193,4 +138,3 @@ window.showSection = (sectionId) => {
         }
     });
 };
-
