@@ -1,26 +1,25 @@
 // 1. PUT THIS AT THE VERY TOP (Before Imports)
-window.showAlert = (msg, type = 'error') => {
+// LINE 1: The Emergency Handler
+window.showAlert = function(msg, type = 'error') {
+    console.log("Alert Triggered:", msg);
     const toast = document.getElementById('toast-box');
     const toastMsg = document.getElementById('toast-msg');
     
     if (!toast) {
-        console.error("Toast HTML missing!");
-        alert(msg); // Fallback to ugly alert if HTML isn't ready
+        alert("CRITICAL ERROR: " + msg); // Last resort
         return;
     }
 
     toastMsg.innerText = msg;
-    toast.classList.remove('hidden', 'opacity-0', '-translate-y-10');
-    toast.classList.add('flex', 'opacity-100', 'translate-y-0');
-
+    toast.className = "flex items-center bg-white border-2 border-[#000080] p-4 rounded-2xl shadow-2xl fixed top-5 left-1/2 -translate-x-1/2 z-[9999]";
+    
     setTimeout(() => {
-        toast.classList.add('opacity-0', '-translate-y-10');
-        setTimeout(() => toast.classList.add('hidden'), 500);
-    }, 4000);
+        toast.classList.add('hidden');
+    }, 5000);
 };
 
 window.onerror = function(message, source, lineno) {
-    window.showAlert("System Error: " + message + " (Line " + lineno + ")", 'error');
+    window.showAlert("File Error: " + message + " at line " + lineno);
 };
 
 import { authHandler } from './auth.js';
