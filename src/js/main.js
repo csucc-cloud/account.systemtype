@@ -87,32 +87,36 @@ function setupUserUI(user) {
  * 5. GLOBAL NAVIGATION (Module Switcher)
  */
 window.showSection = function(sectionId) {
-    // 1. Hide all modules
-    document.querySelectorAll('.module-container, section').forEach(el => {
+    // 1. Target both Modules and Sections
+    const allContainers = document.querySelectorAll('.module-container, section');
+    
+    allContainers.forEach(el => {
         el.classList.add('hidden');
-        // Remove animation class so it can be re-triggered later
-        el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-4', 'duration-500');
+        // Clean up animation classes so they can restart
+        el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
     });
 
-    // 2. Show the selected module with Animation
     const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
     
     if (target) {
+        // 2. The Trick: Use a tiny timeout to let the browser "breathe"
         target.classList.remove('hidden');
         
-        // ADD TRANSITION CLASSES HERE
-        target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-4', 'duration-500');
+        requestAnimationFrame(() => {
+            target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
+        });
 
-        // 3. Initialize the correct Module logic
+        // 3. Init logic
         if (sectionId === 'dashboard') dashboardModule.init();
         else if (sectionId === 'students') studentModule.init();
     }
 
-    // 4. Update UI
+    // 4. Update Title and Sidebar
     const title = document.getElementById('current-page-title');
     if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     
     updateNavUI(sectionId);
+};
 };
 
 function updateNavUI(sectionId) {
