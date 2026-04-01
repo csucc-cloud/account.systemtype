@@ -158,91 +158,58 @@ export const studentModule = {
     },
 
     async handleExcelImport(file) {
+    if (!file) return;
+    if (!window.XLSX) return alert("Excel library not loaded.");
 
-        if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = window.XLSX.read(data, { type: 'array' });
+            const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-        if (!window.XLSX) return alert("Excel library not loaded. Check index.html");
+            let successCount = 0;
+            let errorCount = 0;
 
+            // We loop through each row one-by-one to find the exact "Criminal" row
+            for (let i = 0; i < json.length; i++) {
+                const row = json[i];
+                const excelRowNumber = i + 2; // +2 because Excel starts at 1 and has a header
 
+                const studentData = {
+                    student_id: String(row['ID'] || '').trim(),
+                    full_name: String(row['Name'] || '').trim(),
+                    college: row['College'],
+                    course: row['Course/Program'],
+                    department: this.classifyDepartment(row['Course/Program']),
+                    year_level: parseInt(String(row['Year Level']).replace(/\D/g, '')) || 1
+                };
 
-        const reader = new FileReader();
+                if (!studentData.student_id) continue;
 
-        reader.onload = async (e) => {
+                // Send 1 row at a time
+                const { error } = await supabase
+                    .from('students')
+                    .upsert(studentData, { onConflict: 'student_id' });
 
-            try {
-
-                const data = new Uint8Array(e.target.result);
-
-                const workbook = window.XLSX.read(data, { type: 'array' });
-
-                const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-
-
-
-                const batch = json.map(row => {
-
-                    const getValue = (names) => {
-
-                        const key = Object.keys(row).find(k => names.includes(k.trim().toLowerCase()));
-
-                        return row[key] || '';
-
-                    };
-
-
-
-                    const course = getValue(['course', 'program', 'course/program']);
-
-                    
-
-                    // FIX: Convert "1st Year" to integer 1
-
-                    let yearRaw = String(getValue(['year', 'year level', 'yr']) || '1');
-
-                    let yearClean = parseInt(yearRaw.replace(/\D/g, '')) || 1;
-
-
-
-                    return {
-
-                        student_id: String(getValue(['id', 'id number', 'student id', 'studentid'])),
-
-                        full_name: getValue(['name', 'full name', 'student name', 'fullname']),
-
-                        college: getValue(['college', 'school', 'dept']),
-
-                        course: course,
-
-                        department: this.classifyDepartment(course),
-
-                        year_level: yearClean 
-
-                    };
-
-                });
-
-
-
-                const { error } = await supabase.from('students').upsert(batch, { onConflict: 'student_id' });
-
-                if (error) throw error;
-
-
-
-                alert(`Success! Imported ${batch.length} students.`);
-
-                this.fetchAndRenderList();
-
-            } catch (err) {
-
-                alert("Import Error: " + err.message);
-
+                if (error) {
+                    console.error(`❌ Error at Excel Row ${excelRowNumber}:`, error);
+                    alert(`CONFLICT FOUND!\n\nRow: ${excelRowNumber}\nStudent ID: ${studentData.student_id}\nName: ${studentData.full_name}\n\nError: ${error.message}`);
+                    errorCount++;
+                    // If you want to stop immediately when an error hits, uncomment the line below:
+                    // return; 
+                } else {
+                    successCount++;
+                }
             }
 
-        };
+            alert(`Import Finished!\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}`);
+            this.fetchAndRenderList();
 
-        reader.readAsArrayBuffer(file);
-
-    }
-
-};
+        } catch (err) {
+            console.error("General Import Error:", err);
+            alert("System Error: " + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
