@@ -1,9 +1,6 @@
 import { supabase } from './auth.js';
 
 export const studentModule = {
-    /**
-     * 1. THE UI (HTML & MODAL)
-     */
     render() {
         const container = document.getElementById('mod-students');
         if (!container) return;
@@ -49,14 +46,14 @@ export const studentModule = {
                     <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 animate-in zoom-in-95">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-xl font-black text-[#000080]">New Student</h3>
-                            <button id="btn-close-modal" class="text-slate-400"><i data-lucide="x"></i></button>
+                            <button id="btn-close-modal" class="text-slate-400 p-2"><i data-lucide="x"></i></button>
                         </div>
                         <form id="form-student" class="space-y-4">
-                            <input type="text" id="stud-id" placeholder="ID Number (e.g. 2026-0001)" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none font-mono">
+                            <input type="text" id="stud-id" placeholder="ID Number" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none font-mono">
                             <input type="text" id="stud-name" placeholder="Full Name (Last, First)" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
                             <input type="text" id="stud-college" placeholder="College (e.g. CAS)" required class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
                             <div class="grid grid-cols-2 gap-4">
-                                <input type="text" id="stud-course" placeholder="Course/Program" required class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
+                                <input type="text" id="stud-course" placeholder="Course" required class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
                                 <select id="stud-year" required class="p-4 bg-slate-50 rounded-xl border-none text-sm outline-none">
                                     <option value="">Year Level</option>
                                     <option value="1">1st Year</option>
@@ -66,200 +63,173 @@ export const studentModule = {
                                     <option value="5">5th Year</option>
                                 </select>
                             </div>
-                            <button type="submit" class="w-full py-4 bg-[#000080] text-white rounded-2xl font-black shadow-lg">Save Student</button>
+                            <button type="submit" id="btn-save-manual" class="w-full py-4 bg-[#000080] text-white rounded-2xl font-black shadow-lg">Save Student</button>
                         </form>
                     </div>
                 </div>
             </div>
         `;
         this.setupEventListeners();
-        if (window.lucide) window.lucide.createIcons();
     },
 
-    /**
-     * 2. CLASSIFICATION LOGIC
-     */
     classifyDepartment(course) {
         if (!course) return 'Other Department';
         const c = course.toUpperCase();
-
-        if (c.includes('BTLED') || c.includes('BTVTED')) {
-            return 'Education Dept.';
-        } 
-        if (c.includes('BSINDTECH') || c.includes('BSINDUSTECH')) {
-            return 'Industrial Technology Dept.';
-        }
-        
+        if (c.includes('BTLED') || c.includes('BTVTED')) return 'Education Dept.';
+        if (c.includes('BSINDTECH') || c.includes('BSINDUSTECH')) return 'Industrial Technology Dept.';
         return 'Other Department';
     },
 
-    /**
-     * 3. INITIALIZE & LISTENERS
-     */
     async init() {
         this.render();
         await this.fetchAndRenderList();
     },
 
     setupEventListeners() {
-        document.getElementById('btn-open-modal')?.addEventListener('click', () => document.getElementById('modal-student').classList.remove('hidden'));
-        document.getElementById('btn-close-modal')?.addEventListener('click', () => document.getElementById('modal-student').classList.add('hidden'));
-        document.getElementById('form-student')?.addEventListener('submit', (e) => this.handleManualSave(e));
-        document.getElementById('btn-import')?.addEventListener('click', () => document.getElementById('bulk-upload').click());
-        document.getElementById('bulk-upload')?.addEventListener('change', (e) => this.handleExcelImport(e.target.files[0]));
+        // Use onclick directly to avoid multiple listener issues on mobile
+        const openBtn = document.getElementById('btn-open-modal');
+        if (openBtn) openBtn.onclick = () => document.getElementById('modal-student').classList.remove('hidden');
 
-        let searchTimer;
-        document.getElementById('student-search')?.addEventListener('input', (e) => {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(() => this.fetchAndRenderList(e.target.value), 300);
-        });
-    },
+        const closeBtn = document.getElementById('btn-close-modal');
+        if (closeBtn) closeBtn.onclick = () => document.getElementById('modal-student').classList.add('hidden');
 
-    /**
-     * 4. DATA OPERATIONS (FETCH WITH RBAC)
-     */
-    async fetchAndRenderList(searchTerm = "") {
-        const tbody = document.getElementById('student-table-body');
-        if (!tbody) return;
-
-        tbody.innerHTML = `
-        <tr>
-            <td colspan="6" class="p-12 text-center">
-                <div class="flex flex-col items-center gap-3 animate-pulse">
-                    <div class="w-12 h-12 bg-slate-100 rounded-full"></div>
-                    <div class="h-4 w-48 bg-slate-100 rounded-lg"></div>
-                </div>
-            </td>
-        </tr>
-    `;
-
-        const { data: { user } } = await supabase.auth.getUser();
-        const userOrg = user?.user_metadata?.org_name || "";
-        const userRole = user?.user_metadata?.role || "user";
-
-        let query = supabase.from('students').select('*').order('full_name', { ascending: true });
-
-        // ROLE BASED ACCESS CONTROL
-        if (userRole !== 'super_admin' && userOrg === 'HERO Organization') {
-            query = query.eq('department', 'Education Dept.');
+        const importBtn = document.getElementById('btn-import');
+        const fileInput = document.getElementById('bulk-upload');
+        if (importBtn && fileInput) {
+            importBtn.onclick = () => fileInput.click();
+            fileInput.onchange = (e) => this.handleExcelImport(e.target.files[0]);
         }
 
-        if (searchTerm) {
-            query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
+        const form = document.getElementById('form-student');
+        if (form) {
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                this.handleManualSave(e);
+            };
         }
 
-        const { data, error } = await query.limit(100);
-        if (error) return window.showAlert(error.message);
-
-        tbody.innerHTML = data.map(s => `
-            <tr class="hover:bg-slate-50 transition-colors">
-                <td class="p-4 text-slate-500 text-sm font-mono">${s.student_id}</td>
-                <td class="p-4 font-bold text-slate-700 text-sm">${s.full_name}</td>
-                <td class="p-4 text-slate-600 text-xs font-semibold uppercase">${s.college || 'N/A'}</td>
-                <td class="p-4 text-slate-600 text-sm">${s.course || 'N/A'}</td>
-                <td class="p-4"><span class="px-3 py-1 bg-blue-50 text-[#000080] rounded-full text-[10px] font-black uppercase">YEAR ${s.year_level}</span></td>
-                <td class="p-4 text-right"><i data-lucide="more-horizontal" class="w-4 h-4 text-slate-300 inline-block cursor-pointer"></i></td>
-            </tr>
-        `).join('');
+        const searchInput = document.getElementById('student-search');
+        if (searchInput) {
+            let searchTimer;
+            searchInput.oninput = (e) => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => this.fetchAndRenderList(e.target.value), 400);
+            };
+        }
 
         if (window.lucide) window.lucide.createIcons();
     },
 
-    /**
-     * 5. SAVE & IMPORT LOGIC
-     */
-    async handleManualSave(e) {
-    e.preventDefault();
-    
-    const id = document.getElementById('stud-id').value;
-    const name = document.getElementById('stud-name').value;
-    const college = document.getElementById('stud-college').value;
-    const course = document.getElementById('stud-course').value;
-    const year = document.getElementById('stud-year').value;
+    async fetchAndRenderList(searchTerm = "") {
+        const tbody = document.getElementById('student-table-body');
+        if (!tbody) return;
 
-    window.showAlert("Saving to Masterlist...", "info");
+        tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center animate-pulse text-slate-400">Loading students...</td></tr>`;
 
-    try {
-        // We removed the orgId requirement here
-        const { error: dbError } = await supabase
-            .from('students')
-            .upsert({
-                student_id: id,
-                full_name: name,
-                college: college,
-                course: course,
-                department: this.classifyDepartment(course), // Auto-labels for HERO/CITTE access
-                year_level: year
-                // organization_id REMOVED
-            }, { onConflict: 'student_id' });
-
-        if (dbError) {
-            window.showAlert(`Database Error: ${dbError.message}`, "error");
-        } else {
-            window.showAlert("Student Added to Masterlist!", "success");
-            document.getElementById('modal-student').classList.add('hidden');
-            document.getElementById('form-student').reset();
-            this.fetchAndRenderList(); 
-        }
-
-    } catch (err) {
-        window.showAlert("App Error: " + err.message, "error");
-    }
-}
-
-    async handleExcelImport(file) {
-    if (!file) return;
-    window.showAlert("Processing Excel Masterlist...", "info");
-    
-    const reader = new FileReader();
-    reader.onload = async (e) => {
         try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = window.XLSX.read(data, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = window.XLSX.utils.sheet_to_json(sheet);
+            const { data: { user } } = await supabase.auth.getUser();
+            const userOrg = user?.user_metadata?.org_name || "";
+            const userRole = user?.user_metadata?.role || "user";
 
-            if (json.length === 0) {
-                window.showAlert("The Excel file is empty!", "error");
+            let query = supabase.from('students').select('*').order('full_name', { ascending: true });
+
+            if (userRole !== 'super_admin' && userOrg === 'HERO Organization') {
+                query = query.eq('department', 'Education Dept.');
+            }
+
+            if (searchTerm) {
+                query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
+            }
+
+            const { data, error } = await query.limit(100);
+            if (error) throw error;
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-slate-400">No students found.</td></tr>`;
                 return;
             }
 
-            const batch = json.map(row => {
-                // Helper to find column regardless of exact naming/spacing/casing
-                const find = (possibleNames) => {
-                    const foundKey = Object.keys(row).find(k => 
-                        possibleNames.includes(k.trim().toLowerCase())
-                    );
-                    return row[foundKey] || '';
-                };
+            tbody.innerHTML = data.map(s => `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-4 text-slate-500 text-sm font-mono">${s.student_id}</td>
+                    <td class="p-4 font-bold text-slate-700 text-sm">${s.full_name}</td>
+                    <td class="p-4 text-slate-600 text-[10px] font-bold uppercase">${s.college || 'N/A'}</td>
+                    <td class="p-4 text-slate-600 text-sm">${s.course || 'N/A'}</td>
+                    <td class="p-4"><span class="px-3 py-1 bg-blue-50 text-[#000080] rounded-full text-[10px] font-black">YEAR ${s.year_level}</span></td>
+                    <td class="p-4 text-right"><i data-lucide="more-horizontal" class="w-4 h-4 text-slate-300"></i></td>
+                </tr>
+            `).join('');
 
-                const course = find(['course', 'program', 'course/program', 'degree']);
-                
-                return {
-                    student_id: String(find(['id', 'studentid', 'id number', 'student no'])),
-                    full_name: find(['name', 'fullname', 'student name', 'full name']),
-                    college: find(['college', 'school', 'department']),
-                    course: course,
-                    department: this.classifyDepartment(course), // Auto-tags for access control
-                    year_level: String(find(['year level', 'yearlevel', 'year', 'yr']) || '1')
-                    // organization_id is NOT included here
-                };
-            });
-
-            // Bulk Upsert to Supabase
-            const { error: dbError } = await supabase
-                .from('students')
-                .upsert(batch, { onConflict: 'student_id' });
-
-            if (dbError) {
-                window.showAlert(`Import Failed: ${dbError.message}`, "error");
-            } else {
-                window.showAlert(`Success! ${batch.length} students synchronized.`, "success");
-                this.fetchAndRenderList(); // Refresh the table view
-            }
+            if (window.lucide) window.lucide.createIcons();
         } catch (err) {
-            window.showAlert("Import Error: " + err.message, "error");
+            tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-red-500">Error: ${err.message}</td></tr>`;
         }
-    };
-    reader.readAsArrayBuffer(file);
-}
+    },
+
+    async handleManualSave(e) {
+        window.showAlert("Saving student...", "info");
+        try {
+            const studentData = {
+                student_id: document.getElementById('stud-id').value,
+                full_name: document.getElementById('stud-name').value,
+                college: document.getElementById('stud-college').value,
+                course: document.getElementById('stud-course').value,
+                department: this.classifyDepartment(document.getElementById('stud-course').value),
+                year_level: document.getElementById('stud-year').value
+            };
+
+            const { error } = await supabase.from('students').upsert(studentData, { onConflict: 'student_id' });
+            if (error) throw error;
+
+            window.showAlert("Student Saved!", "success");
+            document.getElementById('modal-student').classList.add('hidden');
+            document.getElementById('form-student').reset();
+            await this.fetchAndRenderList();
+        } catch (err) {
+            window.showAlert(err.message, "error");
+        }
+    },
+
+    async handleExcelImport(file) {
+        if (!file) return;
+        if (!window.XLSX) {
+            window.showAlert("Excel library not loaded!", "error");
+            return;
+        }
+
+        window.showAlert("Reading Excel file...", "info");
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+                const batch = json.map(row => {
+                    const find = (keys) => {
+                        const key = Object.keys(row).find(k => keys.includes(k.trim().toLowerCase()));
+                        return row[key] || '';
+                    };
+                    const course = find(['course', 'program', 'course/program']);
+                    return {
+                        student_id: String(find(['id', 'studentid', 'id number'])),
+                        full_name: find(['name', 'fullname', 'student name']),
+                        college: find(['college', 'school']),
+                        course: course,
+                        department: this.classifyDepartment(course),
+                        year_level: String(find(['year level', 'year', 'yr']) || '1')
+                    };
+                });
+
+                const { error } = await supabase.from('students').upsert(batch, { onConflict: 'student_id' });
+                if (error) throw error;
+
+                window.showAlert(`Imported ${batch.length} students!`, "success");
+                await this.fetchAndRenderList();
+            } catch (err) {
+                window.showAlert("Import Error: " + err.message, "error");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+};
