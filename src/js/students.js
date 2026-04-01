@@ -158,47 +158,91 @@ export const studentModule = {
     },
 
     async handleExcelImport(file) {
+
         if (!file) return;
-        if (!window.XLSX) {
-            return alert("Error: Excel library not loaded in index.html");
-        }
+
+        if (!window.XLSX) return alert("Excel library not loaded. Check index.html");
+
+
 
         const reader = new FileReader();
+
         reader.onload = async (e) => {
+
             try {
+
                 const data = new Uint8Array(e.target.result);
+
                 const workbook = window.XLSX.read(data, { type: 'array' });
+
                 const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
+
+
                 const batch = json.map(row => {
-                    const getValue = (possibleNames) => {
-                        const key = Object.keys(row).find(k => 
-                            possibleNames.includes(k.trim().toLowerCase())
-                        );
+
+                    const getValue = (names) => {
+
+                        const key = Object.keys(row).find(k => names.includes(k.trim().toLowerCase()));
+
                         return row[key] || '';
+
                     };
+
+
 
                     const course = getValue(['course', 'program', 'course/program']);
+
                     
+
+                    // FIX: Convert "1st Year" to integer 1
+
+                    let yearRaw = String(getValue(['year', 'year level', 'yr']) || '1');
+
+                    let yearClean = parseInt(yearRaw.replace(/\D/g, '')) || 1;
+
+
+
                     return {
+
                         student_id: String(getValue(['id', 'id number', 'student id', 'studentid'])),
+
                         full_name: getValue(['name', 'full name', 'student name', 'fullname']),
+
                         college: getValue(['college', 'school', 'dept']),
+
                         course: course,
+
                         department: this.classifyDepartment(course),
-                        year_level: String(getValue(['year', 'year level', 'yr']) || '1')
+
+                        year_level: yearClean 
+
                     };
+
                 });
 
+
+
                 const { error } = await supabase.from('students').upsert(batch, { onConflict: 'student_id' });
+
                 if (error) throw error;
 
-                alert(`Successfully imported ${batch.length} students!`);
+
+
+                alert(`Success! Imported ${batch.length} students.`);
+
                 this.fetchAndRenderList();
+
             } catch (err) {
-                alert("Import Failed: " + err.message);
+
+                alert("Import Error: " + err.message);
+
             }
+
         };
+
         reader.readAsArrayBuffer(file);
+
     }
+
 };
