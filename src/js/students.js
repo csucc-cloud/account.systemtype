@@ -169,69 +169,97 @@ export const studentModule = {
      * 5. SAVE & IMPORT LOGIC
      */
     async handleManualSave(e) {
-        e.preventDefault();
-        const { data: { user } } = await supabase.auth.getUser();
-        const orgId = user?.user_metadata?.org_id;
+    e.preventDefault();
+    
+    const id = document.getElementById('stud-id').value;
+    const name = document.getElementById('stud-name').value;
+    const college = document.getElementById('stud-college').value;
+    const course = document.getElementById('stud-course').value;
+    const year = document.getElementById('stud-year').value;
 
-        const courseVal = document.getElementById('stud-course').value;
-        const studentData = {
-            student_id: document.getElementById('stud-id').value,
-            full_name: document.getElementById('stud-name').value,
-            college: document.getElementById('stud-college').value,
-            course: courseVal,
-            department: this.classifyDepartment(courseVal),
-            year_level: document.getElementById('stud-year').value,
-            organization_id: orgId
-        };
+    window.showAlert("Saving to Masterlist...", "info");
 
-        const { error } = await supabase.from('students').upsert(studentData, { onConflict: 'student_id' });
+    try {
+        // We removed the orgId requirement here
+        const { error: dbError } = await supabase
+            .from('students')
+            .upsert({
+                student_id: id,
+                full_name: name,
+                college: college,
+                course: course,
+                department: this.classifyDepartment(course), // Auto-labels for HERO/CITTE access
+                year_level: year
+                // organization_id REMOVED
+            }, { onConflict: 'student_id' });
 
-        if (error) {
-            window.showAlert(error.message);
+        if (dbError) {
+            window.showAlert(`Database Error: ${dbError.message}`, "error");
         } else {
-            window.showAlert("Student Saved!", "success");
+            window.showAlert("Student Added to Masterlist!", "success");
             document.getElementById('modal-student').classList.add('hidden');
-            this.fetchAndRenderList();
+            document.getElementById('form-student').reset();
+            this.fetchAndRenderList(); 
         }
-    },
+
+    } catch (err) {
+        window.showAlert("App Error: " + err.message, "error");
+    }
+}
 
     async handleExcelImport(file) {
-        if (!file) return;
-        window.showAlert("Classifying & Importing...", "info");
-        
-        const { data: { user } } = await supabase.auth.getUser();
-        const orgId = user?.user_metadata?.org_id;
+    if (!file) return;
+    window.showAlert("Processing Excel Masterlist...", "info");
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = window.XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = window.XLSX.utils.sheet_to_json(sheet);
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = window.XLSX.read(data, { type: 'array' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const json = window.XLSX.utils.sheet_to_json(sheet);
-
-                const batch = json.map(row => {
-                    const course = row.Course || row.Program || row['Course/Program'] || '';
-                    return {
-                        student_id: String(row.ID || row.StudentId || row['ID Number'] || ''),
-                        full_name: row.Name || row.FullName || row['Student Name'] || '',
-                        college: row.College || row['College/School'] || '',
-                        course: course,
-                        department: this.classifyDepartment(course),
-                        year_level: String(row['Year Level'] || row.YearLevel || row.Year || '1'),
-                        organization_id: orgId
-                    };
-                });
-
-                const { error } = await supabase.from('students').upsert(batch, { onConflict: 'student_id' });
-                if (error) throw error;
-
-                window.showAlert(`Imported ${batch.length} students!`, "success");
-                this.fetchAndRenderList();
-            } catch (err) {
-                window.showAlert("Import Error: " + err.message);
+            if (json.length === 0) {
+                window.showAlert("The Excel file is empty!", "error");
+                return;
             }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-};
+
+            const batch = json.map(row => {
+                // Helper to find column regardless of exact naming/spacing/casing
+                const find = (possibleNames) => {
+                    const foundKey = Object.keys(row).find(k => 
+                        possibleNames.includes(k.trim().toLowerCase())
+                    );
+                    return row[foundKey] || '';
+                };
+
+                const course = find(['course', 'program', 'course/program', 'degree']);
+                
+                return {
+                    student_id: String(find(['id', 'studentid', 'id number', 'student no'])),
+                    full_name: find(['name', 'fullname', 'student name', 'full name']),
+                    college: find(['college', 'school', 'department']),
+                    course: course,
+                    department: this.classifyDepartment(course), // Auto-tags for access control
+                    year_level: String(find(['year level', 'yearlevel', 'year', 'yr']) || '1')
+                    // organization_id is NOT included here
+                };
+            });
+
+            // Bulk Upsert to Supabase
+            const { error: dbError } = await supabase
+                .from('students')
+                .upsert(batch, { onConflict: 'student_id' });
+
+            if (dbError) {
+                window.showAlert(`Import Failed: ${dbError.message}`, "error");
+            } else {
+                window.showAlert(`Success! ${batch.length} students synchronized.`, "success");
+                this.fetchAndRenderList(); // Refresh the table view
+            }
+        } catch (err) {
+            window.showAlert("Import Error: " + err.message, "error");
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
