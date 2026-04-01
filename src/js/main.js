@@ -117,7 +117,6 @@ window.showSection = function(sectionId) {
     
     updateNavUI(sectionId);
 };
-};
 
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
