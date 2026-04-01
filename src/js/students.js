@@ -61,16 +61,15 @@ export const studentModule = {
             </div>
         `;
         
-        setTimeout(() => {
-            this.setupEventListeners();
-        }, 200);
+        setTimeout(() => this.setupEventListeners(), 200);
     },
 
     classifyDepartment(course) {
         if (!course) return 'Other Department';
-        const c = course.toUpperCase();
+        const c = String(course).toUpperCase();
         if (c.includes('BTLED')) return 'Education Dept.';
         if (c.includes('BSINDTECH')) return 'Industrial Technology Dept.';
+        if (c.includes('BTVTED')) return 'Vocational Tech Dept.';
         return 'Other Department';
     },
 
@@ -82,19 +81,14 @@ export const studentModule = {
     setupEventListeners() {
         const modal = document.getElementById('modal-student');
         
-        // Open/Close
         document.getElementById('btn-open-modal').onclick = () => modal.classList.remove('hidden');
         document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
-
-        // Save
         document.getElementById('btn-save-manual').onclick = () => this.handleManualSave();
 
-        // Import
         const fileInput = document.getElementById('bulk-upload');
         document.getElementById('btn-import').onclick = () => fileInput.click();
         fileInput.onchange = (e) => this.handleExcelImport(e.target.files[0]);
 
-        // Search
         const searchInput = document.getElementById('student-search');
         let searchTimer;
         searchInput.oninput = (e) => {
@@ -113,7 +107,7 @@ export const studentModule = {
                 query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
             }
 
-            const { data, error } = await query.limit(50);
+            const { data, error } = await query.limit(100);
             if (error) throw error;
 
             tbody.innerHTML = data.map(s => `
@@ -123,22 +117,22 @@ export const studentModule = {
                     <td class="p-4 text-xs uppercase">${s.college || ''}</td>
                     <td class="p-4 text-sm">${s.course || ''}</td>
                     <td class="p-4 text-xs font-black">YR ${s.year_level}</td>
-                    <td class="p-4 text-right">...</td>
+                    <td class="p-4 text-right text-slate-300">...</td>
                 </tr>
             `).join('');
         } catch (err) {
-            console.error(err);
+            console.error("Fetch Error:", err);
         }
     },
 
     async handleManualSave() {
-        const id = document.getElementById('stud-id').value;
-        const name = document.getElementById('stud-name').value;
-        const college = document.getElementById('stud-college').value;
-        const course = document.getElementById('stud-course').value;
+        const id = document.getElementById('stud-id').value.trim();
+        const name = document.getElementById('stud-name').value.trim();
+        const college = document.getElementById('stud-college').value.trim();
+        const course = document.getElementById('stud-course').value.trim();
         const year = document.getElementById('stud-year').value;
 
-        if (!id || !name) return alert("Fill ID and Name");
+        if (!id || !name) return alert("Please fill in at least ID and Name");
 
         const { error } = await supabase.from('students').upsert({
             student_id: id,
@@ -146,11 +140,11 @@ export const studentModule = {
             college: college,
             course: course,
             department: this.classifyDepartment(course),
-            year_level: year
+            year_level: parseInt(year)
         }, { onConflict: 'student_id' });
 
         if (error) {
-            alert("Error: " + error.message);
+            alert("Database Error: " + error.message);
         } else {
             document.getElementById('modal-student').classList.add('hidden');
             this.fetchAndRenderList();
@@ -158,58 +152,73 @@ export const studentModule = {
     },
 
     async handleExcelImport(file) {
-    if (!file) return;
-    if (!window.XLSX) return alert("Excel library not loaded.");
+        if (!file) return;
+        if (!window.XLSX) return alert("Excel library (SheetJS) is not loaded.");
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = window.XLSX.read(data, { type: 'array' });
-            const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-            let successCount = 0;
-            let errorCount = 0;
+                let successCount = 0;
+                let errorCount = 0;
 
-            // We loop through each row one-by-one to find the exact "Criminal" row
-            for (let i = 0; i < json.length; i++) {
-                const row = json[i];
-                const excelRowNumber = i + 2; // +2 because Excel starts at 1 and has a header
+                console.log("Starting Import Detective...");
 
-                const studentData = {
-                    student_id: String(row['ID'] || '').trim(),
-                    full_name: String(row['Name'] || '').trim(),
-                    college: row['College'],
-                    course: row['Course/Program'],
-                    department: this.classifyDepartment(row['Course/Program']),
-                    year_level: parseInt(String(row['Year Level']).replace(/\D/g, '')) || 1
-                };
+                for (let i = 0; i < json.length; i++) {
+                    const row = json[i];
+                    const excelRowNumber = i + 2; // +1 for zero-index, +1 for header row
 
-                if (!studentData.student_id) continue;
+                    // Extract data from row
+                    const sId = String(row['ID'] || '').trim();
+                    const sName = String(row['Name'] || '').trim();
+                    const sCourse = row['Course/Program'] || '';
+                    const sYearRaw = String(row['Year Level'] || '1');
+                    const sYear = parseInt(sYearRaw.replace(/\D/g, '')) || 1;
 
-                // Send 1 row at a time
-                const { error } = await supabase
-                    .from('students')
-                    .upsert(studentData, { onConflict: 'student_id' });
+                    if (!sId) continue; // Skip empty ID rows
 
-                if (error) {
-                    console.error(`❌ Error at Excel Row ${excelRowNumber}:`, error);
-                    alert(`CONFLICT FOUND!\n\nRow: ${excelRowNumber}\nStudent ID: ${studentData.student_id}\nName: ${studentData.full_name}\n\nError: ${error.message}`);
-                    errorCount++;
-                    // If you want to stop immediately when an error hits, uncomment the line below:
-                    // return; 
-                } else {
-                    successCount++;
+                    const studentData = {
+                        student_id: sId,
+                        full_name: sName,
+                        college: row['College'] || '',
+                        course: sCourse,
+                        department: this.classifyDepartment(sCourse),
+                        year_level: sYear
+                    };
+
+                    // Send 1 by 1 to find the conflict
+                    const { error } = await supabase
+                        .from('students')
+                        .upsert(studentData, { onConflict: 'student_id' });
+
+                    if (error) {
+                        errorCount++;
+                        console.error(`Conflict at Row ${excelRowNumber}:`, error);
+                        alert(`STOP! CONFLICT DETECTED IN EXCEL\n\n` + 
+                              `Excel Row: ${excelRowNumber}\n` +
+                              `Student ID: ${sId}\n` +
+                              `Name: ${sName}\n\n` +
+                              `Message: ${error.message}`);
+                        
+                        // Optional: stop immediately so you can fix the row
+                        // return; 
+                    } else {
+                        successCount++;
+                    }
                 }
+
+                alert(`Import Result:\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}`);
+                this.fetchAndRenderList();
+
+            } catch (err) {
+                console.error("Critical Import Error:", err);
+                alert("Could not read file: " + err.message);
             }
-
-            alert(`Import Finished!\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}`);
-            this.fetchAndRenderList();
-
-        } catch (err) {
-            console.error("General Import Error:", err);
-            alert("System Error: " + err.message);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-}
+        };
+        reader.readAsArrayBuffer(file);
+    }
+};
