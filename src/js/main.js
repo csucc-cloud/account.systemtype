@@ -1,6 +1,6 @@
 import { authHandler } from './auth.js';
 import { chartManager } from './charts.js';
-import lucide from 'lucide';
+import * as lucide from 'lucide';
 
 document.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
