@@ -1,34 +1,9 @@
-/**
- * 1. EMERGENCY ALERT SYSTEM (Must be at the very top)
- */
-window.showAlert = function(msg, type = 'error') {
-    const toast = document.getElementById('toast-box');
-    const toastMsg = document.getElementById('toast-msg');
-    
-    if (!toast) {
-        alert(msg); // Fallback if HTML isn't ready
-        return;
-    }
 
-    toastMsg.innerText = msg;
-    // Apply styling and show
-    toast.className = "flex items-center bg-white border-2 border-[#000080] p-4 rounded-2xl shadow-2xl fixed top-5 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-top duration-300";
-    
-    setTimeout(() => {
-        toast.classList.add('hidden');
-    }, 5000);
-};
-
-window.onerror = function(message, source, lineno) {
-    window.showAlert("System Error: " + message + " at line " + lineno);
-};
-
-/**
- * 2. IMPORTS
- */
 import { authHandler } from './auth.js';
-import { dashboardModule } from './dashboard.js'; // Ensure this file exists!
+import { dashboardModule } from './dashboard.js'; 
+import { studentModule } from './students.js';
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut } from 'lucide';
+
 
 /**
  * 3. INITIALIZER
@@ -111,30 +86,48 @@ function setupUserUI(user) {
 /**
  * 5. GLOBAL NAVIGATION (Module Switcher)
  */
-window.showSection = (sectionId) => {
-    // Hide all logical sections (if you have them in index.html)
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    
-    // Clear the dynamic module containers
-    document.querySelectorAll('.module-container').forEach(div => div.innerHTML = '');
+window.showSection = function(sectionId) {
+    // 1. Hide all modules
+    document.querySelectorAll('.module-container, section').forEach(el => {
+        el.classList.add('hidden');
+        // Remove animation class so it can be re-triggered later
+        el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-4', 'duration-500');
+    });
 
-    // Show the target section or module
-    if (sectionId === 'dashboard') {
-        dashboardModule.init(); 
-    } else {
-        const target = document.getElementById(`section-${sectionId}`);
-        if (target) target.classList.remove('hidden');
+    // 2. Show the selected module with Animation
+    const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
+    
+    if (target) {
+        target.classList.remove('hidden');
+        
+        // ADD TRANSITION CLASSES HERE
+        target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-4', 'duration-500');
+
+        // 3. Initialize the correct Module logic
+        if (sectionId === 'dashboard') dashboardModule.init();
+        else if (sectionId === 'students') studentModule.init();
     }
 
-    // Update Header
+    // 4. Update UI
     const title = document.getElementById('current-page-title');
     if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+    
+    updateNavUI(sectionId);
+};
 
-    // Update Sidebar Active State
+function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
-        btn.classList.remove('bg-white/10');
-        if (btn.innerText.toLowerCase().includes(sectionId)) {
-            btn.classList.add('bg-white/10');
+        // Remove the 'active' background from all buttons
+        btn.classList.remove('bg-white/10', 'text-white');
+        btn.classList.add('text-slate-400'); // Dim the inactive ones
+
+        // If the button text matches the section we are in, highlight it
+        if (btn.innerText.toLowerCase().includes(sectionId.toLowerCase())) {
+            btn.classList.add('bg-white/10', 'text-white');
+            btn.classList.remove('text-slate-400');
         }
     });
-};
+}
+
+// Initial Load
+auth.checkSession();
