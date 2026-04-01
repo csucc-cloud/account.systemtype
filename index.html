@@ -3,31 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OAS PRO | Balangay System</title>
-    <link rel="stylesheet" href="/src/css/style.css">
+    <title>OAS | LSG & Org System</title>
+    <link rel="stylesheet" href="./src/css/style.css">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 antialiased">
 
     <div id="auth-screen" class="fixed inset-0 z-[200] flex items-center justify-center p-6 transition-all duration-700">
-        
         <div class="absolute inset-0 z-0 overflow-hidden">
             <div class="absolute inset-0 bg-[#000080]"></div>
-            
-            <img src="/assets/img/balangay-bg.png" 
-                 alt="Balangay Voyage" 
-                 class="absolute inset-0 w-full h-full object-cover opacity-40 blur-[8px] scale-110">
-            
+            <img src="/assets/img/balangay-bg.png" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-40 blur-[8px] scale-110">
             <div class="absolute inset-0 bg-gradient-to-t from-[#000080] via-transparent to-[#000080]/30"></div>
         </div>
 
         <div class="relative z-10 bg-white/5 border border-white/10 w-full max-w-md p-10 md:p-14 rounded-[40px] shadow-2xl backdrop-blur-md space-y-8">
-            
             <div class="text-center">
                 <div class="inline-flex p-4 rounded-3xl bg-white/10 mb-4">
                     <i data-lucide="compass" class="w-10 h-10 text-blue-300"></i>
                 </div>
-                <h1 class="text-3xl font-black text-white tracking-tight">CITTE LSG & Student Org</h1>
+                <h1 class="text-3xl font-black text-white tracking-tight">CITTE LSG & Org</h1>
                 <p class="text-blue-200/60 text-[10px] uppercase tracking-[0.2em] font-bold">Automated System</p>
             </div>
 
@@ -39,16 +33,14 @@
 
             <div id="form-signup" class="space-y-4 hidden">
                 <input type="text" id="signup-name" placeholder="Officer Full Name" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
-                <input type="email" id="signup-email" placeholder="Organization Email" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
+                <input type="email" id="signup-email" placeholder="Org Email" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
                 <input type="password" id="signup-password" placeholder="Create Password" class="w-full px-6 py-4 bg-white/10 text-white placeholder:text-slate-400 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 transition-all">
-                
                 <select id="signup-org" class="w-full px-6 py-4 bg-white/10 text-slate-300 rounded-2xl border border-white/10 outline-none focus:ring-2 focus:ring-blue-400 appearance-none">
                     <option value="" disabled selected class="text-slate-900">Select Organization</option>
                     <option value="HERO Organization" class="text-slate-900">HERO (Education)</option>
-                    <option value="PSTTS Organization" class="text-slate-900">PSTTS (Mother Organization)</option>
-                    <option value="CITTE LSG" class="text-slate-900">CITTE LSG (Student Government)</option>
+                    <option value="PSTTS Organization" class="text-slate-900">PSTTS (Technology)</option>
+                    <option value="CITTE LSG" class="text-slate-900">CITTE LSG (Student Govt)</option>
                 </select>
-                
                 <button id="btn-signup-exec" class="w-full bg-blue-500 text-white py-4 rounded-2xl font-black hover:bg-blue-400 active:scale-95 transition-all">Create Account</button>
             </div>
 
@@ -64,8 +56,7 @@
     <div id="app" class="hidden flex min-h-screen">
         <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-[#000080] text-white flex flex-col shadow-2xl transition-transform lg:translate-x-0">
             <div class="p-8 text-xl font-black border-b border-blue-900 flex items-center gap-3 italic tracking-tighter">
-                <i data-lucide="compass" class="text-blue-300"></i>
-                LSG & Org System
+                <i data-lucide="compass" class="text-blue-300"></i> LSG & ORG
             </div>
             
             <nav class="flex-1 p-4 space-y-2 mt-4">
@@ -100,7 +91,6 @@
         <main class="flex-1 lg:ml-64 bg-slate-50 min-h-screen">
             <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-40">
                 <h2 id="current-page-title" class="text-2xl font-black text-[#000080]">Dashboard</h2>
-                
                 <div class="flex items-center gap-4">
                     <div class="text-right">
                         <p id="user-full-name" class="text-sm font-bold">Admin User</p>
@@ -111,57 +101,11 @@
             </header>
 
             <div id="content-viewport" class="p-8">
-                <section id="section-dashboard" class="space-y-8 animate-in fade-in duration-500">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div class="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 flex items-center gap-4">
-                            <div class="p-4 bg-blue-50 text-[#000080] rounded-2xl"><i data-lucide="users"></i></div>
-                            <div>
-                                <p class="text-xs font-bold text-slate-400 uppercase">Total Students</p>
-                                <h3 id="stat-total-students" class="text-2xl font-black">0</h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 min-h-[400px]">
-                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-8">Attendance Analytics</h4>
-                            <canvas id="attendanceChart"></canvas>
-                        </div>
-                        <div class="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 min-h-[400px]">
-                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-8">Departmental Mix</h4>
-                            <canvas id="deptChart"></canvas>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="section-students" class="hidden animate-in slide-in-from-bottom-4 duration-500">
-                    <div class="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-                        <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-                            <h3 class="text-xl font-black text-[#000080]">Masterlist</h3>
-                            <div class="flex gap-3">
-                                <input type="text" placeholder="Filter names..." class="px-5 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-100">
-                                <button id="btn-import-excel" class="bg-[#000080] text-white px-8 py-3 rounded-2xl font-bold hover:shadow-xl transition-all">Import Excel</button>
-                            </div>
-                        </div>
-                        <div class="overflow-x-auto p-4">
-                            <table class="w-full text-left border-separate border-spacing-y-2">
-                                <thead class="text-slate-400 text-[10px] uppercase font-black">
-                                    <tr>
-                                        <th class="px-6 py-4">Student Name</th>
-                                        <th class="px-6 py-4">Dept</th>
-                                        <th class="px-6 py-4">Status</th>
-                                        <th class="px-6 py-4">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="student-list-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="section-events" class="hidden py-20 text-center text-slate-300 italic">Events logic setting up...</section>
-                <section id="section-finance" class="hidden py-20 text-center text-slate-300 italic">Finance logic setting up...</section>
-                <section id="section-attendance" class="hidden py-20 text-center text-slate-300 italic">Attendance logic setting up...</section>
+                <div id="mod-dashboard" class="module-container"></div>
+                <div id="mod-students" class="module-container"></div>
+                <div id="mod-events" class="module-container"></div>
+                <div id="mod-finance" class="module-container"></div>
+                <div id="mod-attendance" class="module-container"></div>
             </div>
         </main>
     </div>
