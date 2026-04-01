@@ -1,0 +1,15 @@
+# IDE and System files
+.DS_Store
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+
+# Local Environment Variables (Keep your Supabase keys private!)
+.env
+.env.local
