@@ -1,6 +1,7 @@
 import { authHandler } from './auth.js';
 import { chartManager } from './charts.js';
 import * as lucide from 'lucide';
+import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut } from 'lucide';
 
 /**
  * INITIALIZER
@@ -8,7 +9,17 @@ import * as lucide from 'lucide';
  */
 document.addEventListener('DOMContentLoaded', async () => {
 
-    
+createIcons({
+    icons: {
+        Compass,
+        LayoutDashboard,
+        Users,
+        CalendarRange,
+        Wallet,
+        QrCode,
+        LogOut
+    }
+});
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
 
