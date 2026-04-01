@@ -1,3 +1,28 @@
+// 1. PUT THIS AT THE VERY TOP (Before Imports)
+window.showAlert = (msg, type = 'error') => {
+    const toast = document.getElementById('toast-box');
+    const toastMsg = document.getElementById('toast-msg');
+    
+    if (!toast) {
+        console.error("Toast HTML missing!");
+        alert(msg); // Fallback to ugly alert if HTML isn't ready
+        return;
+    }
+
+    toastMsg.innerText = msg;
+    toast.classList.remove('hidden', 'opacity-0', '-translate-y-10');
+    toast.classList.add('flex', 'opacity-100', 'translate-y-0');
+
+    setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-10');
+        setTimeout(() => toast.classList.add('hidden'), 500);
+    }, 4000);
+};
+
+window.onerror = function(message, source, lineno) {
+    window.showAlert("System Error: " + message + " (Line " + lineno + ")", 'error');
+};
+
 import { authHandler } from './auth.js';
 import { chartManager } from './charts.js';
 import * as lucide from 'lucide';
@@ -170,6 +195,3 @@ window.showSection = (sectionId) => {
     });
 };
 
-window.onerror = function(message, source, lineno, colno, error) {
-    alert("CRASH DETECTED: " + message + " at line " + lineno);
-};
