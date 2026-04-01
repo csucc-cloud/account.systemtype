@@ -7,6 +7,7 @@ import * as lucide from 'lucide';
  * Manages the transition from the Balangay Login Screen to the Dashboard.
  */
 document.addEventListener('DOMContentLoaded', async () => {
+    alert("Balangay System Loaded!");
     // 1. Render Icons (Lucide) - Using the universal creator
     lucide.createIcons();
     
