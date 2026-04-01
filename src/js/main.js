@@ -31,35 +31,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 const loginBtn = document.getElementById('btn-login-exec');
 if (loginBtn) {
     loginBtn.addEventListener('click', async () => {
-        alert("Step 1: Button Clicked!");
 
         const emailEl = document.getElementById('login-email');
         const passEl = document.getElementById('login-password');
 
         if (!emailEl || !passEl) {
-            alert("Step 2 Error: Could not find Email or Password input fields in HTML!");
             return;
         }
 
         const email = emailEl.value;
         const pass = passEl.value;
-        alert("Step 3: Attempting Supabase Login for: " + email);
-
         try {
             const { data, error } = await authHandler.signIn(email, pass);
             
             if (error) {
-                alert("Step 4 Error (Supabase says): " + error.message);
             } else {
-                alert("Step 4 Success: Welcome aboard!");
                 window.location.reload();
             }
         } catch (err) {
-            alert("Step 4 Critical Failure: " + err.message);
         }
     });
 } else {
-    alert("System Error: The Login Button (btn-login-exec) was not found in your HTML!");
 }
 
     // 4. Handle SIGN UP (btn-signup-exec)
