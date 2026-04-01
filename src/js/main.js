@@ -7,10 +7,7 @@ import * as lucide from 'lucide';
  * Manages the transition from the Balangay Login Screen to the Dashboard.
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    alert("Balangay System Loaded!");
-    alert("URL Check: " + import.meta.env.VITE_SUPABASE_URL);
-    // 1. Render Icons (Lucide) - Using the universal creator
-    lucide.createIcons();
+
     
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
