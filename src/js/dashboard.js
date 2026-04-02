@@ -12,12 +12,23 @@ export const dashboardModule = {
                     
                     <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group">
                         <div class="relative z-10 flex flex-col h-full justify-between">
-                            <div>
-                                <div class="flex items-center gap-2 mb-4">
-                                    <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">Lead Architect</span>
+                            <div class="flex items-start gap-5">
+                                <div class="relative w-20 h-20 flex-shrink-0">
+                                    <div class="absolute inset-0 rounded-full bg-blue-400/20 animate-pulse"></div>
+                                    <img src="./public/assets/img/5646.png" 
+                                         alt="Lead Architect" 
+                                         class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                                    <div class="absolute -bottom-1 -right-1 z-20 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-[#000080]">
+                                        <i data-lucide="shield-check" class="w-3 h-3 text-white"></i>
+                                    </div>
                                 </div>
-                                <h4 class="text-2xl font-black tracking-tight mb-1">Davie P. Sialongo</h4>
-                                <p class="text-blue-200/70 text-xs font-medium italic">Full-Stack Developer • CITTE Student</p>
+                                <div>
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">Lead Architect</span>
+                                    </div>
+                                    <h4 class="text-2xl font-black tracking-tight mb-1">Davie P. Sialongo</h4>
+                                    <p class="text-blue-200/70 text-xs font-medium italic">Full-Stack Developer • CITTE Student</p>
+                                </div>
                             </div>
                             
                             <div class="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
