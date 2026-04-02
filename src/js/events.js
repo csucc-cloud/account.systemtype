@@ -2,8 +2,7 @@ import { supabase } from './auth.js';
 import { AuditLogger } from './audit-logger.js';
 
 /**
- * COMMAND CENTER EVENTS MODULE v2.1
- * Lines: ~600 (Expanded with full logic and enhanced UI)
+ * COMMAND CENTER EVENTS MODULE v2.2 (Consolidated & Layout Optimized)
  */
 export const eventsModule = {
     state: {
@@ -22,7 +21,6 @@ export const eventsModule = {
     },
 
     // --- DATA LAYER ---
-
     async fetchEvents() {
         this.state.isLoading = true;
         try {
@@ -73,7 +71,6 @@ export const eventsModule = {
     },
 
     // --- UI COMPONENTS ---
-
     async render() {
         const container = document.getElementById('mod-events') || document.getElementById('mod-dashboard');
         if (!container) return;
@@ -102,14 +99,13 @@ export const eventsModule = {
                 </style>
 
                 <div class="max-w-[1600px] mx-auto space-y-10">
-                    
                     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
                         <div class="space-y-4">
                             <div class="flex items-center gap-4">
                                 <span class="h-1 w-16 bg-[#000080] rounded-full"></span>
                                 <p class="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-500">Logistics & Deployment</p>
                             </div>
-                            <h1 class="text-7xl font-black italic tracking-tighter uppercase leading-none">
+                            <h1 class="text-5xl md:text-7xl font-black italic tracking-tighter uppercase leading-none">
                                 Events<span class="text-stroke-custom opacity-70">Log</span>
                             </h1>
                         </div>
@@ -126,7 +122,7 @@ export const eventsModule = {
                             </button>
 
                             ${(this.state.userRole === 'admin' || this.state.userRole === 'super_admin') ? `
-                                <button id="btn-add-event" class="px-10 py-5 bg-[#000080] text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl hover:shadow-blue-900/40 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center gap-3">
+                                <button id="btn-add-event" class="px-10 py-5 bg-[#000080] text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center gap-3">
                                     <i data-lucide="plus-circle" class="w-5 h-5 text-blue-300"></i> Deploy Mission
                                 </button>
                             ` : ''}
@@ -134,7 +130,7 @@ export const eventsModule = {
                     </div>
 
                     <div class="flex flex-col md:flex-row justify-between items-center gap-6 py-4 border-b border-slate-200/60">
-                        <div class="flex p-1.5 bg-slate-200/40 rounded-[1.8rem] w-full md:w-auto">
+                        <div class="flex p-1.5 bg-slate-200/40 rounded-[1.8rem] w-full md:w-auto overflow-x-auto">
                             ${['all', 'active', 'standby', 'completed'].map(f => `
                                 <button data-filter="${f}" class="filter-tab px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${this.state.currentFilter === f ? 'bg-white text-[#000080] shadow-md' : 'text-slate-500 hover:text-slate-800'}">${f}</button>
                             `).join('')}
@@ -142,101 +138,78 @@ export const eventsModule = {
                         <div id="event-stats" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Initialising Grid...</div>
                     </div>
 
-                    <div id="bulk-hud" class="hidden flex items-center justify-between p-6 bg-[#000080] rounded-[2.5rem] shadow-2xl animate-in fade-in slide-in-from-top-10">
-                        <div class="flex items-center gap-6 ml-4">
-                            <i data-lucide="layers" class="text-blue-300 w-6 h-6"></i>
-                            <span class="text-white font-black text-xs uppercase tracking-widest" id="bulk-count">0 Selected Records</span>
-                        </div>
-                        <div class="flex gap-4">
-                            <button class="px-6 py-3 bg-white/10 hover:bg-red-500/20 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Delete</button>
-                            <button class="px-6 py-3 bg-white text-[#000080] rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Archive Selection</button>
-                        </div>
-                    </div>
-
                     <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-8"></div>
                 </div>
 
-                <div id="modal-event" class="hidden fixed inset-0 z-[1000] flex items-center justify-center p-6 md:p-12 overflow-y-auto">
-                    <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-2xl"></div>
+                <div id="modal-event" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 md:p-8">
+                    <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
                     
-                    <div class="relative bg-white rounded-[4rem] w-full max-w-5xl shadow-[0_0_100px_rgba(0,0,0,0.4)] overflow-hidden text-slate-900 animate-in zoom-in-95 duration-500">
-                        <div class="px-12 py-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div class="relative bg-white rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                        
+                        <div class="sticky top-0 z-50 px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white/95 backdrop-blur-sm">
                             <div>
-                                <h2 class="text-4xl font-black italic tracking-tighter uppercase leading-none">New<span class="text-[#000080]">Mission</span></h2>
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Strategic Asset Deployment</p>
+                                <h2 class="text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-none">New<span class="text-[#000080]">Mission</span></h2>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Strategic Asset Deployment</p>
                             </div>
-                            <button id="close-ev-modal" class="p-5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-all border border-slate-100 shadow-sm">
-                                <i data-lucide="x" class="w-8 h-8"></i>
+                            <button id="close-ev-modal" class="p-3 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-all border border-slate-100 shadow-sm">
+                                <i data-lucide="x" class="w-6 h-6"></i>
                             </button>
                         </div>
 
-                        <div class="p-12">
-                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                        <div class="overflow-y-auto p-8 md:p-12 custom-scrollbar">
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
                                 <div class="lg:col-span-7 space-y-8">
                                     <div class="space-y-3">
-                                        <label class="flex items-center gap-3 text-[11px] font-black text-[#000080] uppercase tracking-widest ml-4">
+                                        <label class="flex items-center gap-3 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">
                                             <i data-lucide="terminal" class="w-4 h-4"></i> Operation Codename
                                         </label>
                                         <input type="text" id="new-ev-name" placeholder="e.g., NEXUS SUMMIT 2026" 
-                                            class="w-full p-8 bg-slate-50 border-2 border-transparent rounded-[2.5rem] font-black text-xl focus:bg-white focus:border-blue-100 outline-none transition-all placeholder:text-slate-200">
+                                            class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-lg focus:bg-white focus:border-blue-100 outline-none transition-all">
                                     </div>
 
                                     <div class="space-y-3">
-                                        <label class="flex items-center gap-3 text-[11px] font-black text-[#000080] uppercase tracking-widest ml-4">
+                                        <label class="flex items-center gap-3 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">
                                             <i data-lucide="file-text" class="w-4 h-4"></i> Mission Parameters
                                         </label>
-                                        <textarea id="new-ev-desc" rows="6" placeholder="Describe the mission objectives and protocols..." 
-                                            class="w-full p-8 bg-slate-50 border-2 border-transparent rounded-[2.5rem] font-bold text-sm focus:bg-white focus:border-blue-100 outline-none transition-all resize-none placeholder:text-slate-200"></textarea>
+                                        <textarea id="new-ev-desc" rows="4" placeholder="Describe the mission objectives..." 
+                                            class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-sm focus:bg-white focus:border-blue-100 outline-none transition-all resize-none"></textarea>
                                     </div>
 
                                     <div class="space-y-3">
-                                        <label class="text-[11px] font-black text-[#000080] uppercase tracking-widest ml-4">Intelligence Briefing (PDF/JPG)</label>
-                                        <div id="drop-zone" class="p-8 border-4 border-dashed border-slate-100 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer">
-                                            <i data-lucide="upload" class="w-10 h-10 text-slate-300"></i>
-                                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Drag files to upload tactical assets</p>
+                                        <label class="text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">Intelligence Briefing</label>
+                                        <div id="drop-zone" class="p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer">
+                                            <i data-lucide="upload" class="w-8 h-8 text-slate-300"></i>
+                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Drag files to upload tactical assets</p>
                                             <input type="file" id="real-file-input" class="hidden" multiple>
                                         </div>
-                                        <div id="file-list" class="flex flex-wrap gap-3 mt-4"></div>
+                                        <div id="file-list" class="flex flex-wrap gap-2 mt-4"></div>
                                     </div>
                                 </div>
 
-                                <div class="lg:col-span-5 space-y-8">
-                                    <div class="bg-slate-50 rounded-[3.5rem] p-8 space-y-8 border border-slate-100">
-                                        <div class="space-y-4">
-                                            <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-2 flex justify-between">
+                                <div class="lg:col-span-5 space-y-6">
+                                    <div class="bg-slate-50 rounded-[2.5rem] p-6 space-y-6 border border-slate-100">
+                                        <div class="space-y-3">
+                                            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between px-1">
                                                 Commencement <span>00:00 HRS</span>
                                             </label>
-                                            <input type="datetime-local" id="new-ev-start" class="w-full p-6 bg-white rounded-3xl font-black text-sm shadow-sm border border-slate-100">
+                                            <input type="datetime-local" id="new-ev-start" class="w-full p-4 bg-white rounded-xl font-black text-xs shadow-sm border border-slate-100">
                                         </div>
 
-                                        <div class="space-y-4">
-                                            <label class="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-2 flex justify-between">
+                                        <div class="space-y-3">
+                                            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between px-1">
                                                 Conclusion <span>23:59 HRS</span>
                                             </label>
-                                            <input type="datetime-local" id="new-ev-end" class="w-full p-6 bg-white rounded-3xl font-black text-sm shadow-sm border border-slate-100">
+                                            <input type="datetime-local" id="new-ev-end" class="w-full p-4 bg-white rounded-xl font-black text-xs shadow-sm border border-slate-100">
                                         </div>
 
-                                        <div id="conflict-engine" class="p-6 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center gap-4 transition-all">
-                                            <div class="p-3 bg-emerald-500 text-white rounded-full">
-                                                <i data-lucide="check" class="w-4 h-4" id="conflict-icon"></i>
-                                            </div>
-                                            <p id="conflict-msg" class="text-[10px] font-black text-emerald-700 uppercase tracking-tight leading-tight">Sector Cleared: No scheduling conflicts detected.</p>
+                                        <div id="conflict-engine" class="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4 transition-all">
+                                            <i data-lucide="check" class="w-5 h-5 text-emerald-500" id="conflict-icon"></i>
+                                            <p id="conflict-msg" class="text-[9px] font-black text-emerald-700 uppercase leading-tight">Sector Cleared: No conflicts.</p>
                                         </div>
                                     </div>
 
-                                    <div class="p-8 glass-panel bg-blue-50/30 rounded-[3rem] flex items-center justify-between border border-blue-100">
-                                        <div class="flex items-center gap-4">
-                                            <i data-lucide="cloud-sun" class="w-8 h-8 text-blue-500"></i>
-                                            <div>
-                                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Deployment Forecast</p>
-                                                <p class="text-sm font-black text-slate-700 uppercase">26°C / Operational Clear</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button id="save-ev-btn" class="group w-full py-8 bg-[#000080] text-white rounded-[3rem] font-black text-xs uppercase tracking-[0.5em] shadow-[0_20px_50px_rgba(0,0,128,0.3)] hover:scale-[1.02] active:scale-95 transition-all overflow-hidden relative">
-                                        <span class="relative z-10">Deploy Operation to Grid</span>
-                                        <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+                                    <button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] shadow-xl hover:bg-blue-900 transition-all active:scale-95">
+                                        Deploy Operation to Grid
                                     </button>
                                 </div>
                             </div>
@@ -252,16 +225,13 @@ export const eventsModule = {
     },
 
     // --- LOGIC ENGINE ---
-
     initEventListeners() {
-        // Toggle Logic
         const stealthBtn = document.getElementById('stealth-toggle');
         if (stealthBtn) stealthBtn.onclick = () => {
             this.state.isStealthMode = !this.state.isStealthMode;
             this.render();
         };
 
-        // Modal Logic
         const openBtn = document.getElementById('btn-add-event');
         const modal = document.getElementById('modal-event');
         if (openBtn) openBtn.onclick = () => {
@@ -276,7 +246,6 @@ export const eventsModule = {
             document.body.style.overflow = 'auto';
         };
 
-        // Feature 4: Real-time Conflict Resolver
         const startIn = document.getElementById('new-ev-start');
         const endIn = document.getElementById('new-ev-end');
         
@@ -288,19 +257,18 @@ export const eventsModule = {
                 const icon = document.getElementById('conflict-icon');
 
                 if (isConflict) {
-                    engine.className = "p-6 bg-amber-50 rounded-3xl border border-amber-200 flex items-center gap-4 animate-pulse";
-                    msg.className = "text-[10px] font-black text-amber-700 uppercase";
-                    msg.innerText = "Conflict Alert: Selected window overlaps with existing deployment.";
-                    icon.className = "w-4 h-4 lucide-alert-triangle text-amber-500";
+                    engine.className = "p-5 bg-amber-50 rounded-2xl border border-amber-200 flex items-center gap-4 animate-pulse";
+                    msg.className = "text-[9px] font-black text-amber-700 uppercase";
+                    msg.innerText = "Conflict Alert: Overlapping deployment.";
+                    icon.className = "w-5 h-5 text-amber-500";
                 } else {
-                    engine.className = "p-6 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center gap-4";
-                    msg.className = "text-[10px] font-black text-emerald-700 uppercase";
-                    msg.innerText = "Sector Cleared: No scheduling conflicts detected.";
+                    engine.className = "p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4";
+                    msg.className = "text-[9px] font-black text-emerald-700 uppercase";
+                    msg.innerText = "Sector Cleared: No conflicts.";
                 }
             };
         });
 
-        // Feature 3: File Handler
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('real-file-input');
         if (dropZone) {
@@ -308,7 +276,6 @@ export const eventsModule = {
             fileInput.onchange = (e) => this.handleFiles(e.target.files);
         }
 
-        // Search & Filters
         const search = document.getElementById('ev-search');
         if (search) search.oninput = (e) => {
             this.state.searchTerm = e.target.value;
@@ -320,11 +287,10 @@ export const eventsModule = {
             tab.onclick = () => {
                 this.state.currentFilter = tab.dataset.filter;
                 this.applyFilters();
-                this.render(); // Re-render to update tab styles
+                this.render();
             };
         });
 
-        // Final Save
         const saveBtn = document.getElementById('save-ev-btn');
         if (saveBtn) saveBtn.onclick = () => this.deployMission();
     },
@@ -345,7 +311,7 @@ export const eventsModule = {
         Array.from(files).forEach(file => {
             this.state.attachments.push(file);
             const chip = document.createElement('div');
-            chip.className = "px-4 py-2 bg-[#000080] text-white rounded-xl text-[9px] font-black uppercase flex items-center gap-2";
+            chip.className = "px-4 py-2 bg-[#000080] text-white rounded-xl text-[9px] font-black uppercase flex items-center gap-2 shadow-sm";
             chip.innerHTML = `${file.name} <i data-lucide="x" class="w-3 h-3 cursor-pointer"></i>`;
             list.appendChild(chip);
         });
@@ -358,7 +324,7 @@ export const eventsModule = {
         const start = document.getElementById('new-ev-start').value;
         const end = document.getElementById('new-ev-end').value;
 
-        if (!name || !start || !end) return this.notify("Deployment Failed: Essential parameters missing", "error");
+        if (!name || !start || !end) return this.notify("Deployment Failed: Missing parameters", "error");
 
         try {
             const { error } = await supabase.from('events').insert([{
@@ -374,6 +340,7 @@ export const eventsModule = {
             
             this.notify("Operation Logged & Deployed Successfully", "success");
             document.getElementById('modal-event').classList.add('hidden');
+            document.body.style.overflow = 'auto';
             await this.fetchEvents();
             this.renderGrid();
         } catch (err) {
@@ -392,23 +359,23 @@ export const eventsModule = {
 
         grid.innerHTML = this.state.filteredEvents.map((ev, i) => {
             const isActive = ev.status === 'active';
-            const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5' : 'bg-white border-slate-100 shadow-sm';
+            const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 shadow-none' : 'bg-white border-slate-100 shadow-sm';
             
             return `
-                <div class="${themeClass} rounded-[4rem] p-10 group hover:shadow-2xl transition-all relative overflow-hidden animate-in slide-in-from-bottom-10" style="animation-delay: ${i * 50}ms">
-                    <div class="flex justify-between items-start mb-10">
-                        <div class="px-6 py-2 rounded-2xl bg-slate-100/50 text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-400'}">
+                <div class="${themeClass} rounded-[2.5rem] p-8 group hover:shadow-xl transition-all relative overflow-hidden animate-in slide-in-from-bottom-10" style="animation-delay: ${i * 50}ms">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="px-4 py-1.5 rounded-xl bg-slate-100/50 text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-400'}">
                             ${ev.status}
                         </div>
-                        <input type="checkbox" class="w-6 h-6 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
+                        <input type="checkbox" class="w-5 h-5 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
                     </div>
 
-                    <div class="space-y-4 mb-10">
-                        <h3 class="text-3xl font-black italic tracking-tighter uppercase leading-none group-hover:text-[#000080] transition-colors">${ev.event_name}</h3>
-                        <p class="text-xs text-slate-400 font-medium line-clamp-3">${ev.description || 'No strategic overview provided.'}</p>
+                    <div class="space-y-3 mb-8">
+                        <h3 class="text-2xl font-black italic tracking-tighter uppercase leading-none group-hover:text-[#000080] transition-colors">${ev.event_name}</h3>
+                        <p class="text-xs text-slate-400 font-medium line-clamp-2">${ev.description || 'No strategic overview.'}</p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4 pt-8 border-t border-slate-50">
+                    <div class="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50">
                         <div class="flex flex-col gap-1">
                             <span class="text-[8px] font-black text-slate-300 uppercase">Commence</span>
                             <span class="text-[10px] font-black uppercase">${new Date(ev.start_time).toLocaleDateString()}</span>
@@ -432,7 +399,7 @@ export const eventsModule = {
     notify(msg, type) {
         const toast = document.createElement('div');
         const color = type === 'success' ? 'bg-[#000080]' : 'bg-red-600';
-        toast.className = `fixed bottom-10 right-10 px-10 py-5 rounded-full text-white font-black uppercase text-[10px] tracking-widest z-[2000] shadow-2xl animate-in slide-in-from-right-10 ${color}`;
+        toast.className = `fixed bottom-10 right-10 px-8 py-4 rounded-full text-white font-black uppercase text-[10px] tracking-widest z-[3000] shadow-2xl animate-in slide-in-from-right-10 ${color}`;
         toast.innerHTML = msg;
         document.body.appendChild(toast);
         setTimeout(() => {
