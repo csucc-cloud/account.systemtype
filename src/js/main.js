@@ -1,12 +1,12 @@
 import { authHandler } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
-// ADDED Menu and X icons to your imports
+// Lucide icons including Menu and X for the sidebar toggle
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
 
 /**
  * SIDEBAR CONTROLLER 
- * Manages the open/close state for mobile responsiveness
+ * Manages the open/close state for mobile and tablet responsiveness
  */
 const sidebarController = {
     init() {
@@ -19,10 +19,12 @@ const sidebarController = {
 
         const toggleSidebar = (isOpen) => {
             if (isOpen) {
+                // Slide the sidebar in and show overlay
                 sidebar.classList.remove('-translate-x-full');
                 overlay?.classList.remove('hidden');
                 document.body.classList.add('overflow-hidden');
             } else {
+                // Slide the sidebar out and hide overlay
                 sidebar.classList.add('-translate-x-full');
                 overlay?.classList.add('hidden');
                 document.body.classList.remove('overflow-hidden');
@@ -33,23 +35,24 @@ const sidebarController = {
         closeBtn?.addEventListener('click', () => toggleSidebar(false));
         overlay?.addEventListener('click', () => toggleSidebar(false));
 
-        // Auto-close sidebar on mobile when a navigation item is clicked
+        // Auto-close sidebar when a navigation item is clicked
         const navLinks = sidebar.querySelectorAll('.nav-item');
         navLinks.forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth < 1024) toggleSidebar(false);
+                // Set to 1280 to match the XL breakpoint used in your HTML
+                if (window.innerWidth < 1280) toggleSidebar(false);
             });
         });
     }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // UPDATED: Included Menu and X in createIcons
+    // Initialize icons
     createIcons({
         icons: { Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X }
     });
 
-    // INITIALIZE SIDEBAR
+    // Initialize Sidebar Logic
     sidebarController.init();
 
     const authScreen = document.getElementById('auth-screen');
@@ -68,7 +71,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (appScreen) appScreen.classList.add('hidden');
         }
     } catch (err) {
-        window.showAlert("Auth Connection Failed: " + err.message);
+        if (window.showAlert) {
+            window.showAlert("Auth Connection Failed: " + err.message);
+        } else {
+            console.error("Auth Connection Failed:", err.message);
+        }
     }
 
     const loginBtn = document.getElementById('btn-login-exec');
@@ -78,13 +85,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pass = document.getElementById('login-password')?.value;
 
             if (!email || !pass) {
-                window.showAlert("Please enter email and password");
+                if (window.showAlert) window.showAlert("Please enter email and password");
                 return;
             }
 
             const { error } = await authHandler.signIn(email, pass);
             if (error) {
-                window.showAlert(error.message);
+                if (window.showAlert) window.showAlert(error.message);
             } else {
                 window.location.reload();
             }
