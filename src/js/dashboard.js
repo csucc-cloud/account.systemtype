@@ -23,10 +23,10 @@ export const dashboardModule = {
                                 </div>
                                 <div>
                                     <div class="flex items-center justify-center gap-2 mb-2">
-                                        <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">Lead Architect</span>
+                                        <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">System Designer</span>
                                     </div>
                                     <h4 class="text-3xl font-black tracking-tight mb-1">Davie P. Sialongo</h4>
-                                    <p class="text-blue-200/70 text-sm font-medium italic">Full-Stack Developer • CITTE Student</p>
+                                    <p class="text-blue-200/70 text-sm font-medium italic">The Developer • CITTE Student</p>
                                 </div>
                             </div>
                             <div class="mt-auto pt-6 border-t border-white/10 flex items-center justify-between w-full">
@@ -34,7 +34,7 @@ export const dashboardModule = {
                                     <div class="w-8 h-8 rounded-full bg-blue-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="code-2" class="w-4 h-4"></i></div>
                                     <div class="w-8 h-8 rounded-full bg-indigo-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="terminal" class="w-4 h-4"></i></div>
                                 </div>
-                                <span class="text-[10px] font-bold opacity-50 uppercase">Established 2024</span>
+                                <span class="text-[10px] font-bold opacity-50 uppercase">Established April 1, 2026</span>
                             </div>
                         </div>
                         <i data-lucide="cpu" class="absolute -bottom-6 -right-6 w-40 h-40 text-white/5 transform group-hover:rotate-12 transition-transform duration-700"></i>
