@@ -1,9 +1,6 @@
 import { supabase } from './auth.js';
 import { AuditLogger } from './audit-logger.js';
 
-/**
- * COMMAND CENTER EVENTS MODULE v2.2 (Consolidated & Layout Optimized)
- */
 export const eventsModule = {
     state: {
         events: [],
@@ -17,7 +14,10 @@ export const eventsModule = {
         isLoading: false,
         viewMode: 'grid',
         isStealthMode: false,
-        uploadProgress: 0
+        uploadProgress: 0,
+        // NEW STATE
+        selectedEvent: null,
+        isEditMode: false
     },
 
     // --- DATA LAYER ---
@@ -96,6 +96,8 @@ export const eventsModule = {
                         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     }
                     .input-tactical:focus { border-color: #000080; box-shadow: 0 0 0 4px rgba(0,0,128,0.1); }
+                    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb { background: #000080; border-radius: 10px; }
                 </style>
 
                 <div class="max-w-[1600px] mx-auto space-y-10">
@@ -143,19 +145,16 @@ export const eventsModule = {
 
                 <div id="modal-event" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 md:p-8">
                     <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-xl"></div>
-                    
                     <div class="relative bg-white rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-                        
                         <div class="sticky top-0 z-50 px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white/95 backdrop-blur-sm">
                             <div>
-                                <h2 class="text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-none">New<span class="text-[#000080]">Mission</span></h2>
+                                <h2 id="modal-title" class="text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-none">New<span class="text-[#000080]">Mission</span></h2>
                                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Strategic Asset Deployment</p>
                             </div>
                             <button id="close-ev-modal" class="p-3 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-all border border-slate-100 shadow-sm">
                                 <i data-lucide="x" class="w-6 h-6"></i>
                             </button>
                         </div>
-
                         <div class="overflow-y-auto p-8 md:p-12 custom-scrollbar">
                             <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
                                 <div class="lg:col-span-7 space-y-8">
@@ -166,7 +165,6 @@ export const eventsModule = {
                                         <input type="text" id="new-ev-name" placeholder="e.g., NEXUS SUMMIT 2026" 
                                             class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-lg focus:bg-white focus:border-blue-100 outline-none transition-all">
                                     </div>
-
                                     <div class="space-y-3">
                                         <label class="flex items-center gap-3 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">
                                             <i data-lucide="file-text" class="w-4 h-4"></i> Mission Parameters
@@ -174,7 +172,6 @@ export const eventsModule = {
                                         <textarea id="new-ev-desc" rows="4" placeholder="Describe the mission objectives..." 
                                             class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-sm focus:bg-white focus:border-blue-100 outline-none transition-all resize-none"></textarea>
                                     </div>
-
                                     <div class="space-y-3">
                                         <label class="text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">Intelligence Briefing</label>
                                         <div id="drop-zone" class="p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer">
@@ -185,7 +182,6 @@ export const eventsModule = {
                                         <div id="file-list" class="flex flex-wrap gap-2 mt-4"></div>
                                     </div>
                                 </div>
-
                                 <div class="lg:col-span-5 space-y-6">
                                     <div class="bg-slate-50 rounded-[2.5rem] p-6 space-y-6 border border-slate-100">
                                         <div class="space-y-3">
@@ -194,20 +190,17 @@ export const eventsModule = {
                                             </label>
                                             <input type="datetime-local" id="new-ev-start" class="w-full p-4 bg-white rounded-xl font-black text-xs shadow-sm border border-slate-100">
                                         </div>
-
                                         <div class="space-y-3">
                                             <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between px-1">
                                                 Conclusion <span>23:59 HRS</span>
                                             </label>
                                             <input type="datetime-local" id="new-ev-end" class="w-full p-4 bg-white rounded-xl font-black text-xs shadow-sm border border-slate-100">
                                         </div>
-
                                         <div id="conflict-engine" class="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4 transition-all">
                                             <i data-lucide="check" class="w-5 h-5 text-emerald-500" id="conflict-icon"></i>
                                             <p id="conflict-msg" class="text-[9px] font-black text-emerald-700 uppercase leading-tight">Sector Cleared: No conflicts.</p>
                                         </div>
                                     </div>
-
                                     <button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] shadow-xl hover:bg-blue-900 transition-all active:scale-95">
                                         Deploy Operation to Grid
                                     </button>
@@ -216,6 +209,46 @@ export const eventsModule = {
                         </div>
                     </div>
                 </div>
+
+                <div id="modal-event-detail" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4 md:p-8">
+                    <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-md"></div>
+                    <div class="relative bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div class="p-10 space-y-8">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Mission Intelligence</span>
+                                    <h2 id="detail-title" class="text-4xl font-black italic tracking-tighter uppercase text-slate-900"></h2>
+                                </div>
+                                <button onclick="document.getElementById('modal-event-detail').classList.add('hidden')" class="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                                    <i data-lucide="x" class="w-6 h-6 text-slate-400"></i>
+                                </button>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Strategic Overview</p>
+                                    <p id="detail-desc" class="text-sm font-medium text-slate-600 leading-relaxed"></p>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="p-4 border border-slate-100 rounded-2xl">
+                                        <p class="text-[8px] font-black text-slate-400 uppercase">Commence</p>
+                                        <p id="detail-start" class="text-xs font-bold text-slate-800"></p>
+                                    </div>
+                                    <div class="p-4 border border-slate-100 rounded-2xl">
+                                        <p class="text-[8px] font-black text-slate-400 uppercase">Conclude</p>
+                                        <p id="detail-end" class="text-xs font-bold text-slate-800"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-4 pt-4">
+                                <button id="btn-edit-active" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#000080] transition-all">Edit Parameters</button>
+                                <button id="btn-delete-active" class="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Terminate</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         `;
 
@@ -235,6 +268,9 @@ export const eventsModule = {
         const openBtn = document.getElementById('btn-add-event');
         const modal = document.getElementById('modal-event');
         if (openBtn) openBtn.onclick = () => {
+            this.state.isEditMode = false;
+            this.state.selectedEvent = null;
+            this.resetForm();
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
             if (window.lucide) window.lucide.createIcons();
@@ -293,6 +329,13 @@ export const eventsModule = {
 
         const saveBtn = document.getElementById('save-ev-btn');
         if (saveBtn) saveBtn.onclick = () => this.deployMission();
+
+        // NEW: Detail Modal Actions
+        const editBtn = document.getElementById('btn-edit-active');
+        if (editBtn) editBtn.onclick = () => this.openEditMode();
+
+        const deleteBtn = document.getElementById('btn-delete-active');
+        if (deleteBtn) deleteBtn.onclick = () => this.deleteEvent(this.state.selectedEvent.id);
     },
 
     checkConflicts(start, end) {
@@ -300,6 +343,8 @@ export const eventsModule = {
         const s = new Date(start);
         const e = new Date(end);
         return this.state.events.some(ev => {
+            // If editing, don't conflict with itself
+            if (this.state.selectedEvent && ev.id === this.state.selectedEvent.id) return false;
             const exS = new Date(ev.start_time);
             const exE = new Date(ev.end_time);
             return (s < exE && e > exS);
@@ -327,18 +372,26 @@ export const eventsModule = {
         if (!name || !start || !end) return this.notify("Deployment Failed: Missing parameters", "error");
 
         try {
-            const { error } = await supabase.from('events').insert([{
+            const payload = {
                 event_name: name,
                 description: desc,
                 start_time: start,
                 end_time: end,
-                status: 'active',
                 organization_id: this.state.userOrgId
-            }]);
+            };
+
+            let error;
+            if (this.state.isEditMode && this.state.selectedEvent) {
+                const result = await supabase.from('events').update(payload).eq('id', this.state.selectedEvent.id);
+                error = result.error;
+            } else {
+                const result = await supabase.from('events').insert([{ ...payload, status: 'active' }]);
+                error = result.error;
+            }
 
             if (error) throw error;
             
-            this.notify("Operation Logged & Deployed Successfully", "success");
+            this.notify(this.state.isEditMode ? "Operation Updated" : "Operation Logged & Deployed", "success");
             document.getElementById('modal-event').classList.add('hidden');
             document.body.style.overflow = 'auto';
             await this.fetchEvents();
@@ -346,6 +399,64 @@ export const eventsModule = {
         } catch (err) {
             this.notify(err.message, "error");
         }
+    },
+
+    // --- NEW ACTIONS ---
+    openDetailModal(event) {
+        this.state.selectedEvent = event;
+        const modal = document.getElementById('modal-event-detail');
+        
+        document.getElementById('detail-title').innerText = event.event_name;
+        document.getElementById('detail-desc').innerText = event.description || 'No briefing available.';
+        document.getElementById('detail-start').innerText = new Date(event.start_time).toLocaleString();
+        document.getElementById('detail-end').innerText = new Date(event.end_time).toLocaleString();
+        
+        modal.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+    },
+
+    openEditMode() {
+        const ev = this.state.selectedEvent;
+        if (!ev) return;
+
+        this.state.isEditMode = true;
+        document.getElementById('modal-event-detail').classList.add('hidden');
+        
+        // Fill the Create Modal form
+        document.getElementById('modal-title').innerHTML = `Edit<span class="text-[#000080]">Mission</span>`;
+        document.getElementById('new-ev-name').value = ev.event_name;
+        document.getElementById('new-ev-desc').value = ev.description || '';
+        document.getElementById('new-ev-start').value = ev.start_time.slice(0, 16);
+        document.getElementById('new-ev-end').value = ev.end_time.slice(0, 16);
+        document.getElementById('save-ev-btn').innerText = "Update Mission Parameters";
+
+        document.getElementById('modal-event').classList.remove('hidden');
+    },
+
+    async deleteEvent(id) {
+        if (!confirm("TERMINATE MISSION: Confirm permanent deletion?")) return;
+        try {
+            const { error } = await supabase.from('events').delete().eq('id', id);
+            if (error) throw error;
+            
+            this.notify("Mission Terminated & Purged", "success");
+            document.getElementById('modal-event-detail').classList.add('hidden');
+            await this.fetchEvents();
+            this.renderGrid();
+        } catch (err) {
+            this.notify(err.message, "error");
+        }
+    },
+
+    resetForm() {
+        document.getElementById('modal-title').innerHTML = `New<span class="text-[#000080]">Mission</span>`;
+        document.getElementById('new-ev-name').value = '';
+        document.getElementById('new-ev-desc').value = '';
+        document.getElementById('new-ev-start').value = '';
+        document.getElementById('new-ev-end').value = '';
+        document.getElementById('save-ev-btn').innerText = "Deploy Operation to Grid";
+        document.getElementById('file-list').innerHTML = '';
+        this.state.attachments = [];
     },
 
     renderGrid() {
@@ -362,12 +473,15 @@ export const eventsModule = {
             const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 shadow-none' : 'bg-white border-slate-100 shadow-sm';
             
             return `
-                <div class="${themeClass} rounded-[2.5rem] p-8 group hover:shadow-xl transition-all relative overflow-hidden animate-in slide-in-from-bottom-10" style="animation-delay: ${i * 50}ms">
+                <div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' 
+                     class="${themeClass} cursor-pointer rounded-[2.5rem] p-8 group hover:shadow-xl transition-all relative overflow-hidden animate-in slide-in-from-bottom-10" 
+                     style="animation-delay: ${i * 50}ms">
+                    
                     <div class="flex justify-between items-start mb-6">
                         <div class="px-4 py-1.5 rounded-xl bg-slate-100/50 text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-400'}">
                             ${ev.status}
                         </div>
-                        <input type="checkbox" class="w-5 h-5 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
+                        <input type="checkbox" onclick="event.stopPropagation()" class="w-5 h-5 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
                     </div>
 
                     <div class="space-y-3 mb-8">
