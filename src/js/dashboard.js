@@ -9,33 +9,36 @@ export const dashboardModule = {
         container.innerHTML = `
             <div id="dashboard-view" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                     
-                    <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group">
-                        <div class="relative z-10 flex flex-col h-full justify-between">
-                            <div class="flex items-start gap-5">
-                                <div class="relative w-20 h-20 flex-shrink-0">
+                    <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group flex flex-col items-center text-center">
+                        <div class="relative z-10 flex flex-col h-full justify-between items-center w-full">
+                            
+                            <div class="flex flex-col items-center gap-6 mb-6">
+                                
+                                <div class="relative w-40 h-40 flex-shrink-0">
                                     <div class="absolute inset-0 rounded-full bg-blue-400/20 animate-pulse"></div>
                                     
                                     <img src="${architectPhoto}" 
                                          alt="Lead Architect" 
-                                         class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500"
+                                         class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-105 transition-transform duration-500"
                                          onerror="this.src='https://ui-avatars.com/api/?name=Davie+Sialongo&background=000080&color=fff'">
                                     
-                                    <div class="absolute -bottom-1 -right-1 z-20 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-[#000080]">
-                                        <i data-lucide="shield-check" class="w-3 h-3 text-white"></i>
+                                    <div class="absolute bottom-2 right-2 z-20 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-[#000080]">
+                                        <i data-lucide="shield-check" class="w-4 h-4 text-white"></i>
                                     </div>
                                 </div>
+                                
                                 <div>
-                                    <div class="flex items-center gap-2 mb-2">
+                                    <div class="flex items-center justify-center gap-2 mb-2">
                                         <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">Lead Architect</span>
                                     </div>
-                                    <h4 class="text-2xl font-black tracking-tight mb-1">Davie P. Sialongo</h4>
-                                    <p class="text-blue-200/70 text-xs font-medium italic">Full-Stack Developer • CITTE Student</p>
+                                    <h4 class="text-3xl font-black tracking-tight mb-1">Davie P. Sialongo</h4>
+                                    <p class="text-blue-200/70 text-sm font-medium italic">Full-Stack Developer • CITTE Student</p>
                                 </div>
                             </div>
                             
-                            <div class="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
+                            <div class="mt-auto pt-6 border-t border-white/10 flex items-center justify-between w-full">
                                 <div class="flex -space-x-2">
                                     <div class="w-8 h-8 rounded-full bg-blue-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="code-2" class="w-4 h-4"></i></div>
                                     <div class="w-8 h-8 rounded-full bg-indigo-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="terminal" class="w-4 h-4"></i></div>
@@ -68,16 +71,16 @@ export const dashboardModule = {
                         </div>
                     </div>
 
-                    <div class="lg:col-span-3 bg-slate-50 p-8 rounded-[2rem] border border-slate-200 flex flex-col justify-between items-center text-center">
-                        <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Service Status</p>
-                        <div class="relative py-4">
-                            <div id="status-glow" class="absolute inset-0 bg-emerald-400/20 blur-xl rounded-full animate-pulse"></div>
-                            <i data-lucide="database" id="status-icon" class="w-12 h-12 text-emerald-600 relative z-10"></i>
+                    <div class="lg:col-span-3 bg-slate-50 p-8 rounded-[2rem] border border-slate-200 flex flex-col justify-center items-center text-center">
+                        <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Service Status</p>
+                        <div class="relative py-4 mb-4">
+                            <div id="status-glow" class="absolute inset-0 bg-emerald-400/20 blur-2xl rounded-full animate-pulse"></div>
+                            <i data-lucide="database" id="status-icon" class="w-16 h-16 text-emerald-600 relative z-10"></i>
                         </div>
                         <div>
-                            <span class="text-xs font-black text-slate-700 block mb-1">Supabase Cloud</span>
-                            <span id="service-status-text" class="text-[10px] text-emerald-600 font-bold uppercase flex items-center justify-center gap-1">
-                                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                            <span class="text-sm font-black text-slate-700 block mb-1">Supabase Cloud</span>
+                            <span id="service-status-text" class="text-xs text-emerald-600 font-bold uppercase flex items-center justify-center gap-1.5">
+                                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
                                 Operational
                             </span>
                         </div>
