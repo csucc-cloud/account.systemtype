@@ -1,3 +1,4 @@
+import { resolve } from 'path';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
@@ -34,5 +35,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     minify: 'terser',
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        ask: resolve(__dirname, 'ask.html'), // This tells Vite to export ask.html
+      },
+    },
   }
 });
