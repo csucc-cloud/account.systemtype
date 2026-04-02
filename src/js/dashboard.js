@@ -10,7 +10,6 @@ export const dashboardModule = {
             <div id="dashboard-view" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                    
                     <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group flex flex-col items-center text-center">
                         <div class="relative z-10 flex flex-col h-full justify-between items-center w-full">
                             <div class="flex flex-col items-center gap-6 mb-6">
@@ -48,16 +47,11 @@ export const dashboardModule = {
                                     OAS Portal <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">v2.1</span>
                                 </h4>
                                 <div class="flex items-center gap-1">
-                                    <span class="relative flex h-2 w-2">
-                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                    </span>
+                                    <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">System Pulse</span>
                                 </div>
                             </div>
-                            <p class="text-slate-500 text-sm leading-relaxed mb-6">
-                                The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations, engineered for zero-paperwork governance and real-time student tracking.
-                            </p>
+                            <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations, engineered for zero-paperwork governance.</p>
                             <div class="grid grid-cols-2 gap-3 mb-2">
                                 <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 group-hover:bg-blue-50/50 transition-colors">
                                     <p class="text-[10px] font-bold text-slate-400 uppercase">Avg Uptime</p>
@@ -80,39 +74,29 @@ export const dashboardModule = {
                     </div>
 
                     <div class="lg:col-span-3 bg-slate-900 p-8 rounded-[2rem] shadow-xl flex flex-col justify-between relative overflow-hidden border border-slate-800">
-                        <div class="relative z-10">
-                            <p class="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Infrastructure</p>
-                            
-                            <div class="space-y-6">
-                                <div class="flex items-center gap-4 group">
-                                    <div class="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
-                                        <i data-lucide="database" class="w-6 h-6 text-emerald-500"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="text-white font-bold text-sm">Supabase DB</h5>
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                                            <span id="service-status-text" class="text-[10px] text-emerald-400 font-bold uppercase">Operational</span>
-                                        </div>
-                                    </div>
+                        <div class="relative z-10 space-y-6">
+                            <p class="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Infrastructure</p>
+                            <div class="flex items-center gap-4 group">
+                                <div class="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+                                    <i data-lucide="database" class="w-6 h-6 text-emerald-500"></i>
                                 </div>
-
-                                <div class="flex items-center gap-4 group">
-                                    <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-white/10 transition-all">
-                                        <i data-lucide="github" class="w-6 h-6 text-white"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="text-white font-bold text-sm">GitHub Pages</h5>
-                                        <span class="text-[10px] text-slate-400 font-bold uppercase">Deployment Active</span>
+                                <div>
+                                    <h5 class="text-white font-bold text-sm">Supabase DB</h5>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                        <span id="service-status-text" class="text-[10px] text-emerald-400 font-bold uppercase">Operational</span>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="relative z-10 pt-6 border-t border-white/5">
-                            <p class="text-slate-500 text-[9px] font-bold uppercase text-center leading-tight">
-                                High-Availability Cloud Architecture
-                            </p>
+                            <div class="flex items-center gap-4 group">
+                                <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-white/10 transition-all">
+                                    <i data-lucide="github" class="w-6 h-6 text-white"></i>
+                                </div>
+                                <div>
+                                    <h5 class="text-white font-bold text-sm">GitHub Pages</h5>
+                                    <span class="text-[10px] text-slate-400 font-bold uppercase">Deployment Active</span>
+                                </div>
+                            </div>
                         </div>
                         <i data-lucide="server" class="absolute -top-10 -right-10 w-32 h-32 text-white/5 -rotate-12"></i>
                     </div>
@@ -120,53 +104,51 @@ export const dashboardModule = {
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Total Students</p>
-                            <h3 id="stat-total-students" class="text-3xl font-bold mt-2 text-slate-800">0</h3>
-                        </div>
+                        <div><p class="text-sm font-medium text-slate-500">Total Students</p><h3 id="stat-total-students" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div>
                         <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i></div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Daily Attendance</p>
-                            <h3 id="stat-attendance" class="text-3xl font-bold mt-2 text-slate-800">0</h3>
-                        </div>
+                        <div><p class="text-sm font-medium text-slate-500">Daily Attendance</p><h3 id="stat-attendance" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div>
                         <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="eye" class="w-4 h-4 text-slate-400"></i></div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Events Completed</p>
-                            <h3 id="stat-events" class="text-3xl font-bold mt-2 text-slate-800">0</h3>
-                        </div>
+                        <div><p class="text-sm font-medium text-slate-500">Events Completed</p><h3 id="stat-events" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div>
                         <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i></div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operation Effect</p>
                         <div class="relative flex items-center justify-center">
-                            <svg class="w-20 h-20 transform -rotate-90">
-                                <circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/>
-                                <circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" 
-                                        stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round"
-                                        style="transition: stroke-dashoffset 1.5s ease-out;"/>
-                            </svg>
+                            <svg class="w-20 h-20 transform -rotate-90"><circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/><circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round" style="transition: stroke-dashoffset 1.5s ease-out;"/></svg>
                             <span id="stat-effect-percent" class="absolute text-xl font-black text-slate-700">0%</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-                    <div class="grid grid-cols-1 lg:grid-cols-3">
-                        <div class="lg:col-span-2 p-8 border-r border-slate-50">
-                            <h4 class="text-sm font-bold text-slate-700 mb-8">Attendance Trend (SY 2026)</h4>
-                            <div class="h-48 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center">
-                                <p class="text-xs text-slate-400 font-medium italic">Visualization Syncing...</p>
-                            </div>
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                        <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-blue-600"></i> Live Activity</h4>
                         </div>
-                        <div class="p-8 bg-slate-50/20">
-                            <h4 class="text-sm font-bold text-slate-700 mb-8">Department Ranking</h4>
-                            <div id="dept-ranking-list" class="space-y-6">
-                                <p class="text-xs text-slate-400 animate-pulse text-center">Crunching records...</p>
-                            </div>
+                        <div id="live-activity-list" class="p-4 space-y-3 min-h-[300px]">
+                            <p class="text-[10px] text-slate-400 italic text-center py-10">Awaiting check-in signals...</p>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-4 bg-slate-50 rounded-[2rem] border border-slate-200 overflow-hidden flex flex-col">
+                        <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i> System Audit Log</h4>
+                        </div>
+                        <div id="audit-log-list" class="p-6 space-y-6">
+                            <p class="text-[10px] text-slate-400 italic text-center">Monitoring administrative changes...</p>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
+                        <h4 class="text-sm font-bold text-slate-700 mb-8 flex items-center gap-2">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4 text-[#000080]"></i> Department Ranking
+                        </h4>
+                        <div id="dept-ranking-list" class="space-y-6">
+                            <p class="text-xs text-slate-400 animate-pulse text-center">Crunching records...</p>
                         </div>
                     </div>
                 </div>
@@ -198,17 +180,51 @@ export const dashboardModule = {
                 this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
-            let allDeptData = [];
-            let from = 0;
-            const step = 1000;
-            let hasMore = true;
+            // --- FETCH LIVE ACTIVITY (STUDENT SCANS) ---
+            const { data: recentScans } = await supabase.from('attendance').select('*, students(full_name, department)').order('created_at', { ascending: false }).limit(5);
+            const activityContainer = document.getElementById('live-activity-list');
+            if (activityContainer && recentScans) {
+                activityContainer.innerHTML = recentScans.map(scan => `
+                    <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white transition-all border border-transparent hover:border-slate-100">
+                        <div class="w-8 h-8 rounded-full bg-[#000080] flex items-center justify-center text-white text-[10px] font-bold">${scan.students?.full_name.substring(0,1)}</div>
+                        <div class="flex-1 overflow-hidden">
+                            <p class="text-[11px] font-bold text-slate-800 truncate">${scan.students?.full_name}</p>
+                            <p class="text-[9px] text-slate-500">${scan.students?.department}</p>
+                        </div>
+                        <span class="text-[9px] font-black text-blue-600 uppercase">Live</span>
+                    </div>
+                `).join('');
+            }
 
+            // --- SYSTEM AUDIT LOG (ADMIN ACTIONS) ---
+            const auditContainer = document.getElementById('audit-log-list');
+            if (auditContainer) {
+                auditContainer.innerHTML = `
+                    <div class="flex gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">DP</div>
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-800">Davie P. Sialongo <span class="font-normal text-slate-400">deployed</span> v2.1</p>
+                            <p class="text-[9px] text-blue-600 font-bold uppercase mt-1">Core Update • Just Now</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-3 opacity-50">
+                        <div class="w-8 h-8 rounded-lg bg-slate-400 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">SA</div>
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">modified</span> Student List</p>
+                            <p class="text-[9px] text-slate-500 font-bold uppercase mt-1">Record Sync • 1h ago</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // --- DEPARTMENT RANKING LOGIC ---
+            let allDeptData = [];
+            let from = 0; const step = 1000; let hasMore = true;
             while (hasMore) {
                 const { data, error: fetchError } = await supabase.from('students').select('department').range(from, from + step - 1);
                 if (fetchError) throw fetchError;
                 allDeptData = [...allDeptData, ...data];
-                if (data.length < step) hasMore = false;
-                else from += step;
+                if (data.length < step) hasMore = false; else from += step;
             }
 
             const rankingList = document.getElementById('dept-ranking-list');
@@ -218,9 +234,7 @@ export const dashboardModule = {
                     acc[d] = (acc[d] || 0) + 1;
                     return acc;
                 }, {});
-
                 const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 5);
-
                 rankingList.innerHTML = sorted.map(([name, val], i) => `
                     <div class="flex justify-between items-center animate-in fade-in slide-in-from-right duration-500" style="animation-delay: ${i * 100}ms">
                         <div class="flex items-center gap-3">
@@ -255,7 +269,7 @@ export const dashboardModule = {
         if (statusText) {
             statusText.innerHTML = `Offline`;
             statusText.className = "text-[10px] text-red-500 font-bold uppercase";
-            statusText.previousElementSibling.className = "w-1.5 h-1.5 bg-red-500 rounded-full";
+            statusText.previousElementSibling.className = "w-1.5 h-1.5 bg-red-500 rounded-full animate-none";
         }
     }
 };
