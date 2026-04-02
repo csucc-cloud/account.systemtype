@@ -1,4 +1,3 @@
-
 import { authHandler } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
@@ -72,15 +71,19 @@ function setupUserUI(user) {
     const displayOrg = document.getElementById('display-org-name');
     const displayUser = document.getElementById('user-full-name');
     const displayAvatar = document.getElementById('user-avatar');
+    const footerUser = document.getElementById('footer-user-name'); // For the new footer card
+    const footerAvatar = document.getElementById('footer-avatar');
 
     const fullName = user.user_metadata?.full_name || "Admin User";
     const orgName = user.user_metadata?.org_name || "Organization";
 
     if (displayOrg) displayOrg.innerText = orgName;
     if (displayUser) displayUser.innerText = fullName;
-    if (displayAvatar) {
-        displayAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=000080&color=fff`;
-    }
+    if (footerUser) footerUser.innerText = fullName;
+    
+    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=000080&color=fff`;
+    if (displayAvatar) displayAvatar.src = avatarUrl;
+    if (footerAvatar) footerAvatar.src = avatarUrl;
 }
 
 /**
@@ -118,19 +121,26 @@ window.showSection = function(sectionId) {
     updateNavUI(sectionId);
 };
 
+/**
+ * Enhanced Navigation UI logic to match Option 1 (CSS classes)
+ */
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
-        // Remove the 'active' background from all buttons
-        btn.classList.remove('bg-white/10', 'text-white');
-        btn.classList.add('text-slate-400'); // Dim the inactive ones
-
-        // If the button text matches the section we are in, highlight it
-        if (btn.innerText.toLowerCase().includes(sectionId.toLowerCase())) {
-            btn.classList.add('bg-white/10', 'text-white');
-            btn.classList.remove('text-slate-400');
+        // We look for the sectionId inside the onclick attribute
+        const clickAttr = btn.getAttribute('onclick') || "";
+        
+        if (clickAttr.includes(`'${sectionId}'`)) {
+            // Add the 'active' class defined in your style.css
+            btn.classList.add('active');
+        } else {
+            // Remove 'active' and ensure base styles remain
+            btn.classList.remove('active');
         }
     });
 }
 
 // Initial Load
-auth.checkSession();
+// (Note: ensure 'auth' is defined or accessible if calling checkSession here)
+if (window.auth) {
+    auth.checkSession();
+}
