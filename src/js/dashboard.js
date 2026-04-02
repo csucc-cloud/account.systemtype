@@ -13,22 +13,14 @@ export const dashboardModule = {
                     
                     <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group flex flex-col items-center text-center">
                         <div class="relative z-10 flex flex-col h-full justify-between items-center w-full">
-                            
                             <div class="flex flex-col items-center gap-6 mb-6">
-                                
                                 <div class="relative w-40 h-40 flex-shrink-0">
                                     <div class="absolute inset-0 rounded-full bg-blue-400/20 animate-pulse"></div>
-                                    
-                                    <img src="${architectPhoto}" 
-                                         alt="Lead Architect" 
-                                         class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-105 transition-transform duration-500"
-                                         onerror="this.src='https://ui-avatars.com/api/?name=Davie+Sialongo&background=000080&color=fff'">
-                                    
+                                    <img src="${architectPhoto}" alt="Lead Architect" class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://ui-avatars.com/api/?name=Davie+Sialongo&background=000080&color=fff'">
                                     <div class="absolute bottom-2 right-2 z-20 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-[#000080]">
                                         <i data-lucide="shield-check" class="w-4 h-4 text-white"></i>
                                     </div>
                                 </div>
-                                
                                 <div>
                                     <div class="flex items-center justify-center gap-2 mb-2">
                                         <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">Lead Architect</span>
@@ -37,7 +29,6 @@ export const dashboardModule = {
                                     <p class="text-blue-200/70 text-sm font-medium italic">Full-Stack Developer • CITTE Student</p>
                                 </div>
                             </div>
-                            
                             <div class="mt-auto pt-6 border-t border-white/10 flex items-center justify-between w-full">
                                 <div class="flex -space-x-2">
                                     <div class="w-8 h-8 rounded-full bg-blue-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="code-2" class="w-4 h-4"></i></div>
@@ -49,41 +40,81 @@ export const dashboardModule = {
                         <i data-lucide="cpu" class="absolute -bottom-6 -right-6 w-40 h-40 text-white/5 transform group-hover:rotate-12 transition-transform duration-700"></i>
                     </div>
 
-                    <div class="lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between">
+                    <div class="lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between group hover:border-blue-100 transition-all duration-300">
                         <div>
-                            <h4 class="text-slate-900 font-black text-lg mb-3 flex items-center gap-2">
-                                <span class="w-2 h-6 bg-[#000080] rounded-full"></span>
-                                OAS Portal v2.1
-                            </h4>
-                            <p class="text-slate-500 text-sm leading-relaxed">
-                                The **Official Automation System** was engineered to eliminate manual paperwork for the LSG. It provides real-time analytics, automated attendance tracking, and centralized student records to ensure transparency and digital-first governance.
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-4 mt-6">
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
-                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-blue-600"></i>
-                                <span class="text-[10px] font-bold text-slate-600 uppercase">Secure Access</span>
+                            <div class="flex justify-between items-start mb-4">
+                                <h4 class="text-slate-900 font-black text-xl flex items-center gap-2">
+                                    <span class="w-2 h-7 bg-[#000080] rounded-full"></span>
+                                    OAS Portal <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">v2.1</span>
+                                </h4>
+                                <div class="flex items-center gap-1">
+                                    <span class="relative flex h-2 w-2">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                    </span>
+                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">System Pulse</span>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
-                                <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i>
-                                <span class="text-[10px] font-bold text-slate-600 uppercase">Live Sync</span>
+                            <p class="text-slate-500 text-sm leading-relaxed mb-6">
+                                The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations, engineered for zero-paperwork governance and real-time student tracking.
+                            </p>
+                            <div class="grid grid-cols-2 gap-3 mb-2">
+                                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 group-hover:bg-blue-50/50 transition-colors">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">Avg Uptime</p>
+                                    <p class="text-lg font-black text-[#000080]">99.9%</p>
+                                </div>
+                                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 group-hover:bg-blue-50/50 transition-colors">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">Latency</p>
+                                    <p class="text-lg font-black text-[#000080]">240ms</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-bold text-slate-600 uppercase">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-blue-600"></i> AES-256
+                            </div>
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-bold text-slate-600 uppercase">
+                                <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i> Live Sync
                             </div>
                         </div>
                     </div>
 
-                    <div class="lg:col-span-3 bg-slate-50 p-8 rounded-[2rem] border border-slate-200 flex flex-col justify-center items-center text-center">
-                        <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Service Status</p>
-                        <div class="relative py-4 mb-4">
-                            <div id="status-glow" class="absolute inset-0 bg-emerald-400/20 blur-2xl rounded-full animate-pulse"></div>
-                            <i data-lucide="database" id="status-icon" class="w-16 h-16 text-emerald-600 relative z-10"></i>
+                    <div class="lg:col-span-3 bg-slate-900 p-8 rounded-[2rem] shadow-xl flex flex-col justify-between relative overflow-hidden border border-slate-800">
+                        <div class="relative z-10">
+                            <p class="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">Infrastructure</p>
+                            
+                            <div class="space-y-6">
+                                <div class="flex items-center gap-4 group">
+                                    <div class="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+                                        <i data-lucide="database" class="w-6 h-6 text-emerald-500"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="text-white font-bold text-sm">Supabase DB</h5>
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                            <span id="service-status-text" class="text-[10px] text-emerald-400 font-bold uppercase">Operational</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-4 group">
+                                    <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-white/10 transition-all">
+                                        <i data-lucide="github" class="w-6 h-6 text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="text-white font-bold text-sm">GitHub Pages</h5>
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase">Deployment Active</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <span class="text-sm font-black text-slate-700 block mb-1">Supabase Cloud</span>
-                            <span id="service-status-text" class="text-xs text-emerald-600 font-bold uppercase flex items-center justify-center gap-1.5">
-                                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
-                                Operational
-                            </span>
+                        
+                        <div class="relative z-10 pt-6 border-t border-white/5">
+                            <p class="text-slate-500 text-[9px] font-bold uppercase text-center leading-tight">
+                                High-Availability Cloud Architecture
+                            </p>
                         </div>
+                        <i data-lucide="server" class="absolute -top-10 -right-10 w-32 h-32 text-white/5 -rotate-12"></i>
                     </div>
                 </div>
 
@@ -221,13 +252,10 @@ export const dashboardModule = {
     handleSyncError(err) {
         console.error("Dashboard Sync Error:", err.message);
         const statusText = document.getElementById('service-status-text');
-        const statusGlow = document.getElementById('status-glow');
-        const statusIcon = document.getElementById('status-icon');
         if (statusText) {
-            statusText.innerHTML = `Sync Error`;
-            statusText.className = "text-[10px] text-red-500 font-bold uppercase flex items-center justify-center gap-1";
-            if(statusGlow) statusGlow.className = "absolute inset-0 bg-red-400/10 blur-xl rounded-full";
-            if(statusIcon) statusIcon.className = "w-12 h-12 text-red-400 relative z-10";
+            statusText.innerHTML = `Offline`;
+            statusText.className = "text-[10px] text-red-500 font-bold uppercase";
+            statusText.previousElementSibling.className = "w-1.5 h-1.5 bg-red-500 rounded-full";
         }
     }
 };
