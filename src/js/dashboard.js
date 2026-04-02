@@ -1,6 +1,7 @@
 import { supabase } from './auth.js';
 
 export const dashboardModule = {
+    // 1. THE REAL HTML STRUCTURE (Professional Layout)
     render() {
         const container = document.getElementById('mod-dashboard');
         if (!container) return;
@@ -82,37 +83,53 @@ export const dashboardModule = {
                         <div class="p-8 bg-slate-50/20">
                             <h4 class="text-sm font-bold text-slate-700 mb-8">Department Ranking</h4>
                             <div id="dept-ranking-list" class="space-y-6">
-                                <div class="flex justify-between items-center">
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-6 h-6 bg-slate-800 text-white rounded-full text-[10px] flex items-center justify-center font-bold">1</span>
-                                        <span class="text-sm font-semibold text-slate-600">Education</span>
-                                    </div>
-                                    <span class="text-sm font-bold text-slate-400 tracking-tighter">4,201</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-6 h-6 bg-slate-400 text-white rounded-full text-[10px] flex items-center justify-center font-bold">2</span>
-                                        <span class="text-sm font-semibold text-slate-600">Technology</span>
-                                    </div>
-                                    <span class="text-sm font-bold text-slate-400 tracking-tighter">1,092</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-6 h-6 bg-slate-200 text-slate-500 rounded-full text-[10px] flex items-center justify-center font-bold">3</span>
-                                        <span class="text-sm font-semibold text-slate-600">Engineering</span>
-                                    </div>
-                                    <span class="text-sm font-bold text-slate-400 tracking-tighter">845</span>
-                                </div>
+                                <p class="text-xs text-slate-400 animate-pulse">Calculating rankings...</p>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <section class="pt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-[#000080] text-white p-8 rounded-3xl shadow-lg relative overflow-hidden group">
+                            <div class="relative z-10">
+                                <p class="text-blue-300 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Lead Developer</p>
+                                <h4 class="text-xl font-black mb-1">Davie P. Sialongo</h4>
+                                <p class="text-blue-100/60 text-xs font-medium">System Architect & Full Stack Developer</p>
+                            </div>
+                            <i data-lucide="code" class="absolute -bottom-4 -right-4 w-24 h-24 text-white/10 group-hover:scale-110 transition-transform"></i>
+                        </div>
+
+                        <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                            <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Core Infrastructure</p>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="github" class="w-5 h-5 text-slate-800"></i>
+                                    <span class="text-sm font-bold text-slate-700">GitHub Repository</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="database" class="w-5 h-5 text-emerald-500"></i>
+                                    <span class="text-sm font-bold text-slate-700">Supabase Cloud</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 p-8 rounded-3xl border border-blue-100">
+                            <p class="text-[#000080] text-[10px] font-black uppercase tracking-[0.2em] mb-2">The Website</p>
+                            <h4 class="text-sm font-bold text-slate-800 mb-2">OAS Portal v2.1</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                A centralized automated system specifically designed for the CITTE LSG to bridge student services and digital efficiency.
+                            </p>
+                        </div>
+                    </div>
+                </section>
             </div>
         `;
 
         if (window.lucide) window.lucide.createIcons();
     },
 
+    // 2. THE LOGIC
     async init() {
         this.render();
         await this.updateLiveStats();
@@ -135,28 +152,59 @@ export const dashboardModule = {
 
     async updateLiveStats() {
         try {
-            // Fetch real counts from Supabase
+            // 1. Fetch Basic Counts
             const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
             const { count: aCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true });
             const { count: eCount } = await supabase.from('events').select('*', { count: 'exact', head: true });
 
-            // 1. Animate Numerical Stats
+            // 2. Fetch Data for Department Ranking
+            const { data: deptData } = await supabase.from('students').select('department');
+
+            // 3. Animate the Main 3 Stats
             this.animateValue("stat-total-students", 0, sCount || 0, 1500);
             this.animateValue("stat-attendance", 0, aCount || 0, 1500);
             this.animateValue("stat-events", 0, eCount || 0, 1500);
 
-            // 2. Animate Donut Chart (Operation Effect)
-            const targetPercent = 88; 
+            // 4. Calculate Operation Effect (Real Data Logic)
+            // Example: Percentage of students who have at least one attendance log
+            const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
+            
             const circle = document.getElementById('progress-circle');
             if (circle) {
-                const circumference = 213.6; // 2 * PI * r
-                const offset = circumference - (targetPercent / 100) * circumference;
+                const circumference = 213.6;
+                const offset = circumference - (effectPercent / 100) * circumference;
                 circle.style.strokeDashoffset = offset;
-                this.animateValue("stat-effect-percent", 0, targetPercent, 1500);
+                this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
                 setTimeout(() => {
                     const txt = document.getElementById('stat-effect-percent');
-                    if (txt) txt.innerText = targetPercent + "%";
+                    if (txt) txt.innerText = effectPercent + "%";
                 }, 1500);
+            }
+
+            // 5. Build Real Department Ranking
+            const rankingList = document.getElementById('dept-ranking-list');
+            if (rankingList && deptData) {
+                const counts = deptData.reduce((acc, curr) => {
+                    const dept = curr.department || 'Unassigned';
+                    acc[dept] = (acc[dept] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const sortedDepts = Object.entries(counts)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 3);
+
+                rankingList.innerHTML = sortedDepts.map(([name, val], index) => `
+                    <div class="flex justify-between items-center animate-in fade-in slide-in-from-right duration-500" style="animation-delay: ${index * 100}ms">
+                        <div class="flex items-center gap-3">
+                            <span class="w-6 h-6 ${index === 0 ? 'bg-slate-800' : index === 1 ? 'bg-slate-400' : 'bg-slate-200 text-slate-500'} text-white rounded-full text-[10px] flex items-center justify-center font-bold">
+                                ${index + 1}
+                            </span>
+                            <span class="text-sm font-semibold text-slate-600">${name}</span>
+                        </div>
+                        <span class="text-sm font-bold text-slate-400 tracking-tighter">${val.toLocaleString()}</span>
+                    </div>
+                `).join('') || '<p class="text-xs text-slate-400">No data found.</p>';
             }
 
         } catch (err) {
