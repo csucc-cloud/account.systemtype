@@ -82,3 +82,5 @@
 #sidebar-overlay {
     z-index: 90 !important;
 }
+
+  .hidden { display: none !important; }
