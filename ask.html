@@ -3,24 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Inquiry</title>
+    <title>Event Inquiry Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+    </style>
 </head>
 <body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
 
-    <div id="app" class="w-full max-w-md bg-white rounded-3xl shadow-xl p-8"></div>
+    <div id="inquiry-form-container" class="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-8 transition-all duration-500">
+        <div class="flex flex-col items-center justify-center py-12">
+            <div class="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <p class="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Portal...</p>
+        </div>
+    </div>
 
     <script type="module">
+        // Ensure this path matches your folder structure!
         import { PublicInquiryModule } from './src/js/PublicInquiryModule.js';
         
-        // Get Event ID from the URL (e.g., ask.html?id=xxx)
+        // 1. Extract the Event ID from the URL (e.g., ask.html?id=123)
         const urlParams = new URLSearchParams(window.location.search);
         const eventId = urlParams.get('id');
 
+        // 2. Initialize the module if the ID exists
         if (eventId) {
             PublicInquiryModule.init(eventId);
         } else {
-            document.body.innerHTML = "Invalid Event Link.";
+            // Error state if someone visits the page without a QR scan
+            document.getElementById('inquiry-form-container').innerHTML = `
+                <div class="text-center p-6">
+                    <h1 class="text-xl font-black text-red-500 uppercase">Invalid Link</h1>
+                    <p class="text-sm text-slate-500 mt-2">Please scan a valid Event QR code to submit questions.</p>
+                </div>
+            `;
         }
     </script>
 </body>
