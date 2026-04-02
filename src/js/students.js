@@ -5,7 +5,6 @@ export const studentModule = {
         const container = document.getElementById('mod-students');
         if (!container) return;
 
-        // Determine if current user has 'write' permissions
         const isStaff = currentUserRole === 'staff';
         const isSuperAdmin = currentUserRole === 'super_admin';
 
@@ -110,21 +109,24 @@ export const studentModule = {
     },
 
     setupEventListeners() {
+        // Modal Logic
         const modal = document.getElementById('modal-student');
         const openBtn = document.getElementById('btn-open-modal');
         if (openBtn) openBtn.onclick = () => modal.classList.remove('hidden');
-        
         const closeBtn = document.getElementById('btn-close-modal');
         if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
         
+        // Save Actions
         const saveBtn = document.getElementById('btn-save-manual');
         if (saveBtn) saveBtn.onclick = () => this.handleManualSave();
 
+        // Import Actions
         const fileInput = document.getElementById('bulk-upload');
         const importBtn = document.getElementById('btn-import');
         if (importBtn) importBtn.onclick = () => fileInput.click();
         if (fileInput) fileInput.onchange = (e) => this.handleExcelImport(e.target.files[0]);
 
+        // Search Logic
         const searchInput = document.getElementById('student-search');
         let searchTimer;
         if (searchInput) {
@@ -133,6 +135,9 @@ export const studentModule = {
                 searchTimer = setTimeout(() => this.fetchAndRenderList(e.target.value), 400);
             };
         }
+
+        // Expose module globally for the HTML button onclick events
+        window.studentModule = this;
     },
 
     async fetchAndRenderList(searchTerm = "") {
@@ -141,7 +146,6 @@ export const studentModule = {
 
         try {
             let query = supabase.from('students').select('*').order('full_name', { ascending: true });
-            
             if (searchTerm) {
                 query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
             }
@@ -160,14 +164,34 @@ export const studentModule = {
                     <td class="p-4 text-sm text-slate-600">${s.course || ''}</td>
                     <td class="p-4 text-xs font-black text-[#000080]">YR ${s.year_level}</td>
                     <td class="p-4 text-right">
-                        <button class="text-slate-300 hover:text-red-500 transition-colors" onclick="alert('Only Super Admins can delete')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        </button>
+                        ${currentUserRole === 'super_admin' ? `
+                            <button class="text-slate-300 hover:text-red-500 transition-colors p-2" 
+                                    onclick="studentModule.deleteStudent('${s.student_id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        ` : `
+                            <svg class="ml-auto text-slate-100" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        `}
                     </td>
                 </tr>
             `).join('');
         } catch (err) {
             console.error("Fetch Error:", err);
+        }
+    },
+
+    async deleteStudent(id) {
+        if (!confirm(`Delete student ${id}? This cannot be undone.`)) return;
+
+        const { error } = await supabase
+            .from('students')
+            .delete()
+            .eq('student_id', id);
+
+        if (error) {
+            alert("Delete failed: " + error.message);
+        } else {
+            this.fetchAndRenderList(); // Refresh
         }
     },
 
@@ -187,7 +211,7 @@ export const studentModule = {
             course: course,
             department: this.classifyDepartment(course),
             year_level: parseInt(year),
-            organization_owner: currentUserOrg // Tag the creator
+            organization_owner: currentUserOrg 
         }, { onConflict: 'student_id' });
 
         if (error) {
@@ -231,7 +255,7 @@ export const studentModule = {
                         course: row['Course'] || row['Course/Program'] || '',
                         department: this.classifyDepartment(row['Course'] || row['Course/Program']),
                         year_level: parseInt(String(row['Year'] || row['Year Level'] || '1').replace(/\D/g, '')) || 1,
-                        organization_owner: currentUserOrg // Universal tagging
+                        organization_owner: currentUserOrg
                     }, { onConflict: 'student_id' });
 
                     if (i % 10 === 0) await new Promise(r => setTimeout(r, 20));
