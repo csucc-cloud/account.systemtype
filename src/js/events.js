@@ -1,5 +1,5 @@
 import { supabase } from './auth.js';
-import { AuditLogger } from './utils/audit-logger.js'; // Integrated AuditLogger Utility
+import { AuditLogger } from './audit-logger.js'; // Integrated AuditLogger Utility
 
 /**
  * ADVANCED EVENTS MANAGEMENT SYSTEM v2.0
