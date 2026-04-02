@@ -39,3 +39,11 @@ export const AuditLogger = {
         }
     }
 };
+
+/**
+ * EXPORT BRIDGE
+ * This allows other modules to use: import { logAction } from './audit-logger.js'
+ */
+export const logAction = (action, targetId, newData, oldData) => {
+    return AuditLogger.log(action, targetId, newData, oldData);
+};
