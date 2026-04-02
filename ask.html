@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Inquiry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div id="inquiry-form-container" class="w-full max-w-md bg-white rounded-3xl shadow-xl p-8">
+        </div>
+
+    <script type="module">
+        import { PublicInquiryModule } from './src/js/PublicInquiryModule.js';
+        
+        // Get Event ID from the URL (e.g., ask.html?id=xxx)
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('id');
+
+        if (eventId) {
+            PublicInquiryModule.init(eventId);
+        } else {
+            document.body.innerHTML = "Invalid Event Link.";
+        }
+    </script>
+</body>
+</html>
