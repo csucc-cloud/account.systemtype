@@ -130,24 +130,24 @@ export const dashboardModule = {
                             <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-blue-600"></i> Live Activity</h4>
                         </div>
                         <div id="live-activity-list" class="p-4 space-y-3 min-h-[300px]">
-                            <p class="text-[10px] text-slate-400 italic text-center py-10">Awaiting check-in signals...</p>
+                            <p class="text-[10px] text-slate-400 italic text-center py-10">Awaiting signals...</p>
                         </div>
                     </div>
 
-                    <div class="lg:col-span-4 bg-slate-50 rounded-[2rem] border border-slate-200 overflow-hidden flex flex-col">
-                        <div class="p-6 border-b border-slate-200 flex justify-between items-center">
-                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i> System Audit Log</h4>
-                        </div>
-                        <div id="audit-log-list" class="p-6 space-y-6">
-                            <p class="text-[10px] text-slate-400 italic text-center">Monitoring administrative changes...</p>
+                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 flex flex-col">
+                        <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 mb-6">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-[#000080]"></i> Department Distribution
+                        </h4>
+                        <div class="flex-1 relative min-h-[250px]">
+                            <canvas id="deptDistributionChart"></canvas>
                         </div>
                     </div>
 
-                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
+                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 flex flex-col">
                         <h4 class="text-sm font-bold text-slate-700 mb-8 flex items-center gap-2">
                             <i data-lucide="bar-chart-3" class="w-4 h-4 text-[#000080]"></i> Department Ranking
                         </h4>
-                        <div id="dept-ranking-list" class="space-y-6">
+                        <div id="dept-ranking-list" class="space-y-6 flex-1">
                             <p class="text-xs text-slate-400 animate-pulse text-center">Crunching records...</p>
                         </div>
                     </div>
@@ -173,6 +173,41 @@ export const dashboardModule = {
             this.animateValue("stat-attendance", 0, aCount || 0, 1500);
             this.animateValue("stat-events", 0, eCount || 0, 1500);
 
+            // Fetch All Student Data for Analytics
+            let allDeptData = [];
+            let from = 0; const step = 1000; let hasMore = true;
+            while (hasMore) {
+                const { data, error } = await supabase.from('students').select('department').range(from, from + step - 1);
+                if (error) throw error;
+                allDeptData = [...allDeptData, ...data];
+                if (data.length < step) hasMore = false; else from += step;
+            }
+
+            // 1. Process Chart Data
+            const deptCounts = allDeptData.reduce((acc, curr) => {
+                const d = curr.department || 'Unassigned';
+                acc[d] = (acc[d] || 0) + 1;
+                return acc;
+            }, {});
+
+            this.renderProfessionalChart(deptCounts);
+
+            // 2. Process Ranking List (Top 5)
+            const rankingList = document.getElementById('dept-ranking-list');
+            if (rankingList) {
+                const sorted = Object.entries(deptCounts).sort(([, a], [, b]) => b - a).slice(0, 5);
+                rankingList.innerHTML = sorted.map(([name, val], i) => `
+                    <div class="flex justify-between items-center animate-in fade-in slide-in-from-right duration-500">
+                        <div class="flex items-center gap-3">
+                            <span class="w-6 h-6 ${i === 0 ? 'bg-[#000080]' : 'bg-slate-200 text-slate-500'} text-white rounded-full text-[10px] flex items-center justify-center font-bold">${i + 1}</span>
+                            <span class="text-sm font-semibold text-slate-600">${name}</span>
+                        </div>
+                        <span class="text-sm font-bold text-slate-700 tracking-tighter">${val.toLocaleString()}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Existing Attendance Progress Logic
             const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
             const circle = document.getElementById('progress-circle');
             if (circle) {
@@ -180,6 +215,7 @@ export const dashboardModule = {
                 this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
+            // Existing Live Activity Logic
             const { data: recentScans } = await supabase.from('attendance').select('*, students(full_name, department)').order('created_at', { ascending: false }).limit(5);
             const activityContainer = document.getElementById('live-activity-list');
             if (activityContainer && recentScans) {
@@ -195,54 +231,56 @@ export const dashboardModule = {
                 `).join('');
             }
 
-            const auditContainer = document.getElementById('audit-log-list');
-            if (auditContainer) {
-                const { data: logs } = await supabase.from('system_audit_logs').select('*').order('created_at', { ascending: false }).limit(3);
-                if (logs && logs.length > 0) {
-                    auditContainer.innerHTML = logs.map(log => `
-                        <div class="flex gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">${log.action_type.substring(0,2)}</div>
-                            <div>
-                                <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">${log.action_type.toLowerCase()}</span> record</p>
-                                <p class="text-[9px] text-blue-600 font-bold uppercase mt-1">ID: ${log.target_id.substring(0,8)} • ${new Date(log.created_at).toLocaleTimeString()}</p>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    auditContainer.innerHTML = `<p class="text-[10px] text-slate-400 italic text-center">No logs found.</p>`;
-                }
-            }
-
-            let allDeptData = [];
-            let from = 0; const step = 1000; let hasMore = true;
-            while (hasMore) {
-                const { data, error: fetchError } = await supabase.from('students').select('department').range(from, from + step - 1);
-                if (fetchError) throw fetchError;
-                allDeptData = [...allDeptData, ...data];
-                if (data.length < step) hasMore = false; else from += step;
-            }
-
-            const rankingList = document.getElementById('dept-ranking-list');
-            if (rankingList && allDeptData.length > 0) {
-                const counts = allDeptData.reduce((acc, curr) => {
-                    const d = curr.department || 'Unassigned';
-                    acc[d] = (acc[d] || 0) + 1;
-                    return acc;
-                }, {});
-                const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 5);
-                rankingList.innerHTML = sorted.map(([name, val], i) => `
-                    <div class="flex justify-between items-center animate-in fade-in slide-in-from-right duration-500" style="animation-delay: ${i * 100}ms">
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 ${i === 0 ? 'bg-[#000080]' : 'bg-slate-200 text-slate-500'} text-white rounded-full text-[10px] flex items-center justify-center font-bold">${i + 1}</span>
-                            <span class="text-sm font-semibold text-slate-600">${name}</span>
-                        </div>
-                        <span class="text-sm font-bold text-slate-700 tracking-tighter">${val.toLocaleString()}</span>
-                    </div>
-                `).join('');
-            }
         } catch (err) {
             this.handleSyncError(err);
         }
+    },
+
+    renderProfessionalChart(counts) {
+        const ctx = document.getElementById('deptDistributionChart');
+        if (!ctx) return;
+
+        // Map data to specific labels user requested
+        const dataMap = {
+            'Education': counts['Education'] || 0,
+            'Industrial Technology': counts['Industrial Technology'] || 0,
+            'Others': 0
+        };
+
+        // Combine all other departments into 'Others'
+        Object.keys(counts).forEach(key => {
+            if (key !== 'Education' && key !== 'Industrial Technology') {
+                dataMap['Others'] += counts[key];
+            }
+        });
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Education Dept.', 'Indus Tech Dept.', 'Other Dept.'],
+                datasets: [{
+                    data: [dataMap['Education'], dataMap['Industrial Technology'], dataMap['Others']],
+                    backgroundColor: ['#000080', '#3b82f6', '#94a3b8'], // Navy, Blue, Slate
+                    hoverOffset: 10,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            font: { size: 11, weight: 'bold', family: 'Inter' }
+                        }
+                    }
+                }
+            }
+        });
     },
 
     animateValue(id, start, end, duration) {
