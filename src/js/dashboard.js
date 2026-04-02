@@ -15,9 +15,9 @@ export const dashboardModule = {
                             <div class="flex items-start gap-5">
                                 <div class="relative w-20 h-20 flex-shrink-0">
                                     <div class="absolute inset-0 rounded-full bg-blue-400/20 animate-pulse"></div>
-                                    <img src="public/assets/img/5646.png" 
-                                         alt="Lead Architect" 
-                                         class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                                    <img src="https://raw.githubusercontent.com/csucc-cloud/account.systemtype/main/public/assets/img/5646.png" 
+     alt="Lead Architect" 
+     class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500">
                                     <div class="absolute -bottom-1 -right-1 z-20 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-[#000080]">
                                         <i data-lucide="shield-check" class="w-3 h-3 text-white"></i>
                                     </div>
