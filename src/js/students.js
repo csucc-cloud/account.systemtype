@@ -102,6 +102,9 @@ export const studentModule = {
             <style>
                 .filter-pill { @apply px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-tight transition-all border border-slate-100 text-slate-400 bg-white hover:bg-slate-50; }
                 .filter-pill.active { @apply bg-[#000080] text-white border-[#000080] shadow-md shadow-[#000080]/10; }
+                
+                /* Highlight effect */
+                mark { padding: 0; background: #fef08a; color: black; border-radius: 2px; }
             </style>
         `;
         
@@ -132,18 +135,23 @@ export const studentModule = {
 
             <div id="modal-profile" class="hidden fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-all">
                 <div id="profile-card" class="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
-                    <div class="h-24 bg-[#000080]"></div>
+                    <div class="h-24 bg-[#000080] flex justify-end p-4">
+                         <button onclick="document.getElementById('modal-profile').classList.add('hidden')" class="text-white/50 hover:text-white">✕</button>
+                    </div>
                     <div class="px-8 pb-8 -mt-12 text-center">
-                        <div class="w-24 h-24 bg-white rounded-full mx-auto p-1 shadow-lg">
+                        <div class="w-24 h-24 bg-white rounded-full mx-auto p-1 shadow-lg overflow-hidden">
                             <div class="w-full h-full bg-slate-100 rounded-full flex items-center justify-center text-[#000080] font-black text-2xl" id="prof-initials">--</div>
                         </div>
                         <h4 class="text-xl font-black text-slate-800 mt-4" id="prof-name">Student Name</h4>
                         <p class="text-sm font-bold text-slate-400 font-mono" id="prof-id">ID: ----</p>
+                        
+                        <div id="profile-qr-container" class="my-4 flex justify-center bg-slate-50 p-3 rounded-2xl border border-dashed border-slate-200">
+                            </div>
+
                         <div class="grid grid-cols-2 gap-2 mt-6 text-left">
                             <div class="p-3 bg-slate-50 rounded-2xl"><p class="text-[9px] uppercase font-black text-slate-400">Course</p><p class="text-xs font-bold text-slate-700" id="prof-course">--</p></div>
                             <div class="p-3 bg-slate-50 rounded-2xl"><p class="text-[9px] uppercase font-black text-slate-400">Year</p><p class="text-xs font-bold text-slate-700" id="prof-year">--</p></div>
                         </div>
-                        <button onclick="document.getElementById('modal-profile').classList.add('hidden')" class="mt-6 w-full py-3 bg-slate-100 text-slate-500 rounded-2xl font-black text-sm">Close Profile</button>
                     </div>
                 </div>
             </div>
@@ -233,13 +241,11 @@ export const studentModule = {
         window.studentModule = this;
     },
 
-    // FEATURE 5: REAL-TIME STATS LOGIC
     updateDashboardStats(data) {
         document.getElementById('stat-total').innerText = data.length;
         document.getElementById('stat-edu').innerText = data.filter(s => s.department === 'Education Dept.').length;
         document.getElementById('stat-tech').innerText = data.filter(s => s.department === 'Industrial Technology Dept.').length;
         
-        // Activity Tracking: Count created in last 24 hours
         const today = new Date().toISOString().split('T')[0];
         const newToday = data.filter(s => s.created_at && s.created_at.startsWith(today)).length;
         document.getElementById('stat-new').innerText = newToday;
@@ -266,6 +272,13 @@ export const studentModule = {
                     ? s.organization_owner.join(' | ') 
                     : (s.organization_owner || 'None');
 
+                // Feature: Search Highlighting
+                let displayName = s.full_name;
+                if(searchTerm) {
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    displayName = s.full_name.replace(regex, '<mark>$1</mark>');
+                }
+
                 return `
                 <tr class="border-b border-slate-50 hover:bg-slate-50/80 transition-all group">
                     <td class="p-5 text-center">
@@ -276,7 +289,7 @@ export const studentModule = {
                     <td class="p-5 text-sm font-mono text-slate-400 font-medium">${s.student_id}</td>
                     <td class="p-5 font-bold text-sm text-slate-700">
                         <button onclick="studentModule.viewProfile('${s.student_id}')" class="hover:text-[#000080] transition-colors">
-                            ${s.full_name}
+                            ${displayName}
                         </button>
                     </td>
                     ${currentUserRole === 'super_admin' ? 
@@ -304,7 +317,6 @@ export const studentModule = {
         }
     },
 
-    // FEATURE 2: BATCH SELECTION HELPERS
     toggleStudentSelection(id, isSelected) {
         if (isSelected) this.selectedStudents.add(id);
         else this.selectedStudents.delete(id);
@@ -336,7 +348,6 @@ export const studentModule = {
         }
     },
 
-    // FEATURE 3: PROFILE MODAL LOGIC
     viewProfile(id) {
         const s = this.allStudentsData.find(x => x.student_id === id);
         if (!s) return;
@@ -344,7 +355,25 @@ export const studentModule = {
         document.getElementById('prof-id').innerText = `ID: ${s.student_id}`;
         document.getElementById('prof-course').innerText = s.course || 'N/A';
         document.getElementById('prof-year').innerText = `${s.year_level}nd Year`;
-        document.getElementById('prof-initials').innerText = s.full_name.charAt(0);
+        
+        // Initials Logic
+        const initials = s.full_name.split(' ').map(n => n[0]).join('').toUpperCase();
+        document.getElementById('prof-initials').innerText = initials.substring(0,2);
+        
+        // Feature: QR Code Generation
+        const qrContainer = document.getElementById('profile-qr-container');
+        qrContainer.innerHTML = ""; // Clear old QR
+        if(window.QRCode) {
+            new QRCode(qrContainer, {
+                text: s.student_id,
+                width: 120,
+                height: 120,
+                colorDark : "#000080",
+                colorLight : "#f8fafc",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+
         document.getElementById('modal-profile').classList.remove('hidden');
     },
 
@@ -378,7 +407,6 @@ export const studentModule = {
 
         if (!id || !name) return alert("Please fill in at least ID and Name");
 
-        // FEATURE 4: DUPLICATE DETECTION
         const isDuplicate = this.allStudentsData.some(s => s.student_id === id);
         if (isDuplicate && !confirm("ID already exists. Update existing record?")) return;
 
