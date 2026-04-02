@@ -7,6 +7,8 @@ import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, Qr
 
 // Make logAction global for all other modules to use easily
 window.logAction = logAction;
+window.eventsModule = eventsModule;
+eventsModule.render();
 
 /**
  * SIDEBAR CONTROLLER 
