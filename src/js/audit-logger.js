@@ -1,30 +1,34 @@
 import { supabase } from './auth.js';
 
+async function getClientIp() {
+    try {
+        const response = await fetch('https://api64.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+    } catch (error) {
+        console.error("IP Fetch Error:", error);
+        return 'Unknown'; 
+    }
+}
+
 export const AuditLogger = {
-    /**
-     * UNIVERSAL LOGGING ENGINE
-     * @param {string} action - The type of action (e.g., 'DEPLOY_EVENT', 'COLLECT_FEE', 'VOID_RECEIPT')
-     * @param {string} targetId - The UUID of the record being affected
-     * @param {object} newData - The new state of the data (the 'After')
-     * @param {object} oldData - The previous state of the data (the 'Before')
-     */
     async log(action, targetId, newData = {}, oldData = null) {
         try {
-            // 1. Identify who is performing the action
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Anonymous actions cannot be logged.");
 
-            // 2. Prepare the Payload
+            const ip = await getClientIp();
+
             const payload = {
                 admin_id: user.id,
                 action_type: action.toUpperCase(),
                 target_id: targetId,
-                new_value: newData, // JSONB column
-                old_value: oldData, // JSONB column
+                new_value: newData,
+                old_value: oldData,
+                ip_address: ip,
                 created_at: new Date().toISOString()
             };
 
-            // 3. Silent Execution (Don't let a log failure stop the main app)
             const { error } = await supabase
                 .from('system_audit_logs')
                 .insert([payload]);
@@ -40,10 +44,6 @@ export const AuditLogger = {
     }
 };
 
-/**
- * EXPORT BRIDGE
- * This allows other modules to use: import { logAction } from './audit-logger.js'
- */
 export const logAction = (action, targetId, newData, oldData) => {
     return AuditLogger.log(action, targetId, newData, oldData);
 };
