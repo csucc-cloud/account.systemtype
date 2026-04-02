@@ -250,9 +250,10 @@ export const eventsModule = {
             </div>
         `;
 
-        this.initEventListeners();
+        // FIXED SEQUENCE: Fetch data first, then render grid, then attach listeners
         await this.fetchEvents();
         this.renderGrid();
+        this.initEventListeners();
     },
 
     // --- LOGIC ENGINE ---
@@ -321,7 +322,7 @@ export const eventsModule = {
             tab.onclick = () => {
                 this.state.currentFilter = tab.dataset.filter;
                 this.applyFilters();
-                this.render();
+                this.render(); // Re-render everything to update UI state
             };
         });
 
@@ -400,6 +401,7 @@ export const eventsModule = {
     openDetailModal(event) {
         this.state.selectedEvent = event;
         const modal = document.getElementById('modal-event-detail');
+        if(!modal) return;
         
         document.getElementById('detail-title').innerText = event.event_name;
         document.getElementById('detail-desc').innerText = event.description || 'No briefing available.';
@@ -466,6 +468,7 @@ export const eventsModule = {
             const isActive = ev.status === 'active';
             const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 shadow-none' : 'bg-white border-slate-100 shadow-sm';
             
+            // Note: Data is passed via Stringified JSON, single quotes are replaced with HTML entity to prevent syntax breaks
             return `
                 <div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' 
                      class="${themeClass} cursor-pointer rounded-[2.5rem] p-8 group hover:shadow-xl transition-all relative overflow-hidden animate-in slide-in-from-bottom-10" 
@@ -475,7 +478,6 @@ export const eventsModule = {
                         <div class="px-4 py-1.5 rounded-xl bg-slate-100/50 text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-400'}">
                             ${ev.status}
                         </div>
-                        <input type="checkbox" onclick="event.stopPropagation()" class="w-5 h-5 rounded-lg opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
                     </div>
 
                     <div class="space-y-3 mb-8">
