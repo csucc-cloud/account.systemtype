@@ -4,8 +4,9 @@ export const eventsModule = {
     // --- DATABASE LOGIC ---
     async getEvents() {
         try {
+            // Pointing to the View we created to get the automated status
             const { data, error } = await supabase
-                .from('events')
+                .from('events_with_status')
                 .select('*')
                 .order('event_date', { ascending: false });
             
