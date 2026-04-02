@@ -1,6 +1,7 @@
 import { authHandler } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
+import { eventManager } from './events.js'; // Adjust path if needed
 // Lucide icons including Menu and X for the sidebar toggle
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
 
