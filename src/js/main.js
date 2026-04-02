@@ -3,12 +3,7 @@ import { dashboardModule } from './dashboard.js';
 import { studentModule } from './students.js';
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut } from 'lucide';
 
-
-/**
- * 3. INITIALIZER
- */
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize Icons
     createIcons({
         icons: { Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut }
     });
@@ -16,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
 
-    // Check Session Status
     try {
         const user = await authHandler.getCurrentUser();
 
@@ -24,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (authScreen) authScreen.classList.add('hidden');
             if (appScreen) appScreen.classList.remove('hidden');
             setupUserUI(user);
-            window.showSection('dashboard'); // Auto-load dashboard
+            window.showSection('dashboard');
         } else {
             if (authScreen) authScreen.classList.remove('hidden');
             if (appScreen) appScreen.classList.add('hidden');
@@ -33,7 +27,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.showAlert("Auth Connection Failed: " + err.message);
     }
 
-    // Handle Login
     const loginBtn = document.getElementById('btn-login-exec');
     if (loginBtn) {
         loginBtn.addEventListener('click', async () => {
@@ -54,7 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Handle Logout
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
@@ -64,14 +56,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-/**
- * 4. UI SETUP
- */
 function setupUserUI(user) {
     const displayOrg = document.getElementById('display-org-name');
     const displayUser = document.getElementById('user-full-name');
     const displayAvatar = document.getElementById('user-avatar');
-    const footerUser = document.getElementById('footer-user-name'); // For the new footer card
+    const footerUser = document.getElementById('footer-user-name');
     const footerAvatar = document.getElementById('footer-avatar');
 
     const fullName = user.user_metadata?.full_name || "Admin User";
@@ -86,61 +75,45 @@ function setupUserUI(user) {
     if (footerAvatar) footerAvatar.src = avatarUrl;
 }
 
-/**
- * 5. GLOBAL NAVIGATION (Module Switcher)
- */
 window.showSection = function(sectionId) {
-    // 1. Target both Modules and Sections
     const allContainers = document.querySelectorAll('.module-container, section');
     
     allContainers.forEach(el => {
         el.classList.add('hidden');
-        // Clean up animation classes so they can restart
         el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
     });
 
     const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
     
     if (target) {
-        // 2. The Trick: Use a tiny timeout to let the browser "breathe"
         target.classList.remove('hidden');
         
         requestAnimationFrame(() => {
             target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
         });
 
-        // 3. Init logic
         if (sectionId === 'dashboard') dashboardModule.init();
         else if (sectionId === 'students') studentModule.init();
     }
 
-    // 4. Update Title and Sidebar
     const title = document.getElementById('current-page-title');
     if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     
     updateNavUI(sectionId);
 };
 
-/**
- * Enhanced Navigation UI logic to match Option 1 (CSS classes)
- */
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
-        // We look for the sectionId inside the onclick attribute
         const clickAttr = btn.getAttribute('onclick') || "";
         
         if (clickAttr.includes(`'${sectionId}'`)) {
-            // Add the 'active' class defined in your style.css
             btn.classList.add('active');
         } else {
-            // Remove 'active' and ensure base styles remain
             btn.classList.remove('active');
         }
     });
 }
 
-// Initial Load
-// (Note: ensure 'auth' is defined or accessible if calling checkSession here)
 if (window.auth) {
     auth.checkSession();
 }
