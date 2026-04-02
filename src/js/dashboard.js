@@ -1,13 +1,7 @@
 import { supabase } from './auth.js';
-
-// 1. IMPORT the image. 
-// Vite will now bundle this correctly and handle the pathing for GitHub Pages.
 import architectPhoto from '../../assets/img/5646.png';
 
 export const dashboardModule = {
-    /**
-     * Renders the UI and inserts the bundled image URL
-     */
     render() {
         const container = document.getElementById('mod-dashboard');
         if (!container) return;
@@ -153,9 +147,6 @@ export const dashboardModule = {
         await this.updateLiveStats();
     },
 
-    /**
-     * Updates counters and department logic
-     */
     async updateLiveStats() {
         try {
             const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
@@ -166,7 +157,6 @@ export const dashboardModule = {
             this.animateValue("stat-attendance", 0, aCount || 0, 1500);
             this.animateValue("stat-events", 0, eCount || 0, 1500);
 
-            // Effect progress circle
             const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
             const circle = document.getElementById('progress-circle');
             if (circle) {
@@ -174,7 +164,6 @@ export const dashboardModule = {
                 this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
-            // Department Ranking Logic (Paginated Fetch)
             let allDeptData = [];
             let from = 0;
             const step = 1000;
