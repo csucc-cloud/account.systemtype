@@ -1,4 +1,6 @@
 import { supabase, currentUserRole, currentUserOrg } from './auth.js';
+// Assuming your audit-logger exports a logAction function
+import { logAction } from './audit-logger.js'; 
 
 export const studentModule = {
     allStudentsData: [],
@@ -340,6 +342,9 @@ export const studentModule = {
         const { error } = await supabase.from('students').delete().in('student_id', ids);
         if (error) alert(error.message);
         else { 
+            // AUDIT LOG
+            logAction('STUDENT_BATCH_DELETE', `Deleted ${ids.length} students: ${ids.join(', ')}`);
+            
             this.selectedStudents.clear(); 
             this.updateBatchUI(); 
             this.updateDashboardStats(); // Refresh stats
@@ -368,6 +373,9 @@ export const studentModule = {
         const { error } = await supabase.from('students').delete().eq('student_id', id);
         if (error) alert(error.message);
         else {
+            // AUDIT LOG
+            logAction('STUDENT_DELETE', `Deleted student ID: ${id}`);
+            
             this.updateDashboardStats(); // Refresh stats
             this.fetchAndRenderList();
         }
@@ -389,17 +397,22 @@ export const studentModule = {
         const name = document.getElementById('stud-name').value.trim();
         if (!id || !name) return alert("Required fields missing");
 
-        const { error } = await supabase.from('students').upsert({
+        const studentData = {
             student_id: id, 
             full_name: name,
             college: document.getElementById('stud-college').value,
             course: document.getElementById('stud-course').value,
             department: document.getElementById('stud-dept').value, // Direct from UI
             year_level: parseInt(document.getElementById('stud-year').value)
-        }, { onConflict: 'student_id' });
+        };
+
+        const { error } = await supabase.from('students').upsert(studentData, { onConflict: 'student_id' });
 
         if (error) alert(error.message);
         else {
+            // AUDIT LOG
+            logAction('STUDENT_SAVE', `Saved/Updated student: ${name} (${id})`);
+
             await supabase.rpc('append_org_to_student', { s_id: id, new_org: currentUserOrg });
             document.getElementById('modal-student').classList.add('hidden');
             this.updateDashboardStats(); // Refresh stats
@@ -415,6 +428,7 @@ export const studentModule = {
             const workbook = window.XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
             const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
             progress.classList.remove('hidden');
+            
             for (let i = 0; i < json.length; i++) {
                 const sId = String(json[i]['ID Number'] || json[i]['ID'] || '').trim();
                 if (!sId) continue;
@@ -428,6 +442,10 @@ export const studentModule = {
                 });
                 await supabase.rpc('append_org_to_student', { s_id: sId, new_org: currentUserOrg });
             }
+            
+            // AUDIT LOG
+            logAction('STUDENT_IMPORT', `Imported ${json.length} students from file: ${file.name}`);
+
             progress.classList.add('hidden');
             this.updateDashboardStats(); // Refresh stats
             this.fetchAndRenderList();
