@@ -1,4 +1,5 @@
 import { supabase } from './auth.js';
+import { AuditLogger } from './utils/audit-logger.js'; // Integrated AuditLogger Utility
 
 /**
  * ADVANCED EVENTS MANAGEMENT SYSTEM v2.0
@@ -40,9 +41,23 @@ export const eventsModule = {
 
     async deployOperation(eventData) {
         try {
-            const { error } = await supabase.from('events').insert([eventData]);
+            // Updated to select the created record for the Audit Log target_id
+            const { data, error } = await supabase
+                .from('events')
+                .insert([eventData])
+                .select()
+                .single();
+
             if (error) throw error;
             
+            // --- INTEGRATED AUDIT LOGGING ---
+            await AuditLogger.log(
+                'DEPLOY_EVENT', 
+                data.id, 
+                eventData, 
+                null
+            );
+
             this.notify("Operation Deployed Successfully", "success");
             await this.fetchEvents();
             this.renderGrid();
