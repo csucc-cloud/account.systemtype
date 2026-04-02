@@ -20,11 +20,13 @@ const sidebarController = {
         const toggleSidebar = (isOpen) => {
             if (isOpen) {
                 // Slide the sidebar in and show overlay
+                sidebar.classList.add('sidebar-open'); // Added for CSS sync
                 sidebar.classList.remove('-translate-x-full');
                 overlay?.classList.remove('hidden');
                 document.body.classList.add('overflow-hidden');
             } else {
                 // Slide the sidebar out and hide overlay
+                sidebar.classList.remove('sidebar-open'); // Added for CSS sync
                 sidebar.classList.add('-translate-x-full');
                 overlay?.classList.add('hidden');
                 document.body.classList.remove('overflow-hidden');
@@ -39,7 +41,7 @@ const sidebarController = {
         const navLinks = sidebar.querySelectorAll('.nav-item');
         navLinks.forEach(link => {
             link.addEventListener('click', () => {
-                // Set to 1280 to match the XL breakpoint used in your HTML
+                // Set to 1280 to match the XL breakpoint used in your HTML/CSS
                 if (window.innerWidth < 1280) toggleSidebar(false);
             });
         });
