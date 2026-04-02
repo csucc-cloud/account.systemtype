@@ -44,7 +44,7 @@ export const dashboardModule = {
                                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">System Pulse</span>
                                 </div>
                             </div>
-                            <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations.</p>
+                            <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations. It serves as the sophisticated digital backbone of the LSG operations, meticulously engineered by Lead Architect <strong class="text-slate-700">Davie P. Sialongo</strong> to transition administrative governance into a high-performance, paperless ecosystem. By integrating a real-time Supabase backend with a dynamic Chart.js visualization suite, the platform provides instantaneous data parity across student records, attendance tracking, and departmental distribution. This version introduces an optimized "Tactical Entry" interface featuring staggered CSS animations and professional-grade audit logging, ensuring that every system interaction is not only cryptographically secure via AES-256 standards but also visually intuitive for rapid, data-driven decision-making.</p>
                             <div class="grid grid-cols-2 gap-3 mb-2">
                                 <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                                     <p class="text-[10px] font-bold text-slate-400 uppercase">Avg Uptime</p>
