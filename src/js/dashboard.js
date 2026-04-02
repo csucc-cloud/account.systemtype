@@ -7,10 +7,10 @@ export const dashboardModule = {
         if (!container) return;
 
         container.innerHTML = `
-            <div id="dashboard-view" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div id="dashboard-view" class="space-y-6">
                 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                    <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group flex flex-col items-center text-center">
+                    <div class="lg:col-span-4 bg-gradient-to-br from-[#000080] to-[#000050] text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden group flex flex-col items-center text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
                         <div class="relative z-10 flex flex-col h-full justify-between items-center w-full">
                             <div class="flex flex-col items-center gap-6 mb-6">
                                 <div class="relative w-40 h-40 flex-shrink-0">
@@ -21,25 +21,18 @@ export const dashboardModule = {
                                     </div>
                                 </div>
                                 <div>
-                                    <div class="flex items-center justify-center gap-2 mb-2">
-                                        <span class="px-2 py-1 bg-blue-400/20 rounded text-[10px] font-black uppercase tracking-widest border border-blue-400/30">System Designer</span>
-                                    </div>
                                     <h4 class="text-3xl font-black tracking-tight mb-1">Davie P. Sialongo</h4>
                                     <p class="text-blue-200/70 text-sm font-medium italic">The Developer • CITTE Student</p>
                                 </div>
                             </div>
                             <div class="mt-auto pt-6 border-t border-white/10 flex items-center justify-between w-full">
-                                <div class="flex -space-x-2">
-                                    <div class="w-8 h-8 rounded-full bg-blue-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="code-2" class="w-4 h-4"></i></div>
-                                    <div class="w-8 h-8 rounded-full bg-indigo-500 border-2 border-[#000080] flex items-center justify-center"><i data-lucide="terminal" class="w-4 h-4"></i></div>
-                                </div>
                                 <span class="text-[10px] font-bold opacity-50 uppercase">Established April 1, 2026</span>
                             </div>
                         </div>
                         <i data-lucide="cpu" class="absolute -bottom-6 -right-6 w-40 h-40 text-white/5 transform group-hover:rotate-12 transition-transform duration-700"></i>
                     </div>
 
-                    <div class="lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between group hover:border-blue-100 transition-all duration-300">
+                    <div class="lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between group hover:border-blue-100 transition-all duration-300 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
                         <div>
                             <div class="flex justify-between items-start mb-4">
                                 <h4 class="text-slate-900 font-black text-xl flex items-center gap-2">
@@ -51,90 +44,46 @@ export const dashboardModule = {
                                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">System Pulse</span>
                                 </div>
                             </div>
-                            <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations, engineered for zero-paperwork governance.</p>
+                            <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations.</p>
                             <div class="grid grid-cols-2 gap-3 mb-2">
-                                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 group-hover:bg-blue-50/50 transition-colors">
+                                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                                     <p class="text-[10px] font-bold text-slate-400 uppercase">Avg Uptime</p>
                                     <p class="text-lg font-black text-[#000080]">99.9%</p>
                                 </div>
-                                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 group-hover:bg-blue-50/50 transition-colors">
+                                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                                     <p class="text-[10px] font-bold text-slate-400 uppercase">Latency</p>
                                     <p class="text-lg font-black text-[#000080]">240ms</p>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex flex-wrap gap-2 mt-4">
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-bold text-slate-600 uppercase">
-                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-blue-600"></i> AES-256
-                            </div>
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-[10px] font-bold text-slate-600 uppercase">
-                                <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i> Live Sync
-                            </div>
-                        </div>
                     </div>
 
-                    <div class="lg:col-span-3 bg-slate-900 p-8 rounded-[2rem] shadow-xl flex flex-col justify-between relative overflow-hidden border border-slate-800">
+                    <div class="lg:col-span-3 bg-slate-900 p-8 rounded-[2rem] shadow-xl flex flex-col justify-between relative overflow-hidden border border-slate-800 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
                         <div class="relative z-10 space-y-6">
                             <p class="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Infrastructure</p>
                             <div class="flex items-center gap-4 group">
-                                <div class="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+                                <div class="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20">
                                     <i data-lucide="database" class="w-6 h-6 text-emerald-500"></i>
                                 </div>
                                 <div>
                                     <h5 class="text-white font-bold text-sm">Supabase DB</h5>
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                                        <span id="service-status-text" class="text-[10px] text-emerald-400 font-bold uppercase">Operational</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-4 group">
-                                <div class="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-white/10 transition-all">
-                                    <i data-lucide="github" class="w-6 h-6 text-white"></i>
-                                </div>
-                                <div>
-                                    <h5 class="text-white font-bold text-sm">GitHub Pages</h5>
-                                    <span class="text-[10px] text-slate-400 font-bold uppercase">Deployment Active</span>
+                                    <span id="service-status-text" class="text-[10px] text-emerald-400 font-bold uppercase">Operational</span>
                                 </div>
                             </div>
                         </div>
-                        <i data-lucide="server" class="absolute -top-10 -right-10 w-32 h-32 text-white/5 -rotate-12"></i>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
-                        <div><p class="text-sm font-medium text-slate-500">Total Students</p><h3 id="stat-total-students" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div>
-                        <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i></div>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
-                        <div><p class="text-sm font-medium text-slate-500">Daily Attendance</p><h3 id="stat-attendance" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div>
-                        <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="eye" class="w-4 h-4 text-slate-400"></i></div>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
-                        <div><p class="text-sm font-medium text-slate-500">Events Completed</p><h3 id="stat-events" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div>
-                        <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i></div>
-                    </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center">
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operation Effect</p>
-                        <div class="relative flex items-center justify-center">
-                            <svg class="w-20 h-20 transform -rotate-90"><circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/><circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round" style="transition: stroke-dashoffset 1.5s ease-out;"/></svg>
-                            <span id="stat-effect-percent" class="absolute text-xl font-black text-slate-700">0%</span>
+                    ${[1, 2, 3, 4].map(i => `
+                        <div id="stat-card-${i}" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start animate-in fade-in zoom-in duration-500" style="animation-delay: ${300 + (i * 100)}ms">
+                            <div id="stat-content-${i}"></div>
                         </div>
-                    </div>
+                    `).join('')}
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                        <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-blue-600"></i> Live Activity</h4>
-                        </div>
-                        <div id="live-activity-list" class="p-4 space-y-3 min-h-[300px]">
-                            <p class="text-[10px] text-slate-400 italic text-center py-10">Awaiting signals...</p>
-                        </div>
-                    </div>
-
-                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 flex flex-col">
+                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 flex flex-col animate-in fade-in slide-in-from-left-8 duration-700 delay-500">
                         <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 mb-6">
                             <i data-lucide="pie-chart" class="w-4 h-4 text-[#000080]"></i> Department Distribution
                         </h4>
@@ -143,17 +92,28 @@ export const dashboardModule = {
                         </div>
                     </div>
 
-                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 flex flex-col">
+                    <div class="lg:col-span-4 bg-slate-50 rounded-[2rem] border border-slate-200 overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-700 delay-600">
+                        <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i> System Audit Log</h4>
+                        </div>
+                        <div id="audit-log-list" class="p-6 space-y-6 flex-1"></div>
+                    </div>
+
+                    <div class="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 flex flex-col animate-in fade-in slide-in-from-right-8 duration-700 delay-700">
                         <h4 class="text-sm font-bold text-slate-700 mb-8 flex items-center gap-2">
                             <i data-lucide="bar-chart-3" class="w-4 h-4 text-[#000080]"></i> Department Ranking
                         </h4>
-                        <div id="dept-ranking-list" class="space-y-6 flex-1">
-                            <p class="text-xs text-slate-400 animate-pulse text-center">Crunching records...</p>
-                        </div>
+                        <div id="dept-ranking-list" class="space-y-6 flex-1"></div>
                     </div>
                 </div>
             </div>
         `;
+        
+        // Populate static shells of stats
+        document.getElementById('stat-card-1').innerHTML = `<div><p class="text-sm font-medium text-slate-500">Total Students</p><h3 id="stat-total-students" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i></div>`;
+        document.getElementById('stat-card-2').innerHTML = `<div><p class="text-sm font-medium text-slate-500">Daily Attendance</p><h3 id="stat-attendance" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="eye" class="w-4 h-4 text-slate-400"></i></div>`;
+        document.getElementById('stat-card-3').innerHTML = `<div><p class="text-sm font-medium text-slate-500">Events Completed</p><h3 id="stat-events" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i></div>`;
+        document.getElementById('stat-card-4').innerHTML = `<div class="w-full flex flex-col items-center"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operation Effect</p><div class="relative flex items-center justify-center"><svg class="w-20 h-20 transform -rotate-90"><circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/><circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round" style="transition: stroke-dashoffset 1.5s ease-out;"/></svg><span id="stat-effect-percent" class="absolute text-xl font-black text-slate-700">0%</span></div></div>`;
 
         if (window.lucide) window.lucide.createIcons();
     },
@@ -173,7 +133,7 @@ export const dashboardModule = {
             this.animateValue("stat-attendance", 0, aCount || 0, 1500);
             this.animateValue("stat-events", 0, eCount || 0, 1500);
 
-            // Fetch All Student Data for Analytics
+            // SINGLE FETCH: All student data for Ranking AND Chart
             let allDeptData = [];
             let from = 0; const step = 1000; let hasMore = true;
             while (hasMore) {
@@ -183,31 +143,33 @@ export const dashboardModule = {
                 if (data.length < step) hasMore = false; else from += step;
             }
 
-            // 1. Process Chart Data
+            // The "Source of Truth" for Distribution logic
             const deptCounts = allDeptData.reduce((acc, curr) => {
                 const d = curr.department || 'Unassigned';
                 acc[d] = (acc[d] || 0) + 1;
                 return acc;
             }, {});
 
+            // Update Both UI Elements with the same data object
             this.renderProfessionalChart(deptCounts);
+            this.renderRankingList(deptCounts);
 
-            // 2. Process Ranking List (Top 5)
-            const rankingList = document.getElementById('dept-ranking-list');
-            if (rankingList) {
-                const sorted = Object.entries(deptCounts).sort(([, a], [, b]) => b - a).slice(0, 5);
-                rankingList.innerHTML = sorted.map(([name, val], i) => `
-                    <div class="flex justify-between items-center animate-in fade-in slide-in-from-right duration-500">
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 ${i === 0 ? 'bg-[#000080]' : 'bg-slate-200 text-slate-500'} text-white rounded-full text-[10px] flex items-center justify-center font-bold">${i + 1}</span>
-                            <span class="text-sm font-semibold text-slate-600">${name}</span>
+            // Audit Logs (Restored)
+            const auditContainer = document.getElementById('audit-log-list');
+            if (auditContainer) {
+                const { data: logs } = await supabase.from('system_audit_logs').select('*').order('created_at', { ascending: false }).limit(3);
+                auditContainer.innerHTML = (logs && logs.length > 0) ? logs.map((log, i) => `
+                    <div class="flex gap-3 animate-in fade-in slide-in-from-right duration-500" style="animation-delay: ${i * 150}ms">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">${log.action_type.substring(0,2)}</div>
+                        <div>
+                            <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">${log.action_type.toLowerCase()}</span></p>
+                            <p class="text-[9px] text-blue-600 font-bold uppercase">${new Date(log.created_at).toLocaleTimeString()}</p>
                         </div>
-                        <span class="text-sm font-bold text-slate-700 tracking-tighter">${val.toLocaleString()}</span>
                     </div>
-                `).join('');
+                `).join('') : '<p class="text-xs text-slate-400 italic">No activity logs.</p>';
             }
 
-            // Existing Attendance Progress Logic
+            // Progress Circle Update
             const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
             const circle = document.getElementById('progress-circle');
             if (circle) {
@@ -215,43 +177,37 @@ export const dashboardModule = {
                 this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
-            // Existing Live Activity Logic
-            const { data: recentScans } = await supabase.from('attendance').select('*, students(full_name, department)').order('created_at', { ascending: false }).limit(5);
-            const activityContainer = document.getElementById('live-activity-list');
-            if (activityContainer && recentScans) {
-                activityContainer.innerHTML = recentScans.map(scan => `
-                    <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white transition-all border border-transparent hover:border-slate-100">
-                        <div class="w-8 h-8 rounded-full bg-[#000080] flex items-center justify-center text-white text-[10px] font-bold">${scan.students?.full_name.substring(0,1)}</div>
-                        <div class="flex-1 overflow-hidden">
-                            <p class="text-[11px] font-bold text-slate-800 truncate">${scan.students?.full_name}</p>
-                            <p class="text-[9px] text-slate-500">${scan.students?.department}</p>
-                        </div>
-                        <span class="text-[9px] font-black text-blue-600 uppercase">Live</span>
-                    </div>
-                `).join('');
-            }
-
         } catch (err) {
             this.handleSyncError(err);
         }
+    },
+
+    renderRankingList(counts) {
+        const rankingList = document.getElementById('dept-ranking-list');
+        if (!rankingList) return;
+
+        const sorted = Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 5);
+        rankingList.innerHTML = sorted.map(([name, val], i) => `
+            <div class="flex justify-between items-center animate-in fade-in slide-in-from-right duration-500" style="animation-delay: ${i * 100}ms">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 ${i === 0 ? 'bg-[#000080]' : 'bg-slate-200 text-slate-500'} text-white rounded-full text-[10px] flex items-center justify-center font-bold">${i + 1}</span>
+                    <span class="text-sm font-semibold text-slate-600">${name}</span>
+                </div>
+                <span class="text-sm font-bold text-slate-700 tracking-tighter">${val.toLocaleString()}</span>
+            </div>
+        `).join('');
     },
 
     renderProfessionalChart(counts) {
         const ctx = document.getElementById('deptDistributionChart');
         if (!ctx) return;
 
-        // Map data to specific labels user requested
-        const dataMap = {
-            'Education': counts['Education'] || 0,
-            'Industrial Technology': counts['Industrial Technology'] || 0,
-            'Others': 0
-        };
-
-        // Combine all other departments into 'Others'
-        Object.keys(counts).forEach(key => {
-            if (key !== 'Education' && key !== 'Industrial Technology') {
-                dataMap['Others'] += counts[key];
-            }
+        // Group counts into the 3 categories requested
+        const categories = { 'Education': 0, 'Industrial': 0, 'Other': 0 };
+        Object.entries(counts).forEach(([dept, count]) => {
+            if (dept.includes('Education')) categories['Education'] += count;
+            else if (dept.includes('Industrial') || dept.includes('Tech')) categories['Industrial'] += count;
+            else categories['Other'] += count;
         });
 
         new Chart(ctx, {
@@ -259,24 +215,21 @@ export const dashboardModule = {
             data: {
                 labels: ['Education Dept.', 'Indus Tech Dept.', 'Other Dept.'],
                 datasets: [{
-                    data: [dataMap['Education'], dataMap['Industrial Technology'], dataMap['Others']],
-                    backgroundColor: ['#000080', '#3b82f6', '#94a3b8'], // Navy, Blue, Slate
-                    hoverOffset: 10,
-                    borderWidth: 0
+                    data: [categories.Education, categories.Industrial, categories.Other],
+                    backgroundColor: ['#000080', '#3b82f6', '#cbd5e1'],
+                    borderWidth: 0,
+                    hoverOffset: 20
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '75%',
+                cutout: '78%',
+                animation: { animateRotate: true, animateScale: true, duration: 2000, easing: 'easeOutQuart' },
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20,
-                            font: { size: 11, weight: 'bold', family: 'Inter' }
-                        }
+                        labels: { usePointStyle: true, padding: 25, font: { size: 10, weight: '700' } }
                     }
                 }
             }
@@ -297,12 +250,6 @@ export const dashboardModule = {
     },
 
     handleSyncError(err) {
-        console.error("Dashboard Sync Error:", err.message);
-        const statusText = document.getElementById('service-status-text');
-        if (statusText) {
-            statusText.innerHTML = `Offline`;
-            statusText.className = "text-[10px] text-red-500 font-bold uppercase";
-            statusText.previousElementSibling.className = "w-1.5 h-1.5 bg-red-500 rounded-full animate-none";
-        }
+        console.error("Dashboard Sync Error:", err);
     }
 };
