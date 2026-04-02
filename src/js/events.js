@@ -4,7 +4,8 @@ export const eventsModule = {
     // --- DATABASE LOGIC ---
     async getEvents() {
         try {
-            // Pointing to the View we created to get the automated status
+            // We fetch from the VIEW 'events_with_status' 
+            // which calculates the status based on the date
             const { data, error } = await supabase
                 .from('events_with_status')
                 .select('*')
@@ -19,6 +20,9 @@ export const eventsModule = {
     },
 
     async setStatus(id, status) {
+        // NOTE: This will only work if you kept a 'manual_status' column.
+        // If you want to manually override the date-based status, 
+        // you would update the 'manual_status' column instead.
         return await supabase.from('events').update({ status }).eq('id', id);
     },
 
@@ -27,7 +31,6 @@ export const eventsModule = {
         const container = document.getElementById('mod-events') || document.getElementById('mod-dashboard');
         if (!container) return;
 
-        // 1. Get the Source of Truth: Fetch role/org directly from DB for the current user
         const { data: { user } } = await supabase.auth.getUser();
         const { data: profile } = await supabase
             .from('profiles')
@@ -66,7 +69,7 @@ export const eventsModule = {
             <div id="modal-event" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                 <div class="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
                     <h3 class="text-xl font-black text-slate-800 mb-2">New Operation</h3>
-                    <p class="text-xs text-slate-400 mb-6 font-medium">Create a new event session for staff to join.</p>
+                    <p class="text-xs text-slate-400 mb-6 font-medium">Create a new event session. Status is auto-calculated.</p>
                     <div class="space-y-4">
                         <div class="space-y-1">
                             <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Event Title</label>
@@ -99,8 +102,6 @@ export const eventsModule = {
                 <div class="col-span-full text-center py-20 border-2 border-dashed border-slate-100 rounded-[2.5rem]">
                     <i data-lucide="calendar-x-2" class="w-10 h-10 text-slate-200 mx-auto mb-4"></i>
                     <p class="text-slate-400 font-bold text-sm uppercase tracking-tight">No Events Scheduled</p>
-                    ${(role === 'super_admin' || role === 'admin') ? 
-                        `<p class="text-[10px] text-[#000080] font-medium mt-1 uppercase">Click "Create New Event" to start a session.</p>` : ''}
                 </div>`;
             if (window.lucide) window.lucide.createIcons();
             return;
@@ -134,18 +135,6 @@ export const eventsModule = {
                                 </button>
                             </div>
                         ` : `<div class="py-3 bg-slate-50 rounded-xl text-center"><p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Awaiting Activation</p></div>`}
-
-                        ${(role === 'super_admin' || role === 'admin') ? `
-                            <div class="pt-4 mt-4 border-t border-slate-50 flex items-center justify-between">
-                                <span class="text-[9px] font-bold text-slate-300 uppercase">Manage Mode</span>
-                                <select onchange="window.updateEventStatus('${event.id}', this.value)" 
-                                        class="text-[10px] font-bold bg-transparent border-none text-[#000080] cursor-pointer focus:ring-0">
-                                    <option value="upcoming" ${event.status === 'upcoming' ? 'selected' : ''}>Upcoming</option>
-                                    <option value="active" ${event.status === 'active' ? 'selected' : ''}>Active</option>
-                                    <option value="completed" ${event.status === 'completed' ? 'selected' : ''}>Completed</option>
-                                </select>
-                            </div>
-                        ` : ''}
                     </div>
                 </div>`;
         }).join('');
@@ -169,11 +158,11 @@ export const eventsModule = {
 
                 if (!name || !date) return alert("Missing Info: Event name and date are required.");
 
-                // Automatically include the organization_id from the profile we fetched
+                // REMOVED 'status: upcoming' because the column no longer exists 
+                // in the table. The View handles it now.
                 const { error } = await supabase.from('events').insert([{ 
                     event_name: name, 
                     event_date: date, 
-                    status: 'upcoming',
                     organization_id: orgId 
                 }]);
 
@@ -186,10 +175,5 @@ export const eventsModule = {
                 }
             };
         }
-
-        window.updateEventStatus = async (id, status) => {
-            await this.setStatus(id, status);
-            this.render();
-        };
     }
 };
