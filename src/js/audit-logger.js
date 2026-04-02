@@ -1,4 +1,4 @@
-import { supabase } from '../auth.js';
+import { supabase } from './auth.js';
 
 export const AuditLogger = {
     /**
