@@ -1,12 +1,56 @@
 import { authHandler } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
-import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut } from 'lucide';
+// ADDED Menu and X icons to your imports
+import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
+
+/**
+ * SIDEBAR CONTROLLER 
+ * Manages the open/close state for mobile responsiveness
+ */
+const sidebarController = {
+    init() {
+        const sidebar = document.getElementById('sidebar-main');
+        const openBtn = document.getElementById('open-sidebar');
+        const closeBtn = document.getElementById('close-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        if (!sidebar || !openBtn) return;
+
+        const toggleSidebar = (isOpen) => {
+            if (isOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay?.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay?.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        };
+
+        openBtn.addEventListener('click', () => toggleSidebar(true));
+        closeBtn?.addEventListener('click', () => toggleSidebar(false));
+        overlay?.addEventListener('click', () => toggleSidebar(false));
+
+        // Auto-close sidebar on mobile when a navigation item is clicked
+        const navLinks = sidebar.querySelectorAll('.nav-item');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 1024) toggleSidebar(false);
+            });
+        });
+    }
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // UPDATED: Included Menu and X in createIcons
     createIcons({
-        icons: { Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut }
+        icons: { Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X }
     });
+
+    // INITIALIZE SIDEBAR
+    sidebarController.init();
 
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
