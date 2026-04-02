@@ -1,3 +1,5 @@
+import { supabase } from './auth.js';
+
 export const PublicInquiryModule = {
     state: {
         currentEventId: null,
