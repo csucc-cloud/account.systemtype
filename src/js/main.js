@@ -1,8 +1,12 @@
 import { authHandler } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
-import { eventsModule } from './events.js'; // Ensure your UI module is named this
+import { eventsModule } from './events.js'; 
+import { logAction } from './audit-logger.js'; // 1. Added Audit Logger Import
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
+
+// Make logAction global for all other modules to use easily
+window.logAction = logAction;
 
 /**
  * SIDEBAR CONTROLLER 
@@ -64,12 +68,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             authScreen?.classList.add('hidden');
             appScreen?.classList.remove('hidden');
             
-            // CRITICAL: Store role for Operation Modules to use
             const role = user.user_metadata?.role || 'staff'; 
             localStorage.setItem('user_role', role);
             
             setupUserUI(user);
             window.showSection('dashboard');
+            
+            // 2. LOG: Session Restoration
+            logAction('SESSION_RESTORED', `User ${user.email} reconnected.`);
         } else {
             authScreen?.classList.remove('hidden');
             appScreen?.classList.add('hidden');
@@ -85,15 +91,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!email || !pass) return window.showAlert?.("Please enter email and password");
 
-        const { error } = await authHandler.signIn(email, pass);
-        if (error) window.showAlert?.(error.message);
-        else window.location.reload();
+        const { data, error } = await authHandler.signIn(email, pass);
+        if (error) {
+            logAction('LOGIN_FAILED', `Attempted email: ${email}`); // 3. LOG: Failed Login
+            window.showAlert?.(error.message);
+        } else {
+            // 4. LOG: Successful Login
+            await logAction('LOGIN_SUCCESS', `User ${email} logged in.`);
+            window.location.reload();
+        }
     });
 
     // Logout logic
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
+        // 5. LOG: Logout (done before clearing storage)
+        await logAction('LOGOUT', 'User initiated logout.');
+        
         await authHandler.logout();
-        localStorage.clear(); // Clear role on logout
+        localStorage.clear(); 
         window.location.reload();
     });
 });
@@ -136,6 +151,9 @@ window.showSection = function(sectionId) {
             target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
         });
 
+        // 6. LOG: Navigation Tracking
+        logAction('NAVIGATE', `Viewed ${sectionId} section`);
+
         // 3. Initialize Module-Specific Logic
         switch(sectionId) {
             case 'dashboard':
@@ -145,21 +163,19 @@ window.showSection = function(sectionId) {
                 studentModule.init();
                 break;
             case 'events':
-                eventsModule.render(); // Calls the role-based card grid
+                eventsModule.render(); 
                 break;
             case 'attendance':
-                // Check if an event is selected first
                 if(!sessionStorage.getItem('active_event')) {
                     window.showAlert?.("Select an active event first!");
                     window.showSection('events');
                 } else {
-                    // attendanceModule.render(); (To be built next)
+                    // attendanceModule.render(); 
                 }
                 break;
         }
     }
 
-    // 4. Update Header Title
     const title = document.getElementById('current-page-title');
     if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     
@@ -172,5 +188,3 @@ function updateNavUI(sectionId) {
         btn.classList.toggle('active', clickAttr.includes(`'${sectionId}'`));
     });
 }
-
-
