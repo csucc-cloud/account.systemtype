@@ -56,12 +56,12 @@ export const dashboardModule = {
                     <div class="lg:col-span-3 bg-slate-50 p-8 rounded-[2rem] border border-slate-200 flex flex-col justify-between items-center text-center">
                         <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Service Status</p>
                         <div class="relative py-4">
-                            <div class="absolute inset-0 bg-emerald-400/20 blur-xl rounded-full animate-pulse"></div>
-                            <i data-lucide="database" class="w-12 h-12 text-emerald-600 relative z-10"></i>
+                            <div id="status-glow" class="absolute inset-0 bg-emerald-400/20 blur-xl rounded-full animate-pulse"></div>
+                            <i data-lucide="database" id="status-icon" class="w-12 h-12 text-emerald-600 relative z-10"></i>
                         </div>
                         <div>
                             <span class="text-xs font-black text-slate-700 block mb-1">Supabase Cloud</span>
-                            <span class="text-[10px] text-emerald-600 font-bold uppercase flex items-center justify-center gap-1">
+                            <span id="service-status-text" class="text-[10px] text-emerald-600 font-bold uppercase flex items-center justify-center gap-1">
                                 <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
                                 Operational
                             </span>
@@ -120,7 +120,8 @@ export const dashboardModule = {
                         <div class="p-8 bg-slate-50/20">
                             <h4 class="text-sm font-bold text-slate-700 mb-8">Department Ranking</h4>
                             <div id="dept-ranking-list" class="space-y-6">
-                                </div>
+                                <p class="text-xs text-slate-400 animate-pulse text-center">Crunching records...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -153,15 +154,37 @@ export const dashboardModule = {
             const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
             const { count: aCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true });
             const { count: eCount } = await supabase.from('events').select('*', { count: 'exact', head: true });
-            
-            // Server-side group check (All Students)
-            const { data: deptData } = await supabase.from('students').select('department');
+
+            let allDeptData = [];
+            let from = 0;
+            const step = 1000;
+            let hasMore = true;
+
+            while (hasMore) {
+                const { data, error: fetchError } = await supabase
+                    .from('students')
+                    .select('department')
+                    .range(from, from + step - 1);
+
+                if (fetchError) throw fetchError;
+                
+                allDeptData = [...allDeptData, ...data];
+                if (data.length < step) hasMore = false;
+                else from += step;
+            }
+
+            const statusText = document.getElementById('service-status-text');
+            const statusGlow = document.getElementById('status-glow');
+            if (statusText) {
+                statusText.innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span> Operational`;
+                statusText.className = "text-[10px] text-emerald-600 font-bold uppercase flex items-center justify-center gap-1";
+                if(statusGlow) statusGlow.className = "absolute inset-0 bg-emerald-400/20 blur-xl rounded-full animate-pulse";
+            }
 
             this.animateValue("stat-total-students", 0, sCount || 0, 1500);
             this.animateValue("stat-attendance", 0, aCount || 0, 1500);
             this.animateValue("stat-events", 0, eCount || 0, 1500);
 
-            // Operation Effect calculation
             const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
             const circle = document.getElementById('progress-circle');
             if (circle) {
@@ -169,10 +192,9 @@ export const dashboardModule = {
                 this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
-            // High Performance Ranking List
             const rankingList = document.getElementById('dept-ranking-list');
-            if (rankingList && deptData) {
-                const counts = deptData.reduce((acc, curr) => {
+            if (rankingList && allDeptData.length > 0) {
+                const counts = allDeptData.reduce((acc, curr) => {
                     const d = curr.department || 'Unassigned';
                     acc[d] = (acc[d] || 0) + 1;
                     return acc;
@@ -190,8 +212,18 @@ export const dashboardModule = {
                     </div>
                 `).join('');
             }
+
         } catch (err) {
             console.error("Dashboard Sync Error:", err.message);
+            const statusText = document.getElementById('service-status-text');
+            const statusGlow = document.getElementById('status-glow');
+            const statusIcon = document.getElementById('status-icon');
+            if (statusText) {
+                statusText.innerHTML = `Connection Error`;
+                statusText.className = "text-[10px] text-red-500 font-bold uppercase flex items-center justify-center gap-1";
+                if(statusGlow) statusGlow.className = "absolute inset-0 bg-red-400/10 blur-xl rounded-full";
+                if(statusIcon) statusIcon.className = "w-12 h-12 text-red-400 relative z-10";
+            }
         }
     }
 };
