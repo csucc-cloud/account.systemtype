@@ -172,3 +172,5 @@ function updateNavUI(sectionId) {
         btn.classList.toggle('active', clickAttr.includes(`'${sectionId}'`));
     });
 }
+
+
