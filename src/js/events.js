@@ -18,7 +18,7 @@ export const eventsModule = {
             const { data, error } = await supabase
                 .from('events_with_status')
                 .select('*')
-                .order('event_date', { ascending: false });
+                .order('start_time', { ascending: false });
             
             if (error) throw error;
             this.state.events = data || [];
@@ -108,27 +108,77 @@ export const eventsModule = {
             </div>
 
             <div id="modal-event" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[500] flex items-center justify-center p-4">
-                <div class="bg-white rounded-[3.5rem] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-300">
-                    <div class="p-12 space-y-10">
-                        <div class="flex justify-between items-start">
-                            <h3 class="text-4xl font-[1000] text-slate-900 tracking-tighter">EVENT<br>DETAILS</h3>
-                            <button id="close-ev-modal" class="p-4 bg-slate-50 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-3xl transition-all">
-                                <i data-lucide="x" class="w-6 h-6"></i>
-                            </button>
+                <div class="bg-white rounded-[3.5rem] w-full max-w-3xl shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+                    <div class="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                        <div>
+                            <h3 class="text-4xl font-[1000] text-slate-900 tracking-tighter italic">NEW<span class="text-[#000080] text-stroke-thin">EVENT</span></h3>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Deployment Configuration</p>
                         </div>
+                        <button id="close-ev-modal" class="p-4 bg-white hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-3xl transition-all shadow-sm">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
+                    </div>
 
-                        <div class="space-y-6">
-                            <input type="text" id="new-ev-name" placeholder="Event Name" class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
-                            <textarea id="new-ev-desc" rows="3" placeholder="Description" class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-medium focus:bg-white focus:border-blue-100 outline-none transition-all resize-none"></textarea>
-                            <div class="grid grid-cols-2 gap-4">
-                                <input type="date" id="new-ev-date" class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
-                                <input type="time" id="new-ev-start" class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
+                    <div class="p-10">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div class="space-y-6">
+                                <div class="space-y-2">
+                                    <label class="flex items-center gap-2 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-4">
+                                        <i data-lucide="tag" class="w-3 h-3"></i> Event Identity
+                                    </label>
+                                    <input type="text" id="new-ev-name" placeholder="e.g., Tactical Summit 2026" 
+                                        class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all placeholder:text-slate-300">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center gap-2 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-4">
+                                        <i data-lucide="align-left" class="w-3 h-3"></i> Mission Briefing
+                                    </label>
+                                    <textarea id="new-ev-desc" rows="5" placeholder="Define the core objectives..." 
+                                        class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-medium focus:bg-white focus:border-blue-100 outline-none transition-all resize-none placeholder:text-slate-300"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div class="space-y-4">
+                                    <label class="flex items-center gap-2 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-4">
+                                        <i data-lucide="clock" class="w-3 h-3"></i> Deployment Window
+                                    </label>
+                                    
+                                    <div class="p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] focus-within:bg-white focus-within:border-blue-100 transition-all">
+                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 underline decoration-[#000080] decoration-2 underline-offset-4">Commencement</span>
+                                        <div class="flex flex-col gap-3">
+                                            <input type="date" id="new-ev-start-date" class="bg-transparent text-sm font-bold outline-none cursor-pointer">
+                                            <div class="h-px bg-slate-200 w-full"></div>
+                                            <input type="time" id="new-ev-start-time" class="bg-transparent text-sm font-bold outline-none cursor-pointer">
+                                        </div>
+                                    </div>
+
+                                    <div class="p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] focus-within:bg-white focus-within:border-blue-100 transition-all">
+                                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 underline decoration-[#000080] decoration-2 underline-offset-4">Conclusion</span>
+                                        <div class="flex flex-col gap-3">
+                                            <input type="date" id="new-ev-end-date" class="bg-transparent text-sm font-bold outline-none cursor-pointer">
+                                            <div class="h-px bg-slate-200 w-full"></div>
+                                            <input type="time" id="new-ev-end-time" class="bg-transparent text-sm font-bold outline-none cursor-pointer">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="p-6 bg-blue-50/50 rounded-[2rem] border border-blue-100/50">
+                                    <div class="flex gap-3">
+                                        <i data-lucide="info" class="w-5 h-5 text-[#000080]"></i>
+                                        <p class="text-[9px] text-slate-500 font-bold uppercase leading-relaxed tracking-wider">
+                                            Event initialized in <span class="text-[#000080]">Standby</span>. Automated activation on scheduled date.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">
-                            Confirm & Save
-                        </button>
+                        <div class="mt-10 pt-10 border-t border-slate-50">
+                            <button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-[2.5rem] font-black text-xs uppercase tracking-[0.4em] shadow-2xl hover:scale-[1.01] active:scale-95 transition-all">
+                                Deploy Event to Grid
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -155,6 +205,9 @@ export const eventsModule = {
         grid.innerHTML = this.state.filteredEvents.map((ev, index) => {
             const isActive = ev.status === 'active';
             const statusTheme = isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400';
+            
+            const start = new Date(ev.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const end = new Date(ev.end_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
             return `
                 <div class="group bg-white border border-slate-100 rounded-[3.5rem] p-10 shadow-sm hover:shadow-2xl transition-all animate-in slide-in-from-bottom-10 duration-700" style="animation-delay: ${index * 100}ms">
@@ -163,17 +216,18 @@ export const eventsModule = {
                             <span class="w-1.5 h-1.5 rounded-full bg-current ${isActive ? 'animate-ping' : ''}"></span>
                             ${ev.status}
                         </div>
-                        <i data-lucide="more-horizontal" class="text-slate-200 w-5 h-5"></i>
+                        <i data-lucide="more-horizontal" class="text-slate-200 w-5 h-5 cursor-pointer"></i>
                     </div>
                     
                     <div class="space-y-4 mb-10">
                         <h3 class="text-3xl font-[1000] text-slate-900 leading-[0.9] tracking-tighter group-hover:text-[#000080] transition-colors uppercase">${ev.event_name}</h3>
-                        <p class="text-sm text-slate-400 font-medium line-clamp-2">${ev.description || 'No description provided.'}</p>
+                        <p class="text-sm text-slate-400 font-medium line-clamp-2">${ev.description || 'No briefing provided.'}</p>
                         
-                        <div class="flex items-center gap-4 pt-4">
-                            <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
-                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
-                                <span class="text-[10px] font-black text-slate-500 uppercase">${new Date(ev.event_date).toDateString()}</span>
+                        <div class="flex items-center gap-3 px-4 py-3 bg-slate-50 rounded-2xl border border-slate-100 mt-6">
+                            <i data-lucide="calendar-range" class="w-4 h-4 text-[#000080]"></i>
+                            <div class="flex flex-col">
+                                <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest">Operation Window</span>
+                                <span class="text-[10px] font-black text-slate-700 uppercase">${start} — ${end}</span>
                             </div>
                         </div>
                     </div>
@@ -185,7 +239,7 @@ export const eventsModule = {
                                 Manage Attendance
                             </button>` : `
                             <div class="w-full py-5 bg-slate-50 text-slate-300 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-center">
-                                View Logs
+                                View History Logs
                             </div>`}
                     </div>
                 </div>`;
@@ -194,10 +248,27 @@ export const eventsModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
+    async deployOperation(eventData) {
+        try {
+            const { error } = await supabase.from('events').insert([eventData]);
+            if (error) throw error;
+            
+            this.notify("Event Successfully Deployed", "success");
+            await this.fetchEvents();
+            this.renderGrid();
+            document.getElementById('modal-event').classList.add('hidden');
+            return true;
+        } catch (error) {
+            this.notify("Deployment Failed: " + error.message, "error");
+            return false;
+        }
+    },
+
     initEventListeners() {
         const searchInput = document.getElementById('ev-search');
         const filterTabs = document.querySelectorAll('.filter-tab');
         const modal = document.getElementById('modal-event');
+        const saveBtn = document.getElementById('save-ev-btn');
 
         if (searchInput) {
             searchInput.oninput = (e) => {
@@ -220,8 +291,39 @@ export const eventsModule = {
         });
 
         const openBtn = document.getElementById('btn-add-event');
-        if (openBtn) openBtn.onclick = () => modal.classList.remove('hidden');
+        if (openBtn) openBtn.onclick = () => {
+            modal.classList.remove('hidden');
+            if(window.lucide) window.lucide.createIcons();
+        };
+
         const closeBtn = document.getElementById('close-ev-modal');
         if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+
+        if (saveBtn) {
+            saveBtn.onclick = async () => {
+                const name = document.getElementById('new-ev-name').value;
+                const desc = document.getElementById('new-ev-desc').value;
+                const startDate = document.getElementById('new-ev-start-date').value;
+                const startTime = document.getElementById('new-ev-start-time').value;
+                const endDate = document.getElementById('new-ev-end-date').value;
+                const endTime = document.getElementById('new-ev-end-time').value;
+
+                if (!name || !startDate || !endDate) {
+                    return this.notify("Incomplete Parameters", "error");
+                }
+
+                const startTimestamp = `${startDate}T${startTime || '00:00'}:00`;
+                const endTimestamp = `${endDate}T${endTime || '23:59'}:00`;
+
+                await this.deployOperation({
+                    event_name: name,
+                    description: desc,
+                    start_time: startTimestamp,
+                    end_time: endTimestamp,
+                    organization_id: this.state.userOrgId,
+                    status: 'active'
+                });
+            };
+        }
     }
 };
