@@ -1,12 +1,17 @@
 import { supabase } from './auth.js';
 
-export const eventManager = {
+export const eventsModule = {
     // --- DATABASE LOGIC ---
     async getEvents() {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('events')
             .select('*')
             .order('event_date', { ascending: false });
+        
+        if (error) {
+            console.error("Error fetching events:", error);
+            return [];
+        }
         return data || [];
     },
 
@@ -14,17 +19,16 @@ export const eventManager = {
         return await supabase.from('events').update({ status }).eq('id', id);
     },
 
-    // --- ROLE-BASED UI GENERATOR ---
+    // --- UI RENDERER ---
     async render() {
         const container = document.getElementById('mod-dashboard');
         if (!container) return;
 
-        // 1. Get current user role from your auth session/localStorage
-        const userRole = localStorage.getItem('user_role'); // e.g., 'super_admin', 'admin', 'staff_attendance', 'staff_finance'
+        const userRole = localStorage.getItem('user_role') || 'staff';
 
         container.innerHTML = `
             <div class="p-8 animate-in fade-in duration-700">
-                <div class="flex justify-between items-center mb-10">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                     <div>
                         <h2 class="text-2xl font-black text-slate-800 tracking-tight">Command Center</h2>
                         <p class="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">Active Operations & Event Management</p>
@@ -40,15 +44,36 @@ export const eventManager = {
                 <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     </div>
             </div>
+
+            <div id="modal-event" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                <div class="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl">
+                    <h3 class="text-xl font-black text-slate-800 mb-4">New Operation</h3>
+                    <div class="space-y-4">
+                        <input type="text" id="new-ev-name" placeholder="Event Name" class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm">
+                        <input type="date" id="new-ev-date" class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm">
+                        <div class="flex gap-2 pt-4">
+                            <button id="close-ev-modal" class="flex-1 py-3 text-slate-400 font-bold text-xs uppercase">Cancel</button>
+                            <button id="save-ev-btn" class="flex-1 py-3 bg-[#000080] text-white rounded-xl font-black text-xs uppercase">Save Event</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
 
         this.populateEvents(userRole);
+        this.initEventListeners(userRole);
     },
 
     async populateEvents(role) {
         const events = await this.getEvents();
         const grid = document.getElementById('events-grid');
+        if (!grid) return;
         
+        if (events.length === 0) {
+            grid.innerHTML = `<p class="col-span-full text-center py-10 text-slate-400 italic text-sm">No events found.</p>`;
+            return;
+        }
+
         grid.innerHTML = events.map(event => {
             const isActive = event.status === 'active';
             
@@ -67,17 +92,16 @@ export const eventManager = {
                     </div>
 
                     <div class="space-y-3">
-                        
                         ${isActive ? `
                             <div class="grid grid-cols-2 gap-2">
                                 ${(role !== 'staff_finance') ? `
-                                    <button onclick="window.location.hash='#attendance'; sessionStorage.setItem('active_event', '${event.id}')" 
+                                    <button onclick="window.showSection('attendance'); sessionStorage.setItem('active_event', '${event.id}')" 
                                             class="py-3 bg-blue-50 text-[#000080] rounded-xl text-[10px] font-black uppercase hover:bg-[#000080] hover:text-white transition-all">
                                         Attendance
                                     </button>
                                 ` : ''}
                                 ${(role !== 'staff_attendance') ? `
-                                    <button onclick="window.location.hash='#finance'; sessionStorage.setItem('active_event', '${event.id}')" 
+                                    <button onclick="window.showSection('finance'); sessionStorage.setItem('active_event', '${event.id}')" 
                                             class="py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase hover:bg-emerald-600 transition-all">
                                         Finance
                                     </button>
@@ -88,7 +112,7 @@ export const eventManager = {
                         ${(role === 'super_admin' || role === 'admin') ? `
                             <div class="pt-4 mt-4 border-t border-slate-50 flex items-center justify-between">
                                 <span class="text-[9px] font-bold text-slate-400 uppercase">System Control</span>
-                                <select onchange="eventManager.updateStatus('${event.id}', this.value)" 
+                                <select onchange="window.updateEventStatus('${event.id}', this.value)" 
                                         class="text-[10px] font-bold bg-transparent border-none text-[#000080] cursor-pointer focus:ring-0">
                                     <option value="upcoming" ${event.status === 'upcoming' ? 'selected' : ''}>Upcoming</option>
                                     <option value="active" ${event.status === 'active' ? 'selected' : ''}>Set Active</option>
@@ -104,8 +128,41 @@ export const eventManager = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    async updateStatus(id, newStatus) {
-        const { error } = await this.setStatus(id, newStatus);
-        if (!error) this.render(); // Refresh UI
+    initEventListeners(role) {
+        const modal = document.getElementById('modal-event');
+        const addBtn = document.getElementById('btn-add-event');
+        const closeBtn = document.getElementById('close-ev-modal');
+        const saveBtn = document.getElementById('save-ev-btn');
+
+        if (addBtn) addBtn.onclick = () => modal.classList.remove('hidden');
+        if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+
+        if (saveBtn) {
+            saveBtn.onclick = async () => {
+                const name = document.getElementById('new-ev-name').value;
+                const date = document.getElementById('new-ev-date').value;
+
+                if (!name || !date) return alert("Fill all fields");
+
+                const { error } = await supabase.from('events').insert([{ 
+                    event_name: name, 
+                    event_date: date, 
+                    status: 'upcoming' 
+                }]);
+
+                if (!error) {
+                    modal.classList.add('hidden');
+                    this.render();
+                } else {
+                    alert(error.message);
+                }
+            };
+        }
+
+        // Global function for the select dropdown
+        window.updateEventStatus = async (id, status) => {
+            await this.setStatus(id, status);
+            this.render();
+        };
     }
 };
