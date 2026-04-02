@@ -18,11 +18,6 @@
   border-radius: 10px;
 }
 
-.nav-item.active {
-  background-color: rgba(255, 255, 255, 0.15);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
 /* Sidebar Custom Components */
 .nav-item {
     @apply flex items-center gap-4 w-full px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 text-slate-400 hover:bg-slate-50 hover:text-slate-700;
@@ -49,24 +44,29 @@
     @apply bg-slate-200 rounded-full; 
 }
 
-
 /* Sidebar Toggle States */
 #app aside {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Force high z-index so it appears above the blur */
+    z-index: 100 !important; 
 }
 
-/* On Mobile: Sidebar starts off-screen */
-@media (max-width: 1023px) {
+/* FIX: Updated from 1023px to 1279px 
+   This ensures tablets use the mobile "slide-in" logic 
+*/
+@media (max-width: 1279px) {
     #app aside {
         transform: translateX(-100%);
+        position: fixed;
     }
+    /* This class is toggled by JS */
     #app aside.sidebar-open {
-        transform: translateX(0);
+        transform: translateX(0) !important;
     }
 }
 
-/* On Desktop: Sidebar slides out and shrinks the main content margin */
-@media (min-width: 1024px) {
+/* On Large Desktop: Sidebar behavior */
+@media (min-width: 1280px) {
     #app aside.sidebar-closed {
         transform: translateX(-100%);
     }
@@ -76,4 +76,9 @@
     #app.sidebar-hidden main {
         margin-left: 0 !important;
     }
+}
+
+/* Ensure the overlay is always under the sidebar but over the content */
+#sidebar-overlay {
+    z-index: 90 !important;
 }
