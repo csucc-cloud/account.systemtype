@@ -3,12 +3,13 @@ import { supabase } from './auth.js';
 export const PublicInquiryModule = {
     state: {
         currentEventId: null,
-        isValidated: false
+        isValidated: false,
+        studentId: null
     },
 
     init(eventId) {
         this.state.currentEventId = eventId;
-        this.renderForm(); // Create the HTML first!
+        this.renderForm();
         this.attachEventListeners();
     },
 
@@ -61,29 +62,35 @@ export const PublicInquiryModule = {
             return false;
         }
 
-        const { data, error } = await supabase
-            .from('students_masterlist')
-            .select('student_number')
-            .eq('student_number', inputVal)
-            .single();
+        try {
+            // Updated to use 'students' table as per your requirement
+            const { data, error } = await supabase
+                .from('students') 
+                .select('student_number') 
+                .eq('student_number', inputVal)
+                .single();
 
-        if (error || !data) {
-            idInput.classList.add('border-red-500', 'bg-red-50');
-            idError.classList.remove('hidden');
-            idError.innerText = "Student ID number does not exist!";
-            this.state.isValidated = false;
+            if (error || !data) {
+                idInput.classList.add('border-red-500', 'bg-red-50');
+                idError.classList.remove('hidden');
+                idError.innerText = "Student ID not found in masterlist!";
+                this.state.isValidated = false;
+                return false;
+            } else {
+                idInput.classList.remove('border-red-500', 'bg-red-50');
+                idInput.classList.add('border-green-500');
+                idError.classList.add('hidden');
+                this.state.studentId = inputVal;
+                this.state.isValidated = true;
+                return true;
+            }
+        } catch (err) {
+            alert("Connection Error: " + err.message);
             return false;
-        } else {
-            idInput.classList.remove('border-red-500', 'bg-red-50');
-            idInput.classList.add('border-green-500');
-            idError.classList.add('hidden');
-            this.state.isValidated = true;
-            return true;
         }
     },
 
     async submitInquiry() {
-        // Run validation check
         const isNowValid = await this.validateStudentId();
         if (!isNowValid) return;
 
@@ -96,21 +103,24 @@ export const PublicInquiryModule = {
             return;
         }
 
-        // Send to Supabase (match your table columns: question_1, question_2, etc)
-        const { error } = await supabase
-            .from('event_inquiries')
-            .insert([{
-                event_id: this.state.currentEventId,
-                student_id: document.getElementById('student-id').value,
-                question_1: q1,
-                question_2: q2,
-                question_3: q3
-            }]);
+        try {
+            const { error } = await supabase
+                .from('event_inquiries')
+                .insert([{
+                    event_id: this.state.currentEventId,
+                    student_id: this.state.studentId,
+                    question_1: q1,
+                    question_2: q2,
+                    question_3: q3
+                }]);
 
-        if (error) {
-            alert("Error: " + error.message);
-        } else {
-            this.showSuccessState();
+            if (error) {
+                alert("Database Error: " + error.message);
+            } else {
+                this.showSuccessState();
+            }
+        } catch (err) {
+            alert("Submission Failed: " + err.message);
         }
     },
 
