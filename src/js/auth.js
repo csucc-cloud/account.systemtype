@@ -138,3 +138,35 @@ export const authHandler = {
         window.location.reload();
     }
 };
+
+// Add this to your authHandler inside auth.js
+async getCurrentUser() {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        // 1. Get the Org from Metadata
+        currentUserOrg = user.user_metadata?.org_name || "Guest";
+
+        // 2. FETCH THE ROLE FROM PROFILES TABLE (Crucial!)
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        if (profile) {
+            currentUserRole = profile.role; // This sets 'super_admin'
+        }
+
+        // 3. Fallback for your master email
+        if (user.email === 'adminsystem@gmail.com') {
+            currentUserRole = 'super_admin';
+        }
+
+        console.log("Logged in as:", currentUserRole, "from", currentUserOrg);
+        return { ...user, role: currentUserRole };
+    } catch (err) {
+        return null;
+    }
+}
