@@ -1,14 +1,12 @@
 import { supabase } from './auth.js';
 
 export const dashboardModule = {
-    // 1. THE REAL HTML STRUCTURE (Professional Layout)
     render() {
         const container = document.getElementById('mod-dashboard');
         if (!container) return;
 
-        // Note: Using a single innerHTML string is faster for the browser to "paint"
         container.innerHTML = `
-            <div id="dashboard-view" class="space-y-6 animate-in fade-in duration-700">
+            <div id="dashboard-view" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     
@@ -44,10 +42,11 @@ export const dashboardModule = {
                         <div class="relative flex items-center justify-center">
                             <svg class="w-20 h-20 transform -rotate-90">
                                 <circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/>
-                                <circle cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" 
-                                        stroke-dasharray="213" stroke-dashoffset="40" stroke-linecap="round"/>
+                                <circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" 
+                                        stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round"
+                                        style="transition: stroke-dashoffset 1.5s ease-out;"/>
                             </svg>
-                            <span class="absolute text-xl font-black text-slate-700">88%</span>
+                            <span id="stat-effect-percent" class="absolute text-xl font-black text-slate-700">0%</span>
                         </div>
                     </div>
                 </div>
@@ -69,8 +68,13 @@ export const dashboardModule = {
                     <div class="grid grid-cols-1 lg:grid-cols-3">
                         <div class="lg:col-span-2 p-8 border-r border-slate-50">
                             <h4 class="text-sm font-bold text-slate-700 mb-8">Attendance Trend (SY 2026)</h4>
-                            <div class="h-64 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center">
-                                <i data-lucide="bar-chart-3" class="w-8 h-8 text-slate-300 mb-2"></i>
+                            <div class="h-64 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden">
+                                <div class="flex items-end gap-3 h-32 mb-4">
+                                    <div class="w-8 bg-blue-100 rounded-t-lg animate-bounce" style="height: 40%; animation-delay: 0.1s"></div>
+                                    <div class="w-8 bg-blue-200 rounded-t-lg animate-bounce" style="height: 70%; animation-delay: 0.2s"></div>
+                                    <div class="w-8 bg-[#000080] rounded-t-lg animate-bounce" style="height: 90%; animation-delay: 0.3s"></div>
+                                    <div class="w-8 bg-blue-300 rounded-t-lg animate-bounce" style="height: 60%; animation-delay: 0.4s"></div>
+                                </div>
                                 <p class="text-xs text-slate-400 font-medium italic">Connecting to Supabase Analytics...</p>
                             </div>
                         </div>
@@ -106,29 +110,53 @@ export const dashboardModule = {
             </div>
         `;
 
-        // Wake up icons for this specific module
         if (window.lucide) window.lucide.createIcons();
     },
 
-    // 2. THE LOGIC (Initializing and fetching data)
     async init() {
-        this.render(); // Build the HTML first
-        await this.updateLiveStats(); // Fill with real data
+        this.render();
+        await this.updateLiveStats();
+    },
+
+    animateValue(id, start, end, duration) {
+        const obj = document.getElementById(id);
+        if (!obj) return;
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
     },
 
     async updateLiveStats() {
         try {
-            // Count total students for the logged-in org
-            const { count, error } = await supabase
-                .from('students')
-                .select('*', { count: 'exact', head: true });
+            // Fetch real counts from Supabase
+            const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
+            const { count: aCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true });
+            const { count: eCount } = await supabase.from('events').select('*', { count: 'exact', head: true });
 
-            if (error) throw error;
+            // 1. Animate Numerical Stats
+            this.animateValue("stat-total-students", 0, sCount || 0, 1500);
+            this.animateValue("stat-attendance", 0, aCount || 0, 1500);
+            this.animateValue("stat-events", 0, eCount || 0, 1500);
 
-            const statElement = document.getElementById('stat-total-students');
-            if (statElement) {
-                // Animate the number if you want to be extra fancy
-                statElement.innerText = count ? count.toLocaleString() : 0;
+            // 2. Animate Donut Chart (Operation Effect)
+            const targetPercent = 88; 
+            const circle = document.getElementById('progress-circle');
+            if (circle) {
+                const circumference = 213.6; // 2 * PI * r
+                const offset = circumference - (targetPercent / 100) * circumference;
+                circle.style.strokeDashoffset = offset;
+                this.animateValue("stat-effect-percent", 0, targetPercent, 1500);
+                setTimeout(() => {
+                    const txt = document.getElementById('stat-effect-percent');
+                    if (txt) txt.innerText = targetPercent + "%";
+                }, 1500);
             }
 
         } catch (err) {
