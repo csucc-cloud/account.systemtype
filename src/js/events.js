@@ -123,7 +123,7 @@ export const eventsModule = {
 
                             ${(this.state.userRole === 'admin' || this.state.userRole === 'super_admin') ? `
                                 <button id="btn-add-event" class="px-10 py-5 bg-[#000080] text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center gap-3">
-                                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-300"></i> Deploy Mission
+                                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-300"></i> Create Event
                                 </button>
                             ` : ''}
                         </div>
