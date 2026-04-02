@@ -4,8 +4,7 @@ export const eventsModule = {
     // --- DATABASE LOGIC ---
     async getEvents() {
         try {
-            // We fetch from the VIEW 'events_with_status' 
-            // which calculates the status based on the date
+            // Fetching from the view that calculates status based on date
             const { data, error } = await supabase
                 .from('events_with_status')
                 .select('*')
@@ -17,13 +16,6 @@ export const eventsModule = {
             console.error("Database Fetch Error:", error.message);
             return [];
         }
-    },
-
-    async setStatus(id, status) {
-        // NOTE: This will only work if you kept a 'manual_status' column.
-        // If you want to manually override the date-based status, 
-        // you would update the 'manual_status' column instead.
-        return await supabase.from('events').update({ status }).eq('id', id);
     },
 
     // --- UI RENDERER ---
@@ -45,7 +37,7 @@ export const eventsModule = {
             <div class="p-8 animate-in fade-in duration-700">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                     <div>
-                        <h2 class="text-2xl font-black text-slate-800 tracking-tight">Command Center</h2>
+                        <h2 class="text-2xl font-black text-slate-800 tracking-tight">Operation Command</h2>
                         <p class="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">
                             Role: <span class="text-[#000080]">${userRole.replace('_', ' ')}</span>
                         </p>
@@ -53,7 +45,7 @@ export const eventsModule = {
                     
                     ${(userRole === 'super_admin' || userRole === 'admin') ? `
                         <button id="btn-add-event" class="px-5 py-2.5 bg-[#000080] text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:shadow-xl transition-all flex items-center gap-2">
-                            <i data-lucide="plus-circle" class="w-4 h-4"></i> Create New Event
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i> New Operation
                         </button>
                     ` : ''}
                 </div>
@@ -61,80 +53,77 @@ export const eventsModule = {
                 <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="col-span-full text-center py-20">
                         <div class="w-6 h-6 border-2 border-slate-200 border-t-[#000080] rounded-full animate-spin mx-auto mb-4"></div>
-                        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Syncing with Database...</p>
+                        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Loading Live Status...</p>
                     </div>
                 </div>
             </div>
 
             <div id="modal-event" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                 <div class="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
-                    <h3 class="text-xl font-black text-slate-800 mb-2">New Operation</h3>
-                    <p class="text-xs text-slate-400 mb-6 font-medium">Create a new event session. Status is auto-calculated.</p>
+                    <h3 class="text-xl font-black text-slate-800 mb-2">Deploy Operation</h3>
                     <div class="space-y-4">
                         <div class="space-y-1">
-                            <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Event Title</label>
-                            <input type="text" id="new-ev-name" placeholder="e.g. General Assembly" class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 transition-all">
+                            <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Title</label>
+                            <input type="text" id="new-ev-name" class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100">
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Schedule Date</label>
-                            <input type="date" id="new-ev-date" class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 transition-all">
+                            <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Target Date</label>
+                            <input type="date" id="new-ev-date" class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100">
                         </div>
                         <div class="flex gap-2 pt-4">
-                            <button id="close-ev-modal" class="flex-1 py-4 text-slate-400 font-bold text-xs uppercase hover:text-slate-600 transition-all">Cancel</button>
-                            <button id="save-ev-btn" class="flex-1 py-4 bg-[#000080] text-white rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">Confirm Event</button>
+                            <button id="close-ev-modal" class="flex-1 py-4 text-slate-400 font-bold text-xs uppercase">Cancel</button>
+                            <button id="save-ev-btn" class="flex-1 py-4 bg-[#000080] text-white rounded-xl font-black text-xs uppercase shadow-lg">Confirm Deployment</button>
                         </div>
                     </div>
                 </div>
             </div>
         `;
 
-        this.initEventListeners(userRole, userOrgId);
-        await this.populateEvents(userRole);
+        this.initEventListeners(userOrgId);
+        await this.populateEvents();
     },
 
-    async populateEvents(role) {
+    async populateEvents() {
         const events = await this.getEvents();
         const grid = document.getElementById('events-grid');
         if (!grid) return;
         
         if (events.length === 0) {
-            grid.innerHTML = `
-                <div class="col-span-full text-center py-20 border-2 border-dashed border-slate-100 rounded-[2.5rem]">
-                    <i data-lucide="calendar-x-2" class="w-10 h-10 text-slate-200 mx-auto mb-4"></i>
-                    <p class="text-slate-400 font-bold text-sm uppercase tracking-tight">No Events Scheduled</p>
-                </div>`;
-            if (window.lucide) window.lucide.createIcons();
+            grid.innerHTML = `<div class="col-span-full text-center py-20 border-2 border-dashed border-slate-100 rounded-[2.5rem]"><p class="text-slate-400 font-bold text-sm uppercase">Clear Skies - No Operations</p></div>`;
             return;
         }
 
         grid.innerHTML = events.map(event => {
             const isActive = event.status === 'active';
+            const isCompleted = event.status === 'completed';
+            
             return `
-                <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
+                <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden">
                     <div class="flex justify-between items-start mb-6">
                         <div class="flex flex-col gap-1">
-                            <span class="text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-300'}">
-                                ${event.status}
+                            <span class="text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : isCompleted ? 'text-slate-300' : 'text-blue-500'}">
+                                ● ${event.status}
                             </span>
                             <h3 class="text-xl font-black text-slate-800 leading-tight">${event.event_name}</h3>
+                            <p class="text-[10px] text-slate-400 font-bold mt-1">${new Date(event.event_date).toDateString()}</p>
                         </div>
                         <div class="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
-                            <i data-lucide="calendar" class="w-5 h-5 text-slate-400 group-hover:text-[#000080]"></i>
+                            <i data-lucide="users" class="w-5 h-5 text-slate-400 group-hover:text-[#000080]"></i>
                         </div>
                     </div>
                     <div class="space-y-3">
                         ${isActive ? `
-                            <div class="grid grid-cols-2 gap-2">
-                                <button onclick="window.showSection('attendance'); sessionStorage.setItem('active_event', '${event.id}')" 
-                                        class="py-3 bg-blue-50 text-[#000080] rounded-xl text-[10px] font-black uppercase hover:bg-[#000080] hover:text-white transition-all">
-                                    Attendance
-                                </button>
-                                <button onclick="window.showSection('finance'); sessionStorage.setItem('active_event', '${event.id}')" 
-                                        class="py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase hover:bg-emerald-600 transition-all">
-                                    Finance
-                                </button>
+                            <button onclick="window.showSection('attendance'); sessionStorage.setItem('active_event', '${event.id}')" 
+                                    class="w-full py-4 bg-blue-50 text-[#000080] rounded-xl text-xs font-black uppercase hover:bg-[#000080] hover:text-white transition-all">
+                                Open Attendance Sheet
+                            </button>
+                        ` : `
+                            <div class="py-3 bg-slate-50 rounded-xl text-center">
+                                <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                                    ${isCompleted ? 'Log Archived' : 'Pending Deployment'}
+                                </p>
                             </div>
-                        ` : `<div class="py-3 bg-slate-50 rounded-xl text-center"><p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Awaiting Activation</p></div>`}
+                        `}
                     </div>
                 </div>`;
         }).join('');
@@ -142,38 +131,27 @@ export const eventsModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    initEventListeners(role, orgId) {
+    initEventListeners(orgId) {
         const modal = document.getElementById('modal-event');
-        const addBtn = document.getElementById('btn-add-event');
-        const closeBtn = document.getElementById('close-ev-modal');
-        const saveBtn = document.getElementById('save-ev-btn');
+        if (document.getElementById('btn-add-event')) document.getElementById('btn-add-event').onclick = () => modal.classList.remove('hidden');
+        if (document.getElementById('close-ev-modal')) document.getElementById('close-ev-modal').onclick = () => modal.classList.add('hidden');
 
-        if (addBtn) addBtn.onclick = () => modal.classList.remove('hidden');
-        if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+        document.getElementById('save-ev-btn').onclick = async () => {
+            const name = document.getElementById('new-ev-name').value;
+            const date = document.getElementById('new-ev-date').value;
 
-        if (saveBtn) {
-            saveBtn.onclick = async () => {
-                const name = document.getElementById('new-ev-name').value;
-                const date = document.getElementById('new-ev-date').value;
+            if (!name || !date) return alert("Details required.");
 
-                if (!name || !date) return alert("Missing Info: Event name and date are required.");
+            const { error } = await supabase.from('events').insert([{ 
+                event_name: name, event_date: date, organization_id: orgId 
+            }]);
 
-                // REMOVED 'status: upcoming' because the column no longer exists 
-                // in the table. The View handles it now.
-                const { error } = await supabase.from('events').insert([{ 
-                    event_name: name, 
-                    event_date: date, 
-                    organization_id: orgId 
-                }]);
-
-                if (!error) {
-                    modal.classList.add('hidden');
-                    this.render();
-                } else {
-                    console.error(error.message);
-                    alert("Error creating event: " + error.message);
-                }
-            };
-        }
+            if (!error) {
+                modal.classList.add('hidden');
+                this.render();
+            } else {
+                alert(error.message);
+            }
+        };
     }
 };
