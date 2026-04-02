@@ -66,8 +66,8 @@ export const PublicInquiryModule = {
             // Updated to use 'students' table as per your requirement
             const { data, error } = await supabase
                 .from('students') 
-                .select('student_number') 
-                .eq('student_number', inputVal)
+                .select('student_id') 
+                .eq('student_id', inputVal)
                 .single();
 
             if (error || !data) {
