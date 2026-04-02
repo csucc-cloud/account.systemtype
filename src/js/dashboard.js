@@ -180,7 +180,6 @@ export const dashboardModule = {
                 this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
-            // --- FETCH LIVE ACTIVITY (STUDENT SCANS) ---
             const { data: recentScans } = await supabase.from('attendance').select('*, students(full_name, department)').order('created_at', { ascending: false }).limit(5);
             const activityContainer = document.getElementById('live-activity-list');
             if (activityContainer && recentScans) {
@@ -196,28 +195,24 @@ export const dashboardModule = {
                 `).join('');
             }
 
-            // --- SYSTEM AUDIT LOG (ADMIN ACTIONS) ---
             const auditContainer = document.getElementById('audit-log-list');
             if (auditContainer) {
-                auditContainer.innerHTML = `
-                    <div class="flex gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">DP</div>
-                        <div>
-                            <p class="text-[11px] font-bold text-slate-800">Davie P. Sialongo <span class="font-normal text-slate-400">deployed</span> v2.1</p>
-                            <p class="text-[9px] text-blue-600 font-bold uppercase mt-1">Core Update • Just Now</p>
+                const { data: logs } = await supabase.from('system_audit_logs').select('*').order('created_at', { ascending: false }).limit(3);
+                if (logs && logs.length > 0) {
+                    auditContainer.innerHTML = logs.map(log => `
+                        <div class="flex gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">${log.action_type.substring(0,2)}</div>
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">${log.action_type.toLowerCase()}</span> record</p>
+                                <p class="text-[9px] text-blue-600 font-bold uppercase mt-1">ID: ${log.target_id.substring(0,8)} • ${new Date(log.created_at).toLocaleTimeString()}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex gap-3 opacity-50">
-                        <div class="w-8 h-8 rounded-lg bg-slate-400 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">SA</div>
-                        <div>
-                            <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">modified</span> Student List</p>
-                            <p class="text-[9px] text-slate-500 font-bold uppercase mt-1">Record Sync • 1h ago</p>
-                        </div>
-                    </div>
-                `;
+                    `).join('');
+                } else {
+                    auditContainer.innerHTML = `<p class="text-[10px] text-slate-400 italic text-center">No logs found.</p>`;
+                }
             }
 
-            // --- DEPARTMENT RANKING LOGIC ---
             let allDeptData = [];
             let from = 0; const step = 1000; let hasMore = true;
             while (hasMore) {
