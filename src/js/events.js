@@ -465,13 +465,15 @@ export const eventsModule = {
     },
 
     generateQR(eventId) {
-        const domain = window.location.origin;
-        const askUrl = `${domain}/ask.html?id=${eventId}`;
+        const baseUrl = window.location.href.split('index.html')[0]; 
+    const askUrl = `${baseUrl}ask.html?id=${eventId}`;
         const qrContainer = document.getElementById('qr-container');
         const qrImg = document.getElementById('qr-code-img');
         
         qrImg.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(askUrl)}" alt="QR Code">`;
         qrContainer.classList.remove('hidden');
+
+        console.log("Generated URL:", askUrl); // Check this in your browser console!
     },
 
     openEditMode() {
