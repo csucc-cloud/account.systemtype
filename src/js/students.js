@@ -3,7 +3,6 @@ import { supabase, currentUserRole, currentUserOrg } from './auth.js';
 export const studentModule = {
     allStudentsData: [],
     selectedStudents: new Set(),
-    // Pagination State
     currentPage: 1,
     itemsPerPage: 10,
     totalCount: 0,
@@ -21,19 +20,19 @@ export const studentModule = {
                 <div id="student-stats" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</p>
-                        <h2 id="stat-total" class="text-3xl font-black text-[#000080] mt-1">0</h2>
+                        <h2 id="stat-total" class="text-3xl font-black text-[#000080] mt-1">...</h2>
                     </div>
                     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                         <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Education Dept</p>
-                        <h2 id="stat-edu" class="text-3xl font-black text-slate-700 mt-1">0</h2>
+                        <h2 id="stat-edu" class="text-3xl font-black text-slate-700 mt-1">...</h2>
                     </div>
                     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                         <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest">Ind. Tech Dept</p>
-                        <h2 id="stat-tech" class="text-3xl font-black text-slate-700 mt-1">0</h2>
+                        <h2 id="stat-tech" class="text-3xl font-black text-slate-700 mt-1">...</h2>
                     </div>
                     <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
                         <p class="text-[10px] font-black text-purple-500 uppercase tracking-widest">New Today</p>
-                        <h2 id="stat-new" class="text-3xl font-black text-slate-700 mt-1">0</h2>
+                        <h2 id="stat-new" class="text-3xl font-black text-slate-700 mt-1">...</h2>
                     </div>
                 </div>
 
@@ -131,6 +130,11 @@ export const studentModule = {
                         <input type="text" id="stud-name" placeholder="Full Name" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
                         <input type="text" id="stud-college" placeholder="College" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
                         <input type="text" id="stud-course" placeholder="Course" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
+                        <select id="stud-dept" class="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold">
+                            <option value="Education Dept.">Education Dept.</option>
+                            <option value="Industrial Technology Dept.">Industrial Technology Dept.</option>
+                            <option value="Other Department">Other Department</option>
+                        </select>
                         <select id="stud-year" class="w-full p-4 bg-slate-50 rounded-2xl outline-none">
                             <option value="1">1st Year</option><option value="2">2nd Year</option>
                             <option value="3">3rd Year</option><option value="4">4th Year</option>
@@ -162,24 +166,41 @@ export const studentModule = {
 
     async init() {
         this.render();
+        await this.updateDashboardStats(); // Initial stats load
         await this.fetchAndRenderList();
     },
 
+    async updateDashboardStats() {
+        try {
+            // Run counts in parallel for performance
+            const [total, edu, tech, newToday] = await Promise.all([
+                supabase.from('students').select('*', { count: 'exact', head: true }),
+                supabase.from('students').select('*', { count: 'exact', head: true }).eq('department', 'Education Dept.'),
+                supabase.from('students').select('*', { count: 'exact', head: true }).eq('department', 'Industrial Technology Dept.'),
+                supabase.from('students').select('*', { count: 'exact', head: true }).gte('created_at', new Date().toISOString().split('T')[0])
+            ]);
+
+            document.getElementById('stat-total').innerText = total.count || 0;
+            document.getElementById('stat-edu').innerText = edu.count || 0;
+            document.getElementById('stat-tech').innerText = tech.count || 0;
+            document.getElementById('stat-new').innerText = newToday.count || 0;
+        } catch (err) {
+            console.error("Stats Error:", err);
+        }
+    },
+
     setupEventListeners() {
-        // Pagination Clicks
         document.getElementById('prev-page').onclick = () => { if(this.currentPage > 1) { this.currentPage--; this.fetchAndRenderList(); } };
         document.getElementById('next-page').onclick = () => { if(this.currentPage < Math.ceil(this.totalCount/this.itemsPerPage)) { this.currentPage++; this.fetchAndRenderList(); } };
 
-        // Dropdown Filter Change
         const deptDropdown = document.getElementById('dept-filter-dropdown');
         if(deptDropdown) {
             deptDropdown.onchange = () => {
-                this.currentPage = 1; // Reset to page 1 on filter
+                this.currentPage = 1;
                 this.fetchAndRenderList(document.getElementById('student-search').value, deptDropdown.value);
             };
         }
 
-        // Search with Debounce
         const searchInput = document.getElementById('student-search');
         let timer;
         if(searchInput) {
@@ -192,14 +213,12 @@ export const studentModule = {
             };
         }
 
-        // Modal Controls
         document.getElementById('btn-open-modal').onclick = () => document.getElementById('modal-student').classList.remove('hidden');
         document.getElementById('btn-save-manual').onclick = () => this.handleManualSave();
         document.getElementById('btn-import').onclick = () => document.getElementById('bulk-upload').click();
         document.getElementById('bulk-upload').onchange = (e) => this.handleExcelImport(e.target.files[0]);
         document.getElementById('btn-export').onclick = () => this.handleExportCSV();
         
-        // Batch Selection
         const selectAll = document.getElementById('select-all');
         if (selectAll) {
             selectAll.onchange = (e) => {
@@ -220,12 +239,10 @@ export const studentModule = {
         if (!tbody) return;
 
         try {
-            // Server-Side Range Calculation
             const from = (this.currentPage - 1) * this.itemsPerPage;
             const to = from + this.itemsPerPage - 1;
 
             let query = supabase.from('students').select('*', { count: 'exact' });
-            
             if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
             if (deptFilter !== "all") query = query.eq('department', deptFilter);
 
@@ -238,7 +255,6 @@ export const studentModule = {
             this.allStudentsData = data;
             this.totalCount = count || 0;
             this.updatePaginationUI();
-            this.updateDashboardStats(data);
 
             tbody.innerHTML = data.map(s => {
                 const orgTags = Array.isArray(s.organization_owner) ? s.organization_owner.join(' | ') : (s.organization_owner || 'None');
@@ -289,7 +305,6 @@ export const studentModule = {
         const pageNumbers = document.getElementById('page-numbers');
         pageNumbers.innerHTML = "";
         
-        // Show current, prev, and next page buttons
         let startPage = Math.max(1, this.currentPage - 1);
         let endPage = Math.min(totalPages, startPage + 2);
         
@@ -300,14 +315,6 @@ export const studentModule = {
             btn.onclick = () => { this.currentPage = i; this.fetchAndRenderList(); };
             pageNumbers.appendChild(btn);
         }
-    },
-
-    updateDashboardStats(data) {
-        document.getElementById('stat-total').innerText = this.totalCount;
-        document.getElementById('stat-edu').innerText = data.filter(s => s.department === 'Education Dept.').length;
-        document.getElementById('stat-tech').innerText = data.filter(s => s.department === 'Industrial Technology Dept.').length;
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('stat-new').innerText = data.filter(s => s.created_at?.startsWith(today)).length;
     },
 
     toggleStudentSelection(id, isSelected) {
@@ -332,7 +339,12 @@ export const studentModule = {
         const ids = Array.from(this.selectedStudents);
         const { error } = await supabase.from('students').delete().in('student_id', ids);
         if (error) alert(error.message);
-        else { this.selectedStudents.clear(); this.updateBatchUI(); this.fetchAndRenderList(); }
+        else { 
+            this.selectedStudents.clear(); 
+            this.updateBatchUI(); 
+            this.updateDashboardStats(); // Refresh stats
+            this.fetchAndRenderList(); 
+        }
     },
 
     viewProfile(id) {
@@ -355,7 +367,10 @@ export const studentModule = {
         if (!confirm(`Delete student ${id}?`)) return;
         const { error } = await supabase.from('students').delete().eq('student_id', id);
         if (error) alert(error.message);
-        else this.fetchAndRenderList();
+        else {
+            this.updateDashboardStats(); // Refresh stats
+            this.fetchAndRenderList();
+        }
     },
 
     handleExportCSV() {
@@ -375,10 +390,11 @@ export const studentModule = {
         if (!id || !name) return alert("Required fields missing");
 
         const { error } = await supabase.from('students').upsert({
-            student_id: id, full_name: name,
+            student_id: id, 
+            full_name: name,
             college: document.getElementById('stud-college').value,
             course: document.getElementById('stud-course').value,
-            department: this.classifyDepartment(document.getElementById('stud-course').value),
+            department: document.getElementById('stud-dept').value, // Direct from UI
             year_level: parseInt(document.getElementById('stud-year').value)
         }, { onConflict: 'student_id' });
 
@@ -386,6 +402,7 @@ export const studentModule = {
         else {
             await supabase.rpc('append_org_to_student', { s_id: id, new_org: currentUserOrg });
             document.getElementById('modal-student').classList.add('hidden');
+            this.updateDashboardStats(); // Refresh stats
             this.fetchAndRenderList();
         }
     },
@@ -404,21 +421,17 @@ export const studentModule = {
                 await supabase.from('students').upsert({
                     student_id: sId,
                     full_name: String(json[i]['Student Name'] || json[i]['Name'] || '').trim(),
-                    department: this.classifyDepartment(json[i]['Course']),
+                    college: String(json[i]['College'] || '').trim(),
+                    course: String(json[i]['Course'] || '').trim(),
+                    department: String(json[i]['Department'] || 'Other Department').trim(), // Direct from Excel
                     year_level: parseInt(json[i]['Year']) || 1
                 });
                 await supabase.rpc('append_org_to_student', { s_id: sId, new_org: currentUserOrg });
             }
             progress.classList.add('hidden');
+            this.updateDashboardStats(); // Refresh stats
             this.fetchAndRenderList();
         };
         reader.readAsArrayBuffer(file);
-    },
-
-    classifyDepartment(course) {
-        const c = String(course).toUpperCase();
-        if (c.includes('BTLED')) return 'Education Dept.';
-        if (c.includes('BSINDTECH')) return 'Industrial Technology Dept.';
-        return 'Other Department';
     }
 };
