@@ -209,10 +209,10 @@ export const eventsModule = {
                     </div>
                 </div>
 
-                <div id="modal-event-detail" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4 md:p-8">
+                <div id="modal-event-detail" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4 md:p-8 overflow-y-auto">
                     <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-md"></div>
-                    <div class="relative bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div class="p-10 space-y-8">
+                    <div class="relative bg-white rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+                        <div class="p-10 space-y-8 overflow-y-auto custom-scrollbar">
                             <div class="flex justify-between items-start">
                                 <div>
                                     <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Event Overview</span>
@@ -223,24 +223,42 @@ export const eventsModule = {
                                 </button>
                             </div>
 
-                            <div class="space-y-6">
-                                <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Description</p>
-                                    <p id="detail-desc" class="text-sm font-medium text-slate-600 leading-relaxed"></p>
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="p-4 border border-slate-100 rounded-2xl">
-                                        <p class="text-[8px] font-black text-slate-400 uppercase">Starts</p>
-                                        <p id="detail-start" class="text-xs font-bold text-slate-800"></p>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                                <div class="space-y-6">
+                                    <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Description</p>
+                                        <p id="detail-desc" class="text-sm font-medium text-slate-600 leading-relaxed"></p>
                                     </div>
-                                    <div class="p-4 border border-slate-100 rounded-2xl">
-                                        <p class="text-[8px] font-black text-slate-400 uppercase">Ends</p>
-                                        <p id="detail-end" class="text-xs font-bold text-slate-800"></p>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="p-4 border border-slate-100 rounded-2xl">
+                                            <p class="text-[8px] font-black text-slate-400 uppercase">Starts</p>
+                                            <p id="detail-start" class="text-xs font-bold text-slate-800"></p>
+                                        </div>
+                                        <div class="p-4 border border-slate-100 rounded-2xl">
+                                            <p class="text-[8px] font-black text-slate-400 uppercase">Ends</p>
+                                            <p id="detail-end" class="text-xs font-bold text-slate-800"></p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-6 border-2 border-dashed border-slate-100 rounded-[2rem] text-center space-y-4">
+                                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Public Inquiry Access</p>
+                                        <button id="btn-generate-qr" class="bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-all">Generate QR Link</button>
+                                        <div id="qr-container" class="hidden flex flex-col items-center gap-2">
+                                            <div id="qr-code-img" class="p-2 bg-white border border-slate-100 rounded-lg"></div>
+                                            <p class="text-[8px] text-slate-400">Scan to ask questions via Student ID</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <h4 class="text-[10px] font-black text-[#000080] uppercase tracking-widest">Submitted Inquiries</h4>
+                                    <div id="inquiry-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                        <p class="text-[10px] italic text-slate-400">Loading inquiries...</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="flex gap-4 pt-4">
+                            <div class="flex gap-4 pt-6 border-t border-slate-50">
                                 <button id="btn-edit-active" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#000080] transition-all">Update Info</button>
                                 <button id="btn-delete-active" class="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Delete Event</button>
                             </div>
@@ -253,7 +271,6 @@ export const eventsModule = {
         await this.fetchEvents();
         this.renderGrid();
         this.initEventListeners();
-        // Ensure Lucide icons are initialized globally if they exist
         if (window.eventsModule === undefined) window.eventsModule = this;
     },
 
@@ -301,7 +318,7 @@ export const eventsModule = {
                     msg.innerText = "Schedule Clear: No booking conflicts.";
                     icon.className = "w-5 h-5 text-emerald-500";
                 }
-            };
+            }
         });
 
         const dropZone = document.getElementById('drop-zone');
@@ -334,6 +351,9 @@ export const eventsModule = {
 
         const deleteBtn = document.getElementById('btn-delete-active');
         if (deleteBtn) deleteBtn.onclick = () => this.deleteEvent(this.state.selectedEvent.id);
+
+        const qrBtn = document.getElementById('btn-generate-qr');
+        if (qrBtn) qrBtn.onclick = () => this.generateQR(this.state.selectedEvent.id);
     },
 
     checkConflicts(start, end) {
@@ -398,7 +418,7 @@ export const eventsModule = {
         }
     },
 
-    openDetailModal(event) {
+    async openDetailModal(event) {
         this.state.selectedEvent = event;
         const modal = document.getElementById('modal-event-detail');
         if(!modal) return;
@@ -408,8 +428,50 @@ export const eventsModule = {
         document.getElementById('detail-start').innerText = new Date(event.start_time).toLocaleString();
         document.getElementById('detail-end').innerText = new Date(event.end_time).toLocaleString();
         
+        // Reset QR view
+        document.getElementById('qr-container').classList.add('hidden');
+        
         modal.classList.remove('hidden');
+        await this.fetchInquiries(event.id); // Fetch the questions for this event
         if (window.lucide) window.lucide.createIcons();
+    },
+
+    async fetchInquiries(eventId) {
+        const list = document.getElementById('inquiry-list');
+        const { data, error } = await supabase
+            .from('event_inquiries')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: false });
+
+        if (error || !data || data.length === 0) {
+            list.innerHTML = `<p class="text-[10px] italic text-slate-400">No inquiries found yet.</p>`;
+            return;
+        }
+
+        list.innerHTML = data.map(iq => `
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[8px] font-black text-[#000080] uppercase">ID: ${iq.student_id}</span>
+                    <span class="text-[8px] text-slate-400">${new Date(iq.created_at).toLocaleDateString()}</span>
+                </div>
+                <ul class="space-y-1">
+                    ${iq.question_1 ? `<li class="text-xs text-slate-700 font-bold">• ${iq.question_1}</li>` : ''}
+                    ${iq.question_2 ? `<li class="text-xs text-slate-700 font-bold">• ${iq.question_2}</li>` : ''}
+                    ${iq.question_3 ? `<li class="text-xs text-slate-700 font-bold">• ${iq.question_3}</li>` : ''}
+                </ul>
+            </div>
+        `).join('');
+    },
+
+    generateQR(eventId) {
+        const domain = window.location.origin;
+        const askUrl = `${domain}/ask.html?id=${eventId}`;
+        const qrContainer = document.getElementById('qr-container');
+        const qrImg = document.getElementById('qr-code-img');
+        
+        qrImg.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(askUrl)}" alt="QR Code">`;
+        qrContainer.classList.remove('hidden');
     },
 
     openEditMode() {
