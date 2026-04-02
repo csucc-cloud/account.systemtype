@@ -118,7 +118,7 @@ export const dashboardModule = {
                             <p class="text-[#000080] text-[10px] font-black uppercase tracking-[0.2em] mb-2">The Website</p>
                             <h4 class="text-sm font-bold text-slate-800 mb-2">OAS Portal v2.1</h4>
                             <p class="text-xs text-slate-600 leading-relaxed">
-                                A centralized automated system specifically designed for the CITTE LSG to bridge student services and digital efficiency.
+                                A centralized automated system specifically designed for the Local Student Government and Student Organization to bridge student services and digital efficiency.
                             </p>
                         </div>
                     </div>
