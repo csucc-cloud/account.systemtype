@@ -41,7 +41,7 @@ export const studentModule = {
                                 <tr class="text-[10px] font-black uppercase text-slate-400">
                                     <th class="p-4">ID Number</th>
                                     <th class="p-4">Student Name</th>
-                                    ${isSuperAdmin ? '<th class="p-4 text-purple-600">Org Owner</th>' : '<th class="p-4">College</th>'}
+                                    ${isSuperAdmin ? '<th class="p-4 text-purple-600">Org Membership</th>' : '<th class="p-4">College</th>'}
                                     <th class="p-4">Course</th>
                                     <th class="p-4">Year</th>
                                     <th class="p-4 text-right">Actions</th>
@@ -109,24 +109,20 @@ export const studentModule = {
     },
 
     setupEventListeners() {
-        // Modal Logic
         const modal = document.getElementById('modal-student');
         const openBtn = document.getElementById('btn-open-modal');
         if (openBtn) openBtn.onclick = () => modal.classList.remove('hidden');
         const closeBtn = document.getElementById('btn-close-modal');
         if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
         
-        // Save Actions
         const saveBtn = document.getElementById('btn-save-manual');
         if (saveBtn) saveBtn.onclick = () => this.handleManualSave();
 
-        // Import Actions
         const fileInput = document.getElementById('bulk-upload');
         const importBtn = document.getElementById('btn-import');
         if (importBtn) importBtn.onclick = () => fileInput.click();
         if (fileInput) fileInput.onchange = (e) => this.handleExcelImport(e.target.files[0]);
 
-        // Search Logic
         const searchInput = document.getElementById('student-search');
         let searchTimer;
         if (searchInput) {
@@ -136,7 +132,6 @@ export const studentModule = {
             };
         }
 
-        // Expose module globally for the HTML button onclick events
         window.studentModule = this;
     },
 
@@ -150,15 +145,21 @@ export const studentModule = {
                 query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
             }
 
-            const { data, error } = await query.limit(200);
+            const { data, error } = await query.limit(300);
             if (error) throw error;
 
-            tbody.innerHTML = data.map(s => `
+            tbody.innerHTML = data.map(s => {
+                // Formatting the Array for the UI
+                const orgTags = Array.isArray(s.organization_owner) 
+                    ? s.organization_owner.join(' | ') 
+                    : (s.organization_owner || 'None');
+
+                return `
                 <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
                     <td class="p-4 text-sm font-mono text-slate-500">${s.student_id}</td>
                     <td class="p-4 font-bold text-sm text-slate-700">${s.full_name}</td>
                     ${currentUserRole === 'super_admin' ? 
-                        `<td class="p-4 text-[10px] font-bold text-purple-600 uppercase italic">${s.organization_owner || 'Unassigned'}</td>` :
+                        `<td class="p-4 text-[10px] font-bold text-purple-600 uppercase italic">${orgTags}</td>` :
                         `<td class="p-4 text-xs uppercase text-slate-400">${s.college || ''}</td>`
                     }
                     <td class="p-4 text-sm text-slate-600">${s.course || ''}</td>
@@ -174,24 +175,9 @@ export const studentModule = {
                         `}
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         } catch (err) {
             console.error("Fetch Error:", err);
-        }
-    },
-
-    async deleteStudent(id) {
-        if (!confirm(`Delete student ${id}? This cannot be undone.`)) return;
-
-        const { error } = await supabase
-            .from('students')
-            .delete()
-            .eq('student_id', id);
-
-        if (error) {
-            alert("Delete failed: " + error.message);
-        } else {
-            this.fetchAndRenderList(); // Refresh
         }
     },
 
@@ -204,27 +190,30 @@ export const studentModule = {
 
         if (!id || !name) return alert("Please fill in at least ID and Name");
 
+        // 1. Save core data
         const { error } = await supabase.from('students').upsert({
             student_id: id,
             full_name: name,
             college: college,
             course: course,
             department: this.classifyDepartment(course),
-            year_level: parseInt(year),
-            organization_owner: currentUserOrg 
+            year_level: parseInt(year)
         }, { onConflict: 'student_id' });
 
-        if (error) {
-            alert("Database Error: " + error.message);
-        } else {
-            document.getElementById('modal-student').classList.add('hidden');
-            this.fetchAndRenderList();
-        }
+        if (error) return alert("Database Error: " + error.message);
+
+        // 2. Add current user's org to membership list
+        await supabase.rpc('append_org_to_student', { 
+            s_id: id, 
+            new_org: currentUserOrg 
+        });
+
+        document.getElementById('modal-student').classList.add('hidden');
+        this.fetchAndRenderList();
     },
 
     async handleExcelImport(file) {
-        if (!file) return;
-        if (!window.XLSX) return alert("Excel library not loaded.");
+        if (!file || !window.XLSX) return alert("Excel error.");
 
         const progressModal = document.getElementById('import-progress');
         const progressText = document.getElementById('progress-text');
@@ -237,30 +226,32 @@ export const studentModule = {
                 const workbook = window.XLSX.read(data, { type: 'array' });
                 const json = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                 
-                if (json.length === 0) return alert("File is empty.");
                 progressModal.classList.remove('hidden');
 
                 for (let i = 0; i < json.length; i++) {
                     const row = json[i];
-                    progressText.innerText = `${i + 1} / ${json.length}`;
-                    progressBar.style.width = `${((i + 1) / json.length) * 100}%`;
-
                     const sId = String(row['ID Number'] || row['ID'] || '').trim();
                     if (!sId) continue;
 
+                    progressText.innerText = `${i + 1} / ${json.length}`;
+                    progressBar.style.width = `${((i + 1) / json.length) * 100}%`;
+
+                    // Upsert basic info
                     await supabase.from('students').upsert({
                         student_id: sId,
                         full_name: String(row['Student Name'] || row['Name'] || '').trim(),
                         college: row['College'] || '',
-                        course: row['Course'] || row['Course/Program'] || '',
-                        department: this.classifyDepartment(row['Course'] || row['Course/Program']),
-                        year_level: parseInt(String(row['Year'] || row['Year Level'] || '1').replace(/\D/g, '')) || 1,
-                        organization_owner: currentUserOrg
+                        course: row['Course'] || '',
+                        department: this.classifyDepartment(row['Course']),
+                        year_level: parseInt(String(row['Year'] || '1').replace(/\D/g, '')) || 1
                     }, { onConflict: 'student_id' });
 
-                    if (i % 10 === 0) await new Promise(r => setTimeout(r, 20));
+                    // Append current Org
+                    await supabase.rpc('append_org_to_student', { s_id: sId, new_org: currentUserOrg });
+
+                    if (i % 20 === 0) await new Promise(r => setTimeout(r, 10));
                 }
-                alert("Import Complete!");
+                alert("Import Finished!");
             } catch (err) {
                 alert("Import Error: " + err.message);
             } finally {
