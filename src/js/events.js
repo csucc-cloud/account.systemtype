@@ -89,12 +89,12 @@ export const eventsModule = {
                     .light-theme { background: #f8fafc; color: #0f172a; }
                     .text-stroke-custom { -webkit-text-stroke: 1px #000080; color: transparent; }
                     .glass-panel { backdrop-filter: blur(20px); background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.1); }
-                    .input-tactical { 
+                    .input-campus { 
                         background: ${this.state.isStealthMode ? '#111' : '#fff'}; 
                         border: 2px solid ${this.state.isStealthMode ? '#333' : '#e2e8f0'};
                         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     }
-                    .input-tactical:focus { border-color: #000080; box-shadow: 0 0 0 4px rgba(0,0,128,0.1); }
+                    .input-campus:focus { border-color: #000080; box-shadow: 0 0 0 4px rgba(0,0,128,0.1); }
                     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                     .custom-scrollbar::-webkit-scrollbar-thumb { background: #000080; border-radius: 10px; }
                 </style>
@@ -104,27 +104,27 @@ export const eventsModule = {
                         <div class="space-y-4">
                             <div class="flex items-center gap-4">
                                 <span class="h-1 w-16 bg-[#000080] rounded-full"></span>
-                                <p class="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-500">Logistics & Deployment</p>
+                                <p class="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-500">Student Org Portal</p>
                             </div>
                             <h1 class="text-5xl md:text-7xl font-black italic tracking-tighter uppercase leading-none">
-                                Events<span class="text-stroke-custom opacity-70">Log</span>
+                                Campus<span class="text-stroke-custom opacity-70">Events</span>
                             </h1>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                             <div class="relative flex-grow max-w-md">
                                 <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                                <input type="text" id="ev-search" value="${this.state.searchTerm}" placeholder="Search operational database..." 
-                                    class="w-full pl-14 pr-6 py-5 rounded-[2rem] input-tactical text-sm font-bold shadow-sm outline-none">
+                                <input type="text" id="ev-search" value="${this.state.searchTerm}" placeholder="Search events and activities..." 
+                                    class="w-full pl-14 pr-6 py-5 rounded-[2rem] input-campus text-sm font-bold shadow-sm outline-none">
                             </div>
                             
-                            <button id="stealth-toggle" class="p-5 rounded-full input-tactical hover:scale-110 active:scale-95 transition-all">
+                            <button id="stealth-toggle" class="p-5 rounded-full input-campus hover:scale-110 active:scale-95 transition-all">
                                 <i data-lucide="${this.state.isStealthMode ? 'sun' : 'moon'}" class="w-5 h-5 text-[#000080]"></i>
                             </button>
 
                             ${(this.state.userRole === 'admin' || this.state.userRole === 'super_admin') ? `
                                 <button id="btn-add-event" class="px-10 py-5 bg-[#000080] text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl transition-all flex items-center gap-3">
-                                    <i data-lucide="plus-circle" class="w-5 h-5 text-blue-300"></i> Create Event
+                                    <i data-lucide="calendar-plus" class="w-5 h-5 text-blue-300"></i> Create Event
                                 </button>
                             ` : ''}
                         </div>
@@ -136,7 +136,7 @@ export const eventsModule = {
                                 <button data-filter="${f}" class="filter-tab px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${this.state.currentFilter === f ? 'bg-white text-[#000080] shadow-md' : 'text-slate-500 hover:text-slate-800'}">${f}</button>
                             `).join('')}
                         </div>
-                        <div id="event-stats" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Initialising Grid...</div>
+                        <div id="event-stats" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading Calendar...</div>
                     </div>
 
                     <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-8"></div>
@@ -147,8 +147,8 @@ export const eventsModule = {
                     <div class="relative bg-white rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
                         <div class="sticky top-0 z-50 px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white/95 backdrop-blur-sm">
                             <div>
-                                <h2 id="modal-title" class="text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-none">New<span class="text-[#000080]">Mission</span></h2>
-                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Strategic Asset Deployment</p>
+                                <h2 id="modal-title" class="text-2xl md:text-3xl font-black italic tracking-tighter uppercase leading-none">Event<span class="text-[#000080]">Details</span></h2>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Organization Activity Planning</p>
                             </div>
                             <button id="close-ev-modal" class="p-3 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-full transition-all border border-slate-100 shadow-sm">
                                 <i data-lucide="x" class="w-6 h-6"></i>
@@ -159,23 +159,23 @@ export const eventsModule = {
                                 <div class="lg:col-span-7 space-y-8">
                                     <div class="space-y-3">
                                         <label class="flex items-center gap-3 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">
-                                            <i data-lucide="terminal" class="w-4 h-4"></i> Operation Codename
+                                            <i data-lucide="type" class="w-4 h-4"></i> Event Name
                                         </label>
-                                        <input type="text" id="new-ev-name" placeholder="e.g., NEXUS SUMMIT 2026" 
+                                        <input type="text" id="new-ev-name" placeholder="e.g., Annual Science Fair 2026" 
                                             class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl font-black text-lg focus:bg-white focus:border-blue-100 outline-none transition-all">
                                     </div>
                                     <div class="space-y-3">
                                         <label class="flex items-center gap-3 text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">
-                                            <i data-lucide="file-text" class="w-4 h-4"></i> Mission Parameters
+                                            <i data-lucide="info" class="w-4 h-4"></i> Event Description
                                         </label>
-                                        <textarea id="new-ev-desc" rows="4" placeholder="Describe the mission objectives..." 
+                                        <textarea id="new-ev-desc" rows="4" placeholder="Briefly describe the event goals and activities..." 
                                             class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-2xl font-bold text-sm focus:bg-white focus:border-blue-100 outline-none transition-all resize-none"></textarea>
                                     </div>
                                     <div class="space-y-3">
-                                        <label class="text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">Intelligence Briefing</label>
+                                        <label class="text-[10px] font-black text-[#000080] uppercase tracking-widest ml-2">Program & Guidelines</label>
                                         <div id="drop-zone" class="p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer">
-                                            <i data-lucide="upload" class="w-8 h-8 text-slate-300"></i>
-                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Drag files to upload tactical assets</p>
+                                            <i data-lucide="upload-cloud" class="w-8 h-8 text-slate-300"></i>
+                                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Click or drag files to upload event documents</p>
                                             <input type="file" id="real-file-input" class="hidden" multiple>
                                         </div>
                                         <div id="file-list" class="flex flex-wrap gap-2 mt-4"></div>
@@ -185,23 +185,23 @@ export const eventsModule = {
                                     <div class="bg-slate-50 rounded-[2.5rem] p-6 space-y-6 border border-slate-100">
                                         <div class="space-y-3">
                                             <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between px-1">
-                                                Commencement <span>00:00 HRS</span>
+                                                Starts <span>Date & Time</span>
                                             </label>
                                             <input type="datetime-local" id="new-ev-start" class="w-full p-4 bg-white rounded-xl font-black text-xs shadow-sm border border-slate-100">
                                         </div>
                                         <div class="space-y-3">
                                             <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex justify-between px-1">
-                                                Conclusion <span>23:59 HRS</span>
+                                                Ends <span>Date & Time</span>
                                             </label>
                                             <input type="datetime-local" id="new-ev-end" class="w-full p-4 bg-white rounded-xl font-black text-xs shadow-sm border border-slate-100">
                                         </div>
                                         <div id="conflict-engine" class="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4 transition-all">
                                             <i data-lucide="check" class="w-5 h-5 text-emerald-500" id="conflict-icon"></i>
-                                            <p id="conflict-msg" class="text-[9px] font-black text-emerald-700 uppercase leading-tight">Sector Cleared: No conflicts.</p>
+                                            <p id="conflict-msg" class="text-[9px] font-black text-emerald-700 uppercase leading-tight">Schedule Clear: No booking conflicts.</p>
                                         </div>
                                     </div>
                                     <button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.4em] shadow-xl hover:bg-blue-900 transition-all active:scale-95">
-                                        Deploy Operation to Grid
+                                        Publish Event to Portal
                                     </button>
                                 </div>
                             </div>
@@ -215,7 +215,7 @@ export const eventsModule = {
                         <div class="p-10 space-y-8">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Mission Intelligence</span>
+                                    <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Event Overview</span>
                                     <h2 id="detail-title" class="text-4xl font-black italic tracking-tighter uppercase text-slate-900"></h2>
                                 </div>
                                 <button onclick="document.getElementById('modal-event-detail').classList.add('hidden')" class="p-2 hover:bg-slate-100 rounded-full transition-colors">
@@ -225,24 +225,24 @@ export const eventsModule = {
 
                             <div class="space-y-6">
                                 <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Strategic Overview</p>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">Description</p>
                                     <p id="detail-desc" class="text-sm font-medium text-slate-600 leading-relaxed"></p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="p-4 border border-slate-100 rounded-2xl">
-                                        <p class="text-[8px] font-black text-slate-400 uppercase">Commence</p>
+                                        <p class="text-[8px] font-black text-slate-400 uppercase">Starts</p>
                                         <p id="detail-start" class="text-xs font-bold text-slate-800"></p>
                                     </div>
                                     <div class="p-4 border border-slate-100 rounded-2xl">
-                                        <p class="text-[8px] font-black text-slate-400 uppercase">Conclude</p>
+                                        <p class="text-[8px] font-black text-slate-400 uppercase">Ends</p>
                                         <p id="detail-end" class="text-xs font-bold text-slate-800"></p>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="flex gap-4 pt-4">
-                                <button id="btn-edit-active" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#000080] transition-all">Edit Parameters</button>
-                                <button id="btn-delete-active" class="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Terminate</button>
+                                <button id="btn-edit-active" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#000080] transition-all">Update Info</button>
+                                <button id="btn-delete-active" class="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Delete Event</button>
                             </div>
                         </div>
                     </div>
@@ -250,10 +250,11 @@ export const eventsModule = {
             </div>
         `;
 
-        // FIXED SEQUENCE: Fetch data first, then render grid, then attach listeners
         await this.fetchEvents();
         this.renderGrid();
         this.initEventListeners();
+        // Ensure Lucide icons are initialized globally if they exist
+        if (window.eventsModule === undefined) window.eventsModule = this;
     },
 
     // --- LOGIC ENGINE ---
@@ -293,13 +294,12 @@ export const eventsModule = {
 
                 if (isConflict) {
                     engine.className = "p-5 bg-amber-50 rounded-2xl border border-amber-200 flex items-center gap-4 animate-pulse";
-                    msg.className = "text-[9px] font-black text-amber-700 uppercase";
-                    msg.innerText = "Conflict Alert: Overlapping deployment.";
+                    msg.innerText = "Schedule Conflict Detected.";
                     icon.className = "w-5 h-5 text-amber-500";
                 } else {
                     engine.className = "p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4";
-                    msg.className = "text-[9px] font-black text-emerald-700 uppercase";
-                    msg.innerText = "Sector Cleared: No conflicts.";
+                    msg.innerText = "Schedule Clear: No booking conflicts.";
+                    icon.className = "w-5 h-5 text-emerald-500";
                 }
             };
         });
@@ -322,7 +322,7 @@ export const eventsModule = {
             tab.onclick = () => {
                 this.state.currentFilter = tab.dataset.filter;
                 this.applyFilters();
-                this.render(); // Re-render everything to update UI state
+                this.render();
             };
         });
 
@@ -366,7 +366,7 @@ export const eventsModule = {
         const start = document.getElementById('new-ev-start').value;
         const end = document.getElementById('new-ev-end').value;
 
-        if (!name || !start || !end) return this.notify("Deployment Failed: Missing parameters", "error");
+        if (!name || !start || !end) return this.notify("Error: Missing event information", "error");
 
         try {
             const payload = {
@@ -388,7 +388,7 @@ export const eventsModule = {
 
             if (error) throw error;
             
-            this.notify(this.state.isEditMode ? "Operation Updated" : "Operation Logged & Deployed", "success");
+            this.notify(this.state.isEditMode ? "Event Updated" : "New Event Published", "success");
             document.getElementById('modal-event').classList.add('hidden');
             document.body.style.overflow = 'auto';
             await this.fetchEvents();
@@ -404,7 +404,7 @@ export const eventsModule = {
         if(!modal) return;
         
         document.getElementById('detail-title').innerText = event.event_name;
-        document.getElementById('detail-desc').innerText = event.description || 'No briefing available.';
+        document.getElementById('detail-desc').innerText = event.description || 'No description provided.';
         document.getElementById('detail-start').innerText = new Date(event.start_time).toLocaleString();
         document.getElementById('detail-end').innerText = new Date(event.end_time).toLocaleString();
         
@@ -419,23 +419,23 @@ export const eventsModule = {
         this.state.isEditMode = true;
         document.getElementById('modal-event-detail').classList.add('hidden');
         
-        document.getElementById('modal-title').innerHTML = `Edit<span class="text-[#000080]">Mission</span>`;
+        document.getElementById('modal-title').innerHTML = `Edit<span class="text-[#000080]">Event</span>`;
         document.getElementById('new-ev-name').value = ev.event_name;
         document.getElementById('new-ev-desc').value = ev.description || '';
         document.getElementById('new-ev-start').value = ev.start_time.slice(0, 16);
         document.getElementById('new-ev-end').value = ev.end_time.slice(0, 16);
-        document.getElementById('save-ev-btn').innerText = "Update Mission Parameters";
+        document.getElementById('save-ev-btn').innerText = "Update Event Details";
 
         document.getElementById('modal-event').classList.remove('hidden');
     },
 
     async deleteEvent(id) {
-        if (!confirm("TERMINATE MISSION: Confirm permanent deletion?")) return;
+        if (!confirm("Are you sure you want to delete this event?")) return;
         try {
             const { error } = await supabase.from('events').delete().eq('id', id);
             if (error) throw error;
             
-            this.notify("Mission Terminated & Purged", "success");
+            this.notify("Event Deleted Successfully", "success");
             document.getElementById('modal-event-detail').classList.add('hidden');
             await this.fetchEvents();
             this.renderGrid();
@@ -445,12 +445,12 @@ export const eventsModule = {
     },
 
     resetForm() {
-        document.getElementById('modal-title').innerHTML = `New<span class="text-[#000080]">Mission</span>`;
+        document.getElementById('modal-title').innerHTML = `New<span class="text-[#000080]">Event</span>`;
         document.getElementById('new-ev-name').value = '';
         document.getElementById('new-ev-desc').value = '';
         document.getElementById('new-ev-start').value = '';
         document.getElementById('new-ev-end').value = '';
-        document.getElementById('save-ev-btn').innerText = "Deploy Operation to Grid";
+        document.getElementById('save-ev-btn').innerText = "Publish Event to Portal";
         document.getElementById('file-list').innerHTML = '';
         this.state.attachments = [];
     },
@@ -460,7 +460,7 @@ export const eventsModule = {
         if (!grid) return;
 
         if (this.state.filteredEvents.length === 0) {
-            grid.innerHTML = `<div class="col-span-full py-40 text-center opacity-30 font-black uppercase tracking-[1em]">No Records in Database</div>`;
+            grid.innerHTML = `<div class="col-span-full py-40 text-center opacity-30 font-black uppercase tracking-[1em]">No Events Found</div>`;
             return;
         }
 
@@ -468,7 +468,6 @@ export const eventsModule = {
             const isActive = ev.status === 'active';
             const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 shadow-none' : 'bg-white border-slate-100 shadow-sm';
             
-            // Note: Data is passed via Stringified JSON, single quotes are replaced with HTML entity to prevent syntax breaks
             return `
                 <div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' 
                      class="${themeClass} cursor-pointer rounded-[2.5rem] p-8 group hover:shadow-xl transition-all relative overflow-hidden animate-in slide-in-from-bottom-10" 
@@ -482,16 +481,16 @@ export const eventsModule = {
 
                     <div class="space-y-3 mb-8">
                         <h3 class="text-2xl font-black italic tracking-tighter uppercase leading-none group-hover:text-[#000080] transition-colors">${ev.event_name}</h3>
-                        <p class="text-xs text-slate-400 font-medium line-clamp-2">${ev.description || 'No strategic overview.'}</p>
+                        <p class="text-xs text-slate-400 font-medium line-clamp-2">${ev.description || 'No description available.'}</p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50">
                         <div class="flex flex-col gap-1">
-                            <span class="text-[8px] font-black text-slate-300 uppercase">Commence</span>
+                            <span class="text-[8px] font-black text-slate-300 uppercase">Starts</span>
                             <span class="text-[10px] font-black uppercase">${new Date(ev.start_time).toLocaleDateString()}</span>
                         </div>
                         <div class="flex flex-col gap-1 items-end">
-                            <span class="text-[8px] font-black text-slate-300 uppercase">Conclude</span>
+                            <span class="text-[8px] font-black text-slate-300 uppercase">Ends</span>
                             <span class="text-[10px] font-black uppercase">${new Date(ev.end_time).toLocaleDateString()}</span>
                         </div>
                     </div>
@@ -503,7 +502,7 @@ export const eventsModule = {
 
     updateDashboardStats() {
         const stats = document.getElementById('event-stats');
-        if (stats) stats.innerText = `${this.state.events.length} ACTIVE DEPLOYMENTS RECORDED`;
+        if (stats) stats.innerText = `${this.state.events.length} ACTIVE EVENTS IN DATABASE`;
     },
 
     notify(msg, type) {
