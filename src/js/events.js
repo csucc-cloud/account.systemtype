@@ -1,23 +1,25 @@
 import { supabase } from './auth.js';
 
 /**
- * EVENTS & ATTENDANCE CORE MODULE
- * Features: Auto-Status, Real-time Search, Category Filtering, 
- * Advanced Modals, and Attendance Integration.
+ * ADVANCED EVENTS MANAGEMENT SYSTEM v2.0
+ * Features: Time-range tracking, Rich Descriptions, 
+ * Animated Modals, Search/Filter State, and Real-time UI.
  */
 export const eventsModule = {
-    // --- STATE MANAGEMENT ---
+    // --- MODULE STATE ---
     state: {
         events: [],
         filteredEvents: [],
         userRole: 'staff',
         userOrgId: null,
         searchTerm: '',
-        currentFilter: 'all' // all, upcoming, active, completed
+        currentFilter: 'all',
+        isLoading: false
     },
 
-    // --- DATABASE LOGIC ---
+    // --- DATABASE LAYER ---
     async fetchEvents() {
+        this.state.isLoading = true;
         try {
             const { data, error } = await supabase
                 .from('events_with_status')
@@ -29,57 +31,65 @@ export const eventsModule = {
             this.applyFilters();
             return true;
         } catch (error) {
-            this.notify("Critical: Could not sync with database.", "error");
-            console.error("DB_FETCH_ERROR:", error.message);
+            this.notify("Sync Error: " + error.message, "error");
             return false;
+        } finally {
+            this.state.isLoading = false;
         }
     },
 
-    async createEvent(name, date) {
+    async deployOperation(eventData) {
         try {
-            const { error } = await supabase.from('events').insert([{ 
-                event_name: name, 
-                event_date: date, 
-                organization_id: this.state.userOrgId 
-            }]);
-
+            const { error } = await supabase.from('events').insert([eventData]);
             if (error) throw error;
+            
             this.notify("Operation Deployed Successfully", "success");
             await this.fetchEvents();
             this.renderGrid();
             return true;
         } catch (error) {
-            this.notify(error.message, "error");
+            this.notify("Deployment Failed: " + error.message, "error");
             return false;
         }
     },
 
-    // --- FILTER & SEARCH LOGIC ---
+    // --- FILTER ENGINE ---
     applyFilters() {
-        let results = [...this.state.events];
+        let filtered = [...this.state.events];
 
-        // 1. Search Filter
         if (this.state.searchTerm) {
-            results = results.filter(ev => 
-                ev.event_name.toLowerCase().includes(this.state.searchTerm.toLowerCase())
+            const term = this.state.searchTerm.toLowerCase();
+            filtered = filtered.filter(ev => 
+                ev.event_name.toLowerCase().includes(term) || 
+                (ev.description && ev.description.toLowerCase().includes(term))
             );
         }
 
-        // 2. Tab Filter
         if (this.state.currentFilter !== 'all') {
-            results = results.filter(ev => ev.status === this.state.currentFilter);
+            filtered = filtered.filter(ev => ev.status === this.state.currentFilter);
         }
 
-        this.state.filteredEvents = results;
+        this.state.filteredEvents = filtered;
     },
 
-    // --- UI HELPERS ---
+    // --- UI COMPONENTS ---
     notify(msg, type) {
+        const id = 'toast-' + Math.random().toString(36).substr(2, 9);
         const toast = document.createElement('div');
-        toast.className = `fixed bottom-5 right-5 px-6 py-3 rounded-2xl text-white text-xs font-black uppercase tracking-widest z-[1000] animate-in slide-in-from-right duration-300 ${type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`;
-        toast.innerText = msg;
+        toast.id = id;
+        toast.className = `fixed bottom-8 right-8 px-8 py-4 rounded-[2rem] text-white text-[10px] font-black uppercase tracking-[0.2em] z-[1000] shadow-2xl animate-in slide-in-from-bottom-10 duration-500 ${type === 'success' ? 'bg-[#000080]' : 'bg-red-500'}`;
+        toast.innerHTML = `
+            <div class="flex items-center gap-3">
+                <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-triangle'}" class="w-4 h-4"></i>
+                ${msg}
+            </div>
+        `;
         document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+        if (window.lucide) window.lucide.createIcons();
+        setTimeout(() => {
+            toast.classList.add('animate-out', 'fade-out', 'slide-out-to-right-10');
+            setTimeout(() => toast.remove(), 500);
+        }, 4000);
     },
 
     // --- MAIN RENDERER ---
@@ -87,93 +97,116 @@ export const eventsModule = {
         const container = document.getElementById('mod-events') || document.getElementById('mod-dashboard');
         if (!container) return;
 
-        // Fetch User Context
+        // Initialize Identity
         const { data: { user } } = await supabase.auth.getUser();
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role, organization_id')
-            .eq('id', user?.id)
-            .single();
-
+        const { data: profile } = await supabase.from('profiles').select('role, organization_id').eq('id', user?.id).single();
+        
         this.state.userRole = profile?.role || 'staff';
         this.state.userOrgId = profile?.organization_id;
 
         container.innerHTML = `
-            <div class="p-4 md:p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-1000">
+            <div class="p-6 md:p-12 max-w-[1600px] mx-auto space-y-12 animate-in fade-in duration-1000">
                 
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                    <div>
-                        <h1 class="text-4xl font-[1000] text-slate-900 tracking-tight leading-none">Command Center</h1>
-                        <div class="flex items-center gap-3 mt-3">
-                            <span class="px-3 py-1 bg-blue-50 text-[#000080] text-[10px] font-black uppercase rounded-full border border-blue-100">
-                                ${this.state.userRole.replace('_', ' ')}
-                            </span>
-                            <span id="event-count" class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                Loading Records...
-                            </span>
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8">
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-1 bg-[#000080] rounded-full"></div>
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Operational Module</span>
                         </div>
+                        <h1 class="text-5xl font-[1000] text-slate-900 tracking-tighter italic">COMMAND<span class="text-[#000080] text-stroke-thin">CENTER</span></h1>
                     </div>
 
-                    <div class="flex items-center gap-3 w-full lg:w-auto">
-                        <div class="relative flex-1 lg:w-64">
-                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300"></i>
-                            <input type="text" id="ev-search" placeholder="Search operations..." 
-                                class="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-sm focus:ring-4 focus:ring-blue-50 transition-all outline-none">
+                    <div class="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+                        <div class="relative flex-1 min-w-[300px]">
+                            <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300"></i>
+                            <input type="text" id="ev-search" placeholder="Filter by name or description..." 
+                                class="w-full pl-16 pr-8 py-5 bg-white border border-slate-100 rounded-[2rem] text-sm shadow-sm focus:ring-4 focus:ring-blue-50 transition-all outline-none font-medium">
                         </div>
                         
                         ${(this.state.userRole === 'super_admin' || this.state.userRole === 'admin') ? `
-                            <button id="btn-add-event" class="px-6 py-3 bg-[#000080] text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:shadow-2xl active:scale-95 transition-all flex items-center gap-2 group">
-                                <i data-lucide="plus" class="w-4 h-4 group-hover:rotate-90 transition-transform"></i> New Operation
+                            <button id="btn-add-event" class="px-8 py-5 bg-[#000080] text-white rounded-[2rem] text-xs font-black uppercase tracking-widest hover:shadow-2xl hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-3">
+                                <i data-lucide="plus-square" class="w-5 h-5 text-blue-300"></i> Deploy New Operation
                             </button>
                         ` : ''}
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 p-1 bg-slate-100/50 w-fit rounded-2xl border border-slate-100">
-                    <button data-filter="all" class="filter-tab px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white shadow-sm text-[#000080]">All</button>
-                    <button data-filter="active" class="filter-tab px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Active</button>
-                    <button data-filter="upcoming" class="filter-tab px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Upcoming</button>
-                    <button data-filter="completed" class="filter-tab px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Archived</button>
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6 border-b border-slate-100 pb-8">
+                    <div class="flex items-center gap-2 p-1.5 bg-slate-100/50 rounded-[1.5rem] w-full md:w-auto">
+                        <button data-filter="all" class="filter-tab flex-1 md:flex-none px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white shadow-sm text-[#000080]">All Logs</button>
+                        <button data-filter="active" class="filter-tab flex-1 md:flex-none px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Live</button>
+                        <button data-filter="upcoming" class="filter-tab flex-1 md:flex-none px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Slated</button>
+                        <button data-filter="completed" class="filter-tab flex-1 md:flex-none px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-slate-400 hover:text-slate-600">Archived</button>
+                    </div>
+                    <div id="event-stats" class="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">
+                        Syncing...
+                    </div>
                 </div>
 
-                <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-10">
                     </div>
             </div>
 
-            <div id="modal-event" class="hidden fixed inset-0 bg-slate-950/40 backdrop-blur-md z-[200] flex items-center justify-center p-4 overflow-y-auto">
-                <div class="bg-white rounded-[3rem] p-10 w-full max-w-lg shadow-[0_32px_64px_-15px_rgba(0,0,0,0.2)] animate-in zoom-in-95 duration-300 relative">
-                    <button id="close-ev-modal-top" class="absolute right-8 top-8 p-2 hover:bg-slate-50 rounded-full transition-colors">
-                        <i data-lucide="x" class="w-5 h-5 text-slate-300"></i>
-                    </button>
+            <div id="modal-event" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[500] flex items-center justify-center p-4">
+                <div class="bg-white rounded-[3.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div class="p-12 space-y-10">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-4xl font-[1000] text-slate-900 tracking-tighter">NEW<br>OPERATION</h3>
+                                <p class="text-xs text-slate-400 font-bold uppercase tracking-[0.3em] mt-2">Deployment Configuration</p>
+                            </div>
+                            <button id="close-ev-modal" class="p-4 bg-slate-50 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-3xl transition-all">
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
 
-                    <div class="mb-8">
-                        <h3 class="text-3xl font-black text-slate-900 tracking-tight">Deploy Event</h3>
-                        <p class="text-sm text-slate-400 mt-1 font-medium">Automatic status assignment based on scheduling.</p>
-                    </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Operation Title</label>
+                                    <input type="text" id="new-ev-name" placeholder="e.g., Strategic Seminar" 
+                                        class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
+                                </div>
 
-                    <div class="space-y-6">
-                        <div class="group">
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1 group-focus-within:text-[#000080] transition-colors">Operation Designation</label>
-                            <div class="relative">
-                                <i data-lucide="tag" class="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300"></i>
-                                <input type="text" id="new-ev-name" placeholder="Name of activity" 
-                                    class="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-3xl text-sm focus:bg-white focus:border-blue-100 outline-none transition-all">
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Brief Description</label>
+                                    <textarea id="new-ev-desc" rows="4" placeholder="Objectives and details..." 
+                                        class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-medium focus:bg-white focus:border-blue-100 outline-none transition-all resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="space-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Deployment Date</label>
+                                    <input type="date" id="new-ev-date" 
+                                        class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="space-y-2">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Time</label>
+                                        <input type="time" id="new-ev-start" 
+                                            class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">End Time</label>
+                                        <input type="time" id="new-ev-end" 
+                                            class="w-full p-6 bg-slate-50 border-2 border-transparent rounded-[2rem] text-sm font-bold focus:bg-white focus:border-blue-100 outline-none transition-all">
+                                    </div>
+                                </div>
+
+                                <div class="p-6 bg-blue-50 rounded-[2rem] border border-blue-100">
+                                    <p class="text-[9px] text-[#000080] font-black uppercase leading-relaxed">
+                                        <i data-lucide="info" class="inline w-3 h-3 mr-1 mb-0.5"></i>
+                                        System will automatically set status to 'Active' on the scheduled date.
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="group">
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1 group-focus-within:text-[#000080] transition-colors">Target Schedule</label>
-                            <div class="relative">
-                                <i data-lucide="calendar-days" class="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300"></i>
-                                <input type="date" id="new-ev-date" 
-                                    class="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent rounded-3xl text-sm focus:bg-white focus:border-blue-100 outline-none transition-all">
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col sm:flex-row gap-4 pt-6">
-                            <button id="close-ev-modal" class="flex-1 py-5 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
-                            <button id="save-ev-btn" class="flex-1 py-5 bg-[#000080] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-95 transition-all">
-                                Deploy Operation
+                        <div class="pt-6">
+                            <button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl shadow-blue-900/30 hover:scale-[1.02] active:scale-95 transition-all">
+                                Confirm & Deploy Operation
                             </button>
                         </div>
                     </div>
@@ -186,66 +219,76 @@ export const eventsModule = {
         this.renderGrid();
     },
 
-    // --- GRID RENDERER ---
+    // --- GRID LOGIC ---
     renderGrid() {
         const grid = document.getElementById('events-grid');
-        const countSpan = document.getElementById('event-count');
+        const stats = document.getElementById('event-stats');
         if (!grid) return;
 
         if (this.state.filteredEvents.length === 0) {
             grid.innerHTML = `
-                <div class="col-span-full py-32 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-700">
-                    <div class="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-6">
-                        <i data-lucide="layers-2" class="w-10 h-10 text-slate-200"></i>
+                <div class="col-span-full py-40 flex flex-col items-center animate-in fade-in zoom-in duration-1000">
+                    <div class="w-32 h-32 bg-slate-50 rounded-[3rem] flex items-center justify-center mb-8 border border-slate-100">
+                        <i data-lucide="ghost" class="w-12 h-12 text-slate-200"></i>
                     </div>
-                    <h3 class="text-xl font-black text-slate-800">No Operations Found</h3>
-                    <p class="text-slate-400 text-xs font-medium max-w-[200px] mt-2">Adjust your search or filters to see more results.</p>
+                    <h3 class="text-2xl font-[1000] text-slate-800 tracking-tight">NO LOGS FOUND</h3>
+                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-2">System Database is empty or filtered</p>
                 </div>`;
-            if (countSpan) countSpan.innerText = "0 Records";
+            if (stats) stats.innerText = "0 RECORDS FOUND";
             if (window.lucide) window.lucide.createIcons();
             return;
         }
 
-        if (countSpan) countSpan.innerText = `${this.state.filteredEvents.length} Records Found`;
+        if (stats) stats.innerText = `${this.state.filteredEvents.length} OPERATIONS RECORDED`;
 
         grid.innerHTML = this.state.filteredEvents.map((ev, index) => {
             const isActive = ev.status === 'active';
             const isCompleted = ev.status === 'completed';
-            const statusColor = isActive ? 'text-emerald-500 bg-emerald-50' : isCompleted ? 'text-slate-400 bg-slate-50' : 'text-blue-500 bg-blue-50';
+            const statusTheme = isActive ? 'bg-emerald-50 text-emerald-600' : isCompleted ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600';
 
             return `
-                <div class="bg-white border border-slate-100 rounded-[3rem] p-10 shadow-sm hover:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.08)] transition-all group relative animate-in slide-in-from-bottom-4 duration-500" style="animation-delay: ${index * 50}ms">
-                    
-                    <div class="flex justify-between items-start mb-8">
-                        <div class="px-4 py-1.5 rounded-full ${statusColor} text-[9px] font-[900] uppercase tracking-widest flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                <div class="group bg-white border border-slate-100 rounded-[3.5rem] p-10 shadow-sm hover:shadow-[0_40px_80px_-30px_rgba(0,0,0,0.1)] transition-all animate-in slide-in-from-bottom-10 duration-700" style="animation-delay: ${index * 100}ms">
+                    <div class="flex justify-between items-start mb-10">
+                        <div class="px-5 py-2 rounded-2xl ${statusTheme} text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-current ${isActive ? 'animate-ping' : ''}"></span>
                             ${ev.status}
                         </div>
-                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button class="p-2 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <div class="flex items-center gap-2 text-slate-200">
+                            <i data-lucide="activity" class="w-4 h-4"></i>
                         </div>
                     </div>
 
-                    <div class="mb-10">
-                        <h3 class="text-2xl font-black text-slate-800 leading-tight group-hover:text-[#000080] transition-colors">${ev.event_name}</h3>
-                        <div class="flex items-center gap-2 mt-3 text-slate-400">
-                            <i data-lucide="calendar" class="w-4 h-4"></i>
-                            <span class="text-[11px] font-bold uppercase tracking-tight">${new Date(ev.event_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    <div class="space-y-4 mb-10">
+                        <h3 class="text-3xl font-[1000] text-slate-900 leading-[0.9] tracking-tighter group-hover:text-[#000080] transition-colors uppercase">
+                            ${ev.event_name}
+                        </h3>
+                        <p class="text-sm text-slate-400 font-medium line-clamp-2 leading-relaxed">
+                            ${ev.description || 'No strategic objectives defined for this operation.'}
+                        </p>
+                        
+                        <div class="flex flex-wrap items-center gap-4 pt-4">
+                            <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+                                <span class="text-[10px] font-black text-slate-500 uppercase">${new Date(ev.event_date).toDateString()}</span>
+                            </div>
+                            ${ev.start_time ? `
+                                <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
+                                    <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                                    <span class="text-[10px] font-black text-slate-500 uppercase">${ev.start_time.slice(0,5)} - ${ev.end_time?.slice(0,5) || '??'}</span>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
 
-                    <div class="pt-8 border-t border-slate-50">
+                    <div class="pt-8 border-t border-slate-50 flex items-center justify-between">
                         ${isActive ? `
                             <button onclick="window.showSection('attendance'); sessionStorage.setItem('active_event', '${ev.id}')" 
-                                    class="w-full py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#000080] shadow-lg shadow-slate-900/10 active:scale-95 transition-all flex items-center justify-center gap-3">
-                                <i data-lucide="fingerprint" class="w-4 h-4"></i> Initialize Attendance
+                                class="flex-1 py-5 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:bg-[#000080] active:scale-95 transition-all shadow-xl shadow-slate-900/20">
+                                Open Attendance
                             </button>
                         ` : `
-                            <div class="w-full py-4 bg-slate-50 rounded-2xl flex items-center justify-center gap-2">
-                                <i data-lucide="${isCompleted ? 'archive' : 'clock'}" class="w-4 h-4 text-slate-300"></i>
-                                <span class="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                                    ${isCompleted ? 'Operation Concluded' : 'Schedule Standby'}
-                                </span>
+                            <div class="flex-1 py-5 bg-slate-50 text-slate-300 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-center">
+                                ${isCompleted ? 'Log Archived' : 'Standby Mode'}
                             </div>
                         `}
                     </div>
@@ -255,14 +298,14 @@ export const eventsModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    // --- EVENT LISTENERS ---
+    // --- INTERACTION ENGINE ---
     initEventListeners() {
         const searchInput = document.getElementById('ev-search');
         const filterTabs = document.querySelectorAll('.filter-tab');
         const modal = document.getElementById('modal-event');
         const saveBtn = document.getElementById('save-ev-btn');
 
-        // Search Listener
+        // Search Input Logic
         if (searchInput) {
             searchInput.oninput = (e) => {
                 this.state.searchTerm = e.target.value;
@@ -271,15 +314,14 @@ export const eventsModule = {
             };
         }
 
-        // Tab Listeners
+        // Tab Switching Logic
         filterTabs.forEach(tab => {
             tab.onclick = () => {
-                // UI Toggle
-                filterTabs.forEach(t => t.classList.replace('bg-white', 'text-slate-400'));
-                filterTabs.forEach(t => t.classList.remove('shadow-sm', 'text-[#000080]'));
+                filterTabs.forEach(t => t.classList.remove('bg-white', 'shadow-sm', 'text-[#000080]'));
+                filterTabs.forEach(t => t.classList.add('text-slate-400'));
                 
-                tab.classList.replace('text-slate-400', 'text-[#000080]');
-                tab.classList.add('bg-white', 'shadow-sm');
+                tab.classList.remove('text-slate-400');
+                tab.classList.add('bg-white', 'shadow-sm', 'text-[#000080]');
 
                 this.state.currentFilter = tab.dataset.filter;
                 this.applyFilters();
@@ -287,51 +329,47 @@ export const eventsModule = {
             };
         });
 
-        // Modal Listeners
-        if (document.getElementById('btn-add-event')) {
-            document.getElementById('btn-add-event').onclick = () => {
-                modal.classList.remove('hidden');
-                document.getElementById('new-ev-name').focus();
-            };
-        }
+        // Modal Controls
+        const openBtn = document.getElementById('btn-add-event');
+        if (openBtn) openBtn.onclick = () => modal.classList.remove('hidden');
+        
+        const closeBtn = document.getElementById('close-ev-modal');
+        if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
 
-        const closeModals = ['close-ev-modal', 'close-ev-modal-top'];
-        closeModals.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) btn.onclick = () => modal.classList.add('hidden');
-        });
-
-        // Save Logic
+        // Deployment Logic
         if (saveBtn) {
             saveBtn.onclick = async () => {
-                const nameInput = document.getElementById('new-ev-name');
-                const dateInput = document.getElementById('new-ev-date');
-                
-                if (!nameInput.value || !dateInput.value) {
-                    return this.notify("Please fill in all tactical data.", "error");
-                }
+                const name = document.getElementById('new-ev-name').value;
+                const date = document.getElementById('new-ev-date').value;
+                const desc = document.getElementById('new-ev-desc').value;
+                const start = document.getElementById('new-ev-start').value;
+                const end = document.getElementById('new-ev-end').value;
+
+                if (!name || !date) return this.notify("Tactical Error: Name & Date required", "error");
 
                 saveBtn.disabled = true;
-                saveBtn.innerHTML = `<span class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processing...</span>`;
+                saveBtn.innerText = "PROCESSING DEPLOYMENT...";
 
-                const success = await this.createEvent(nameInput.value, dateInput.value);
-                
+                const success = await this.deployOperation({
+                    event_name: name,
+                    event_date: date,
+                    description: desc,
+                    start_time: start || null,
+                    end_time: end || null,
+                    organization_id: this.state.userOrgId
+                });
+
                 saveBtn.disabled = false;
-                saveBtn.innerText = "Deploy Operation";
+                saveBtn.innerText = "CONFIRM & DEPLOY OPERATION";
 
                 if (success) {
                     modal.classList.add('hidden');
-                    nameInput.value = '';
-                    dateInput.value = '';
+                    // Reset fields
+                    ['new-ev-name', 'new-ev-date', 'new-ev-desc', 'new-ev-start', 'new-ev-end'].forEach(id => {
+                        document.getElementById(id).value = '';
+                    });
                 }
             };
         }
-
-        // Handle Escape Key for Modal
-        window.onkeydown = (e) => {
-            if (e.key === "Escape" && !modal.classList.contains('hidden')) {
-                modal.classList.add('hidden');
-            }
-        };
     }
 };
