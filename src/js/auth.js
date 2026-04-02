@@ -1,30 +1,50 @@
 import { createClient } from '@supabase/supabase-js';
 
-// 1. Initialize Supabase with Environment Variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Fail-safe: Check if keys are missing before creating the client
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Supabase Error: API URL or Anon Key is missing. Check your GitHub Secrets.");
+    console.error("Supabase Error: API URL or Anon Key is missing.");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-/**
- * AUTH HANDLER
- * Centralizes all Supabase communication logic.
- */
+// Global state exported for other modules to use
+export let currentUserRole = 'staff'; 
+export let currentUserOrg = 'Guest';
+
 export const authHandler = {
     /**
-     * Retrieves the current user session.
-     * Used by main.js to decide whether to show the Login screen or Dashboard.
+     * Retrieves session + Fetches Profile Role from Database
      */
     async getCurrentUser() {
         try {
             const { data: { user }, error } = await supabase.auth.getUser();
             if (error || !user) return null;
-            return user;
+
+            // 1. Set Organization from Metadata (Default fallback)
+            currentUserOrg = user.user_metadata?.org_name || "Guest";
+
+            // 2. Fetch Role from the profiles table
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            if (profile) {
+                currentUserRole = profile.role;
+            }
+
+            // 3. HARD-CODED RECOGNITION (Extra safety for the main admin)
+            if (user.email === 'adminsystem@gmail.com') {
+                currentUserRole = 'super_admin';
+            }
+
+            // Apply UI locks/unlocks based on the fetched role
+            this.applyUIPerks(currentUserRole);
+
+            return { ...user, role: currentUserRole, org: currentUserOrg };
         } catch (err) {
             console.error("Auth Exception:", err);
             return null;
@@ -32,42 +52,65 @@ export const authHandler = {
     },
 
     /**
-     * Maps the user's organization to specific dashboard permissions.
+     * Maps permissions based on Organization (Kept for your Dashboard logic)
      */
     getOrgPermissions(user) {
         const orgName = user?.user_metadata?.org_name || "Guest";
+        const role = currentUserRole;
+
         const permissions = {
             org: orgName,
-            isFullAdmin: (orgName === "CITTE LSG" || orgName === "PSTTS Organization"),
+            // Super Admin gets "Full Admin" regardless of which Org they belong to
+            isFullAdmin: (role === 'super_admin' || orgName === "CITTE LSG" || orgName === "PSTTS Organization"),
             allowedDepts: []
         };
 
-        // HERO has limited visibility compared to PSTTS or LSG
-        if (orgName === "HERO Organization") {
-            permissions.allowedDepts = ["Education Dept. Student", "General Student(other dept.)"];
+        // HERO has limited visibility, but Super Admin overrides this via SQL RLS
+        if (orgName === "HERO Organization" && role !== 'super_admin') {
+            permissions.allowedDepts = ["Education Dept.", "Other Department"];
         } else {
-            permissions.allowedDepts = ["Education Dept.", "General Student", "Indus Tech Dept."];
+            permissions.allowedDepts = ["Education Dept.", "Other Department", "Industrial Technology Dept."];
         }
 
         return permissions;
     },
 
     /**
-     * Handles Log In
+     * Enforces UI restrictions (Hiding buttons/tabs)
      */
-    async signIn(email, password) {
-        return await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
+    applyUIPerks(role) {
+        // Short delay to ensure DOM is rendered
+        setTimeout(() => {
+            const adminTab = document.getElementById('nav-admin-settings');
+            const importBtn = document.getElementById('btn-import');
+            const addBtn = document.getElementById('btn-open-modal');
+
+            // Toggle Admin Panel Visibility
+            if (adminTab) {
+                adminTab.style.display = (role === 'super_admin') ? 'block' : 'none';
+            }
+
+            // Lock modification tools for Staff
+            if (role === 'staff') {
+                [importBtn, addBtn].forEach(btn => {
+                    if (btn) {
+                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                        btn.onclick = (e) => {
+                            e.stopImmediatePropagation();
+                            alert("Access Denied: Staff accounts cannot modify student records.");
+                        };
+                    }
+                });
+            }
+        }, 200);
     },
 
-    /**
-     * Handles Sign Up + Metadata Injection
-     * This is critical: without 'org_name' in metadata, the Dashboard won't load correctly.
-     */
+    async signIn(email, password) {
+        return await supabase.auth.signInWithPassword({ email, password });
+    },
+
     async signUp(fullName, email, password, orgName) {
-        return await supabase.auth.signUp({
+        const res = await supabase.auth.signUp({
             email,
             password,
             options: {
@@ -77,11 +120,19 @@ export const authHandler = {
                 }
             }
         });
+
+        // Ensure a profile record is created for the new user
+        if (res.data?.user) {
+            await supabase.from('profiles').upsert({
+                id: res.data.user.id,
+                email: email,
+                full_name: fullName,
+                role: 'admin' // Default role for new signups
+            });
+        }
+        return res;
     },
 
-    /**
-     * Clears session and refreshes page to show the Auth Screen
-     */
     async logout() {
         await supabase.auth.signOut();
         window.location.reload();
