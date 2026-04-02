@@ -23,13 +23,20 @@ export const eventsModule = {
 
     // --- UI RENDERER ---
     async render() {
-        // Targeted container from your Screenshot
         const container = document.getElementById('mod-events') || document.getElementById('mod-dashboard');
         if (!container) return;
 
-        // Force 'super_admin' if email matches yours, otherwise check localStorage
-        const userRole = localStorage.getItem('user_role') || 'staff';
-        
+        // 1. Get the Source of Truth: Fetch role/org directly from DB for the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, organization_id')
+            .eq('id', user?.id)
+            .single();
+
+        const userRole = profile?.role || 'staff';
+        const userOrgId = profile?.organization_id;
+
         container.innerHTML = `
             <div class="p-8 animate-in fade-in duration-700">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
@@ -50,7 +57,7 @@ export const eventsModule = {
                 <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="col-span-full text-center py-20">
                         <div class="w-6 h-6 border-2 border-slate-200 border-t-[#000080] rounded-full animate-spin mx-auto mb-4"></div>
-                        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Loading Operations...</p>
+                        <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Syncing with Database...</p>
                     </div>
                 </div>
             </div>
@@ -77,8 +84,7 @@ export const eventsModule = {
             </div>
         `;
 
-        // Run Logic
-        this.initEventListeners(userRole);
+        this.initEventListeners(userRole, userOrgId);
         await this.populateEvents(userRole);
     },
 
@@ -101,7 +107,6 @@ export const eventsModule = {
 
         grid.innerHTML = events.map(event => {
             const isActive = event.status === 'active';
-            
             return `
                 <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
                     <div class="flex justify-between items-start mb-6">
@@ -115,7 +120,6 @@ export const eventsModule = {
                             <i data-lucide="calendar" class="w-5 h-5 text-slate-400 group-hover:text-[#000080]"></i>
                         </div>
                     </div>
-
                     <div class="space-y-3">
                         ${isActive ? `
                             <div class="grid grid-cols-2 gap-2">
@@ -128,11 +132,7 @@ export const eventsModule = {
                                     Finance
                                 </button>
                             </div>
-                        ` : `
-                            <div class="py-3 bg-slate-50 rounded-xl text-center">
-                                <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Awaiting Activation</p>
-                            </div>
-                        `}
+                        ` : `<div class="py-3 bg-slate-50 rounded-xl text-center"><p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">Awaiting Activation</p></div>`}
 
                         ${(role === 'super_admin' || role === 'admin') ? `
                             <div class="pt-4 mt-4 border-t border-slate-50 flex items-center justify-between">
@@ -146,14 +146,13 @@ export const eventsModule = {
                             </div>
                         ` : ''}
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
 
         if (window.lucide) window.lucide.createIcons();
     },
 
-    initEventListeners(role) {
+    initEventListeners(role, orgId) {
         const modal = document.getElementById('modal-event');
         const addBtn = document.getElementById('btn-add-event');
         const closeBtn = document.getElementById('close-ev-modal');
@@ -169,17 +168,20 @@ export const eventsModule = {
 
                 if (!name || !date) return alert("Missing Info: Event name and date are required.");
 
+                // Automatically include the organization_id from the profile we fetched
                 const { error } = await supabase.from('events').insert([{ 
                     event_name: name, 
                     event_date: date, 
-                    status: 'upcoming' 
+                    status: 'upcoming',
+                    organization_id: orgId 
                 }]);
 
                 if (!error) {
                     modal.classList.add('hidden');
-                    this.render(); // Re-fetch and re-draw
+                    this.render();
                 } else {
                     console.error(error.message);
+                    alert("Error creating event: " + error.message);
                 }
             };
         }
