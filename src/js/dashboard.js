@@ -1,6 +1,13 @@
 import { supabase } from './auth.js';
 
+// 1. IMPORT the image. 
+// Vite will now bundle this correctly and handle the pathing for GitHub Pages.
+import architectPhoto from '../../assets/img/5646.png';
+
 export const dashboardModule = {
+    /**
+     * Renders the UI and inserts the bundled image URL
+     */
     render() {
         const container = document.getElementById('mod-dashboard');
         if (!container) return;
@@ -15,9 +22,12 @@ export const dashboardModule = {
                             <div class="flex items-start gap-5">
                                 <div class="relative w-20 h-20 flex-shrink-0">
                                     <div class="absolute inset-0 rounded-full bg-blue-400/20 animate-pulse"></div>
-                                    <img src="./assets/img/5646.png" 
-     alt="Lead Architect" 
-     class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500">
+                                    
+                                    <img src="${architectPhoto}" 
+                                         alt="Lead Architect" 
+                                         class="relative z-10 w-full h-full rounded-full object-cover border-4 border-white/10 shadow-2xl group-hover:scale-110 transition-transform duration-500"
+                                         onerror="this.src='https://ui-avatars.com/api/?name=Davie+Sialongo&background=000080&color=fff'">
+                                    
                                     <div class="absolute -bottom-1 -right-1 z-20 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-[#000080]">
                                         <i data-lucide="shield-check" class="w-3 h-3 text-white"></i>
                                     </div>
@@ -88,7 +98,6 @@ export const dashboardModule = {
                         </div>
                         <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i></div>
                     </div>
-
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
                         <div>
                             <p class="text-sm font-medium text-slate-500">Daily Attendance</p>
@@ -96,7 +105,6 @@ export const dashboardModule = {
                         </div>
                         <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="eye" class="w-4 h-4 text-slate-400"></i></div>
                     </div>
-
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start">
                         <div>
                             <p class="text-sm font-medium text-slate-500">Events Completed</p>
@@ -104,7 +112,6 @@ export const dashboardModule = {
                         </div>
                         <div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i></div>
                     </div>
-
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operation Effect</p>
                         <div class="relative flex items-center justify-center">
@@ -127,7 +134,6 @@ export const dashboardModule = {
                                 <p class="text-xs text-slate-400 font-medium italic">Visualization Syncing...</p>
                             </div>
                         </div>
-
                         <div class="p-8 bg-slate-50/20">
                             <h4 class="text-sm font-bold text-slate-700 mb-8">Department Ranking</h4>
                             <div id="dept-ranking-list" class="space-y-6">
@@ -147,60 +153,39 @@ export const dashboardModule = {
         await this.updateLiveStats();
     },
 
-    animateValue(id, start, end, duration) {
-        const obj = document.getElementById(id);
-        if (!obj) return;
-        let startTimestamp = null;
-        const step = (timestamp) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
-            if (progress < 1) window.requestAnimationFrame(step);
-        };
-        window.requestAnimationFrame(step);
-    },
-
+    /**
+     * Updates counters and department logic
+     */
     async updateLiveStats() {
         try {
             const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
             const { count: aCount } = await supabase.from('attendance').select('*', { count: 'exact', head: true });
             const { count: eCount } = await supabase.from('events').select('*', { count: 'exact', head: true });
 
+            this.animateValue("stat-total-students", 0, sCount || 0, 1500);
+            this.animateValue("stat-attendance", 0, aCount || 0, 1500);
+            this.animateValue("stat-events", 0, eCount || 0, 1500);
+
+            // Effect progress circle
+            const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
+            const circle = document.getElementById('progress-circle');
+            if (circle) {
+                circle.style.strokeDashoffset = 213.6 - (effectPercent / 100) * 213.6;
+                this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
+            }
+
+            // Department Ranking Logic (Paginated Fetch)
             let allDeptData = [];
             let from = 0;
             const step = 1000;
             let hasMore = true;
 
             while (hasMore) {
-                const { data, error: fetchError } = await supabase
-                    .from('students')
-                    .select('department')
-                    .range(from, from + step - 1);
-
+                const { data, error: fetchError } = await supabase.from('students').select('department').range(from, from + step - 1);
                 if (fetchError) throw fetchError;
-                
                 allDeptData = [...allDeptData, ...data];
                 if (data.length < step) hasMore = false;
                 else from += step;
-            }
-
-            const statusText = document.getElementById('service-status-text');
-            const statusGlow = document.getElementById('status-glow');
-            if (statusText) {
-                statusText.innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span> Operational`;
-                statusText.className = "text-[10px] text-emerald-600 font-bold uppercase flex items-center justify-center gap-1";
-                if(statusGlow) statusGlow.className = "absolute inset-0 bg-emerald-400/20 blur-xl rounded-full animate-pulse";
-            }
-
-            this.animateValue("stat-total-students", 0, sCount || 0, 1500);
-            this.animateValue("stat-attendance", 0, aCount || 0, 1500);
-            this.animateValue("stat-events", 0, eCount || 0, 1500);
-
-            const effectPercent = sCount > 0 ? Math.min(Math.round(((aCount || 0) / sCount) * 100), 100) : 0;
-            const circle = document.getElementById('progress-circle');
-            if (circle) {
-                circle.style.strokeDashoffset = 213.6 - (effectPercent / 100) * 213.6;
-                this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
             }
 
             const rankingList = document.getElementById('dept-ranking-list');
@@ -223,18 +208,34 @@ export const dashboardModule = {
                     </div>
                 `).join('');
             }
-
         } catch (err) {
-            console.error("Dashboard Sync Error:", err.message);
-            const statusText = document.getElementById('service-status-text');
-            const statusGlow = document.getElementById('status-glow');
-            const statusIcon = document.getElementById('status-icon');
-            if (statusText) {
-                statusText.innerHTML = `Connection Error`;
-                statusText.className = "text-[10px] text-red-500 font-bold uppercase flex items-center justify-center gap-1";
-                if(statusGlow) statusGlow.className = "absolute inset-0 bg-red-400/10 blur-xl rounded-full";
-                if(statusIcon) statusIcon.className = "w-12 h-12 text-red-400 relative z-10";
-            }
+            this.handleSyncError(err);
+        }
+    },
+
+    animateValue(id, start, end, duration) {
+        const obj = document.getElementById(id);
+        if (!obj) return;
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+            if (progress < 1) window.requestAnimationFrame(step);
+        };
+        window.requestAnimationFrame(step);
+    },
+
+    handleSyncError(err) {
+        console.error("Dashboard Sync Error:", err.message);
+        const statusText = document.getElementById('service-status-text');
+        const statusGlow = document.getElementById('status-glow');
+        const statusIcon = document.getElementById('status-icon');
+        if (statusText) {
+            statusText.innerHTML = `Sync Error`;
+            statusText.className = "text-[10px] text-red-500 font-bold uppercase flex items-center justify-center gap-1";
+            if(statusGlow) statusGlow.className = "absolute inset-0 bg-red-400/10 blur-xl rounded-full";
+            if(statusIcon) statusIcon.className = "w-12 h-12 text-red-400 relative z-10";
         }
     }
 };
