@@ -22,7 +22,7 @@ export const authHandler = {
             const { data: { user }, error } = await supabase.auth.getUser();
             if (error || !user) return null;
 
-            // 1. Set Organization from Metadata (Default fallback)
+            // 1. Set Organization from Metadata
             currentUserOrg = user.user_metadata?.org_name || "Guest";
 
             // 2. Fetch Role from the profiles table
@@ -36,14 +36,15 @@ export const authHandler = {
                 currentUserRole = profile.role;
             }
 
-            // 3. HARD-CODED RECOGNITION (Extra safety for the main admin)
+            // 3. HARD-CODED RECOGNITION (Extra safety)
             if (user.email === 'adminsystem@gmail.com') {
                 currentUserRole = 'super_admin';
             }
 
-            // Apply UI locks/unlocks based on the fetched role
+            // Apply UI locks/unlocks
             this.applyUIPerks(currentUserRole);
 
+            console.log("Logged in as:", currentUserRole, "from", currentUserOrg);
             return { ...user, role: currentUserRole, org: currentUserOrg };
         } catch (err) {
             console.error("Auth Exception:", err);
@@ -52,7 +53,7 @@ export const authHandler = {
     },
 
     /**
-     * Maps permissions based on Organization (Kept for your Dashboard logic)
+     * Maps permissions based on Organization
      */
     getOrgPermissions(user) {
         const orgName = user?.user_metadata?.org_name || "Guest";
@@ -60,12 +61,10 @@ export const authHandler = {
 
         const permissions = {
             org: orgName,
-            // Super Admin gets "Full Admin" regardless of which Org they belong to
             isFullAdmin: (role === 'super_admin' || orgName === "CITTE LSG" || orgName === "PSTTS Organization"),
             allowedDepts: []
         };
 
-        // HERO has limited visibility, but Super Admin overrides this via SQL RLS
         if (orgName === "HERO Organization" && role !== 'super_admin') {
             permissions.allowedDepts = ["Education Dept.", "Other Department"];
         } else {
@@ -79,18 +78,15 @@ export const authHandler = {
      * Enforces UI restrictions (Hiding buttons/tabs)
      */
     applyUIPerks(role) {
-        // Short delay to ensure DOM is rendered
         setTimeout(() => {
             const adminTab = document.getElementById('nav-admin-settings');
             const importBtn = document.getElementById('btn-import');
             const addBtn = document.getElementById('btn-open-modal');
 
-            // Toggle Admin Panel Visibility
             if (adminTab) {
                 adminTab.style.display = (role === 'super_admin') ? 'block' : 'none';
             }
 
-            // Lock modification tools for Staff
             if (role === 'staff') {
                 [importBtn, addBtn].forEach(btn => {
                     if (btn) {
@@ -121,13 +117,12 @@ export const authHandler = {
             }
         });
 
-        // Ensure a profile record is created for the new user
         if (res.data?.user) {
             await supabase.from('profiles').upsert({
                 id: res.data.user.id,
                 email: email,
                 full_name: fullName,
-                role: 'admin' // Default role for new signups
+                role: 'admin' 
             });
         }
         return res;
@@ -138,35 +133,3 @@ export const authHandler = {
         window.location.reload();
     }
 };
-
-// Add this to your authHandler inside auth.js
-async getCurrentUser() {
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-
-        // 1. Get the Org from Metadata
-        currentUserOrg = user.user_metadata?.org_name || "Guest";
-
-        // 2. FETCH THE ROLE FROM PROFILES TABLE (Crucial!)
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (profile) {
-            currentUserRole = profile.role; // This sets 'super_admin'
-        }
-
-        // 3. Fallback for your master email
-        if (user.email === 'adminsystem@gmail.com') {
-            currentUserRole = 'super_admin';
-        }
-
-        console.log("Logged in as:", currentUserRole, "from", currentUserOrg);
-        return { ...user, role: currentUserRole };
-    } catch (err) {
-        return null;
-    }
-}
