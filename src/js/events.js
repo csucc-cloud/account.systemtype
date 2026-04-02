@@ -15,7 +15,6 @@ export const eventsModule = {
         viewMode: 'grid',
         isStealthMode: false,
         uploadProgress: 0,
-        // NEW STATE
         selectedEvent: null,
         isEditMode: false
     },
@@ -28,9 +27,9 @@ export const eventsModule = {
                 .from('events')
                 .select('*')
                 .order('start_time', { ascending: false });
-            
+
             if (error) throw error;
-            
+
             const now = new Date();
             this.state.events = (data || []).map(ev => {
                 const start = new Date(ev.start_time);
@@ -59,8 +58,8 @@ export const eventsModule = {
         let filtered = [...this.state.events];
         if (this.state.searchTerm) {
             const term = this.state.searchTerm.toLowerCase();
-            filtered = filtered.filter(ev => 
-                ev.event_name.toLowerCase().includes(term) || 
+            filtered = filtered.filter(ev =>
+                ev.event_name.toLowerCase().includes(term) ||
                 (ev.description && ev.description.toLowerCase().includes(term))
             );
         }
@@ -77,7 +76,7 @@ export const eventsModule = {
 
         const { data: { user } } = await supabase.auth.getUser();
         const { data: profile } = await supabase.from('profiles').select('role, organization_id').eq('id', user?.id).single();
-        
+
         this.state.userRole = profile?.role || 'staff';
         this.state.userOrgId = profile?.organization_id;
 
@@ -115,7 +114,7 @@ export const eventsModule = {
                         <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                             <div class="relative flex-grow max-w-md">
                                 <i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                                <input type="text" id="ev-search" placeholder="Search operational database..." 
+                                <input type="text" id="ev-search" value="${this.state.searchTerm}" placeholder="Search operational database..." 
                                     class="w-full pl-14 pr-6 py-5 rounded-[2rem] input-tactical text-sm font-bold shadow-sm outline-none">
                             </div>
                             
@@ -248,7 +247,6 @@ export const eventsModule = {
                         </div>
                     </div>
                 </div>
-
             </div>
         `;
 
@@ -330,7 +328,6 @@ export const eventsModule = {
         const saveBtn = document.getElementById('save-ev-btn');
         if (saveBtn) saveBtn.onclick = () => this.deployMission();
 
-        // NEW: Detail Modal Actions
         const editBtn = document.getElementById('btn-edit-active');
         if (editBtn) editBtn.onclick = () => this.openEditMode();
 
@@ -343,7 +340,6 @@ export const eventsModule = {
         const s = new Date(start);
         const e = new Date(end);
         return this.state.events.some(ev => {
-            // If editing, don't conflict with itself
             if (this.state.selectedEvent && ev.id === this.state.selectedEvent.id) return false;
             const exS = new Date(ev.start_time);
             const exE = new Date(ev.end_time);
@@ -401,7 +397,6 @@ export const eventsModule = {
         }
     },
 
-    // --- NEW ACTIONS ---
     openDetailModal(event) {
         this.state.selectedEvent = event;
         const modal = document.getElementById('modal-event-detail');
@@ -422,7 +417,6 @@ export const eventsModule = {
         this.state.isEditMode = true;
         document.getElementById('modal-event-detail').classList.add('hidden');
         
-        // Fill the Create Modal form
         document.getElementById('modal-title').innerHTML = `Edit<span class="text-[#000080]">Mission</span>`;
         document.getElementById('new-ev-name').value = ev.event_name;
         document.getElementById('new-ev-desc').value = ev.description || '';
