@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>General Support Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Custom scrollbar for textareas */
+        textarea::-webkit-scrollbar { width: 4px; }
+        textarea::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div id="inquiry-form-container" class="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-8 border border-slate-100">
+        <div class="flex flex-col items-center justify-center py-20">
+            <div class="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
+            <p class="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Connecting to Office...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import your consolidated module
+        import { PublicInquiryModule } from './src/js/PublicInquiryModule.js';
+        
+        /**
+         * 1. YOUR MASTER KEY
+         * This UUID connects these submissions to your 'General Inquiries' row in Supabase.
+         */
+        const GENERAL_ID = '3c435a81-16c0-4472-92fd-3ff5949fc9ed'; 
+
+        /**
+         * 2. CUSTOM CONFIGURATION
+         * These labels will replace the default "Question 1, 2, 3"
+         */
+        const generalOfficeConfig = {
+            title: "General <span class='text-blue-700'>Support</span>",
+            subtitle: "Office of the Registrar & Treasurer",
+            q1_label: "Fee or Payment Concerns (Required)",
+            q2_label: "Document Requests (COR, ID, Clearance)",
+            q3_label: "Other Office Concerns or Feedback"
+        };
+
+        // 3. Initialize the module with your ID and custom labels
+        // This handles all the validation, submission, and UI logic automatically.
+        try {
+            PublicInquiryModule.init(GENERAL_ID, generalOfficeConfig);
+        } catch (error) {
+            console.error("Failed to load inquiry module:", error);
+            document.getElementById('inquiry-form-container').innerHTML = `
+                <div class="text-center p-6">
+                    <p class="text-red-500 font-bold text-sm">System Error: Please refresh the page.</p>
+                </div>
+            `;
+        }
+    </script>
+
+</body>
+</html>
