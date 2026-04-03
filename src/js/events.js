@@ -465,17 +465,33 @@ export const eventsModule = {
     },
 
     generateQR(eventId) {
-        const baseUrl = window.location.href.split('index.html')[0]; 
-    const askUrl = `${baseUrl}ask.html?id=${eventId}`;
-        const qrContainer = document.getElementById('qr-container');
-        const qrImg = document.getElementById('qr-code-img');
-        
-        qrImg.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(askUrl)}" alt="QR Code">`;
-        qrContainer.classList.remove('hidden');
+    // 1. Define your Master Org ID
+    const MASTER_ORG_ID = '3c435a81-16c0-4472-92fd-3ff5949fc9ed';
+    
+    // 2. Get the base URL (handles local vs github pages automatically)
+    const baseUrl = window.location.href.split('index.html')[0]; 
+    
+    // 3. SMART REDIRECT LOGIC
+    // If it's the Org ID, go to general.html. If it's a seminar, go to ask.html.
+    let finalUrl;
+    if (eventId === MASTER_ORG_ID) {
+        finalUrl = `${baseUrl}general.html`; 
+    } else {
+        finalUrl = `${baseUrl}ask.html?id=${eventId}`;
+    }
 
-        console.log("Generated URL:", askUrl); // Check this in your browser console!
-    },
+    // 4. Update the UI
+    const qrContainer = document.getElementById('qr-container');
+    const qrImg = document.getElementById('qr-code-img');
+    
+    // Using a higher quality size (200x200) for printing on posters
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(finalUrl)}`;
+    
+    qrImg.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" class="mx-auto shadow-sm rounded-lg">`;
+    qrContainer.classList.remove('hidden');
 
+    console.log("QR Path Generated:", finalUrl); 
+},
     openEditMode() {
         const ev = this.state.selectedEvent;
         if (!ev) return;
