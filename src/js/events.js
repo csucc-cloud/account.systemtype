@@ -506,7 +506,7 @@ export const eventsModule = {
 
     const qrBtn = document.getElementById('btn-generate-qr');
     if (qrBtn) qrBtn.onclick = () => this.generateQR(this.state.selectedEvent.id);
-}
+},
 
     handleConflictUI(start, end) {
         const isConflict = this.checkConflicts(start, end);
