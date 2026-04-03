@@ -427,82 +427,86 @@ export const eventsModule = {
     },
 
     initEventListeners() {
-        const stealthBtn = document.getElementById('stealth-toggle');
-        if (stealthBtn) stealthBtn.onclick = () => {
-            this.state.isStealthMode = !this.state.isStealthMode;
-            this.render();
-        };
-
-        const openBtn = document.getElementById('btn-add-event');
-        if (openBtn) openBtn.onclick = () => {
-            this.state.isEditMode = false;
-            this.state.selectedEvent = null;
-            this.resetForm();
-            document.getElementById('modal-event').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-            if (window.lucide) window.lucide.createIcons();
-        };
-
-        const closeBtn = document.getElementById('close-ev-modal');
-        if (closeBtn) closeBtn.onclick = () => this.closeModal('modal-event');
-
-        const startIn = document.getElementById('new-ev-start');
-        const endIn = document.getElementById('new-ev-end');
-        [startIn, endIn].forEach(input => {
-            if (input) input.onchange = () => this.handleConflictUI(startIn.value, endIn.value);
-        });
-
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('real-file-input');
-        if (dropZone) {
-            dropZone.onclick = () => fileInput.click();
-            fileInput.onchange = (e) => this.handleFiles(e.target.files);
-        }
-
-        const search = document.getElementById('ev-search');
-        if (search) search.oninput = (e) => {
-            this.state.searchTerm = e.target.value;
-            this.applyFilters();
-            this.renderGrid();
-        };
-
-        document.querySelectorAll('.filter-tab').forEach(tab => {
-            tab.onclick = () => {
-                this.state.currentFilter = tab.dataset.filter;
-                this.applyFilters();
-                this.render();
-            };
-        });
-
-        const manageBtn = document.getElementById('btn-manage-attendance');
-if (manageBtn) {
-    manageBtn.onclick = () => {
-        const ev = this.state.selectedEvent;
-        // 1. Pass the data to the attendance module
-        attendanceModule.state.activeEventId = ev.id;
-        attendanceModule.state.activeEventName = ev.event_name;
-        
-        // 2. Hide Events, Show Attendance
-        document.getElementById('mod-events').classList.add('hidden');
-        document.getElementById('mod-attendance').classList.remove('hidden');
-        
-        // 3. Render the scanner
-        attendanceModule.render();
+    const stealthBtn = document.getElementById('stealth-toggle');
+    if (stealthBtn) stealthBtn.onclick = () => {
+        this.state.isStealthMode = !this.state.isStealthMode;
+        this.render();
     };
 
-        const saveBtn = document.getElementById('save-ev-btn');
-        if (saveBtn) saveBtn.onclick = () => this.deployMission();
+    const openBtn = document.getElementById('btn-add-event');
+    if (openBtn) openBtn.onclick = () => {
+        this.state.isEditMode = false;
+        this.state.selectedEvent = null;
+        this.resetForm();
+        document.getElementById('modal-event').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        if (window.lucide) window.lucide.createIcons();
+    };
 
-        const editBtn = document.getElementById('btn-edit-active');
-        if (editBtn) editBtn.onclick = () => this.openEditMode();
+    const closeBtn = document.getElementById('close-ev-modal');
+    if (closeBtn) closeBtn.onclick = () => this.closeModal('modal-event');
 
-        const deleteBtn = document.getElementById('btn-delete-active');
-        if (deleteBtn) deleteBtn.onclick = () => this.deleteEvent(this.state.selectedEvent.id);
+    const startIn = document.getElementById('new-ev-start');
+    const endIn = document.getElementById('new-ev-end');
+    [startIn, endIn].forEach(input => {
+        if (input) input.onchange = () => this.handleConflictUI(startIn.value, endIn.value);
+    });
 
-        const qrBtn = document.getElementById('btn-generate-qr');
-        if (qrBtn) qrBtn.onclick = () => this.generateQR(this.state.selectedEvent.id);
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('real-file-input');
+    if (dropZone) {
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => this.handleFiles(e.target.files);
+    }
 
-    },
+    const search = document.getElementById('ev-search');
+    if (search) search.oninput = (e) => {
+        this.state.searchTerm = e.target.value;
+        this.applyFilters();
+        this.renderGrid();
+    };
+
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.onclick = () => {
+            this.state.currentFilter = tab.dataset.filter;
+            this.applyFilters();
+            this.render();
+        };
+    });
+
+    // --- MANAGE ATTENDANCE BLOCK ---
+    const manageBtn = document.getElementById('btn-manage-attendance');
+    if (manageBtn) {
+        manageBtn.onclick = () => {
+            const ev = this.state.selectedEvent;
+            if (!ev) return; // Safety check
+
+            // 1. Pass the data to the attendance module
+            attendanceModule.state.activeEventId = ev.id;
+            attendanceModule.state.activeEventName = ev.event_name;
+            
+            // 2. Close the current detail modal and hide events
+            this.closeModal('modal-event-detail'); 
+            document.getElementById('mod-events').classList.add('hidden');
+            document.getElementById('mod-attendance').classList.remove('hidden');
+            
+            // 3. Render the scanner
+            attendanceModule.render();
+        };
+    } // <-- Added missing closing brace here
+
+    const saveBtn = document.getElementById('save-ev-btn');
+    if (saveBtn) saveBtn.onclick = () => this.deployMission();
+
+    const editBtn = document.getElementById('btn-edit-active');
+    if (editBtn) editBtn.onclick = () => this.openEditMode();
+
+    const deleteBtn = document.getElementById('btn-delete-active');
+    if (deleteBtn) deleteBtn.onclick = () => this.deleteEvent(this.state.selectedEvent.id);
+
+    const qrBtn = document.getElementById('btn-generate-qr');
+    if (qrBtn) qrBtn.onclick = () => this.generateQR(this.state.selectedEvent.id);
+}
 
     handleConflictUI(start, end) {
         const isConflict = this.checkConflicts(start, end);
