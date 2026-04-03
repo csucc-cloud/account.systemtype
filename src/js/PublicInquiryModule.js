@@ -31,34 +31,45 @@ export const PublicInquiryModule = {
 
     
     async fetchOrgDetails() {
-        try {
-            const { data, error } = await supabase
-                .from('organizations')
-                .select('full_name, org_name')
+    try {
+        if (!this.state.currentEventId) return;
+
+        // 1. First, try to find it directly in 'organizations' (for General Portals)
+        let { data: orgData } = await supabase
+            .from('organizations')
+            .select('full_name, org_name')
+            .eq('id', this.state.currentEventId)
+            .maybeSingle();
+
+        if (orgData) {
+            this.state.orgName = orgData.full_name || orgData.org_name;
+        } else {
+            // 2. If not found, it's likely an EVENT ID. 
+            // We need to 'Join' tables to find which Org owns this event.
+            const { data: eventData, error: eventErr } = await supabase
+                .from('events')
+                .select(`
+                    organization_id,
+                    organizations (full_name, org_name)
+                `)
                 .eq('id', this.state.currentEventId)
-                .maybeSingle(); // Safer than .single()
+                .maybeSingle();
 
-            if (error) {
-                this.state.orgName = "Organization Portal";
-                this.renderForm();
-                return;
-            }
-
-            if (data) {
-                // Success! 
-                this.state.orgName = data.full_name || data.org_name;
+            if (eventData && eventData.organizations) {
+                this.state.orgName = eventData.organizations.full_name || eventData.organizations.org_name;
             } else {
-                // This means the ID in the URL is not in your table
-                this.state.orgName = "Portal Not Found";
+                this.state.orgName = "Organization Portal";
             }
-            
-            this.renderForm();
-            this.attachEventListeners();
-        } catch (err) {
-            this.state.orgName = "Organization Portal";
-            this.renderForm();
         }
-    },
+
+        this.renderForm();
+        this.attachEventListeners();
+    } catch (err) {
+        console.error("Lookup failed:", err);
+        this.state.orgName = "Inquiry Portal";
+        this.renderForm();
+    }
+},
     
     renderForm() {
         const container = document.getElementById('inquiry-form-container');
