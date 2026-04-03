@@ -23,9 +23,13 @@ export const eventsModule = {
     async fetchEvents() {
         this.state.isLoading = true;
         try {
+            // Join with event_inquiries to get the count of questions
             const { data, error } = await supabase
                 .from('events')
-                .select('*')
+                .select(`
+                    *,
+                    event_inquiries (id)
+                `)
                 .order('start_time', { ascending: false });
 
             if (error) throw error;
@@ -40,7 +44,11 @@ export const eventsModule = {
                 else if (now >= start && now <= end) computedStatus = 'active';
                 else if (now > end) computedStatus = 'completed';
 
-                return { ...ev, status: computedStatus };
+                return { 
+                    ...ev, 
+                    status: computedStatus,
+                    inquiryCount: ev.event_inquiries ? ev.event_inquiries.length : 0
+                };
             });
 
             this.applyFilters();
@@ -428,11 +436,9 @@ export const eventsModule = {
         document.getElementById('detail-start').innerText = new Date(event.start_time).toLocaleString();
         document.getElementById('detail-end').innerText = new Date(event.end_time).toLocaleString();
         
-        // Reset QR view
         document.getElementById('qr-container').classList.add('hidden');
-        
         modal.classList.remove('hidden');
-        await this.fetchInquiries(event.id); // Fetch the questions for this event
+        await this.fetchInquiries(event.id);
         if (window.lucide) window.lucide.createIcons();
     },
 
@@ -465,47 +471,28 @@ export const eventsModule = {
     },
 
     generateQR(eventId) {
-    // 1. Define your Master Org ID
-    const MASTER_ORG_ID = '3c435a81-16c0-4472-92fd-3ff5949fc9ed';
-    
-    // 2. Get the base URL (handles local vs github pages automatically)
-    const baseUrl = window.location.href.split('index.html')[0]; 
-    
-    // 3. SMART REDIRECT LOGIC
-    // If it's the Org ID, go to general.html. If it's a seminar, go to ask.html.
-    let finalUrl;
-    if (eventId === MASTER_ORG_ID) {
-        finalUrl = `${baseUrl}general.html`; 
-    } else {
-        finalUrl = `${baseUrl}ask.html?id=${eventId}`;
-    }
+        const MASTER_ORG_ID = '3c435a81-16c0-4472-92fd-3ff5949fc9ed';
+        const baseUrl = window.location.href.split('index.html')[0]; 
+        let finalUrl = (eventId === MASTER_ORG_ID) ? `${baseUrl}general.html` : `${baseUrl}ask.html?id=${eventId}`;
 
-    // 4. Update the UI
-    const qrContainer = document.getElementById('qr-container');
-    const qrImg = document.getElementById('qr-code-img');
-    
-    // Using a higher quality size (200x200) for printing on posters
-    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(finalUrl)}`;
-    
-    qrImg.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" class="mx-auto shadow-sm rounded-lg">`;
-    qrContainer.classList.remove('hidden');
+        const qrImg = document.getElementById('qr-code-img');
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(finalUrl)}`;
+        
+        qrImg.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" class="mx-auto shadow-sm rounded-lg">`;
+        document.getElementById('qr-container').classList.remove('hidden');
+    },
 
-    console.log("QR Path Generated:", finalUrl); 
-},
     openEditMode() {
         const ev = this.state.selectedEvent;
         if (!ev) return;
-
         this.state.isEditMode = true;
         document.getElementById('modal-event-detail').classList.add('hidden');
-        
         document.getElementById('modal-title').innerHTML = `Edit<span class="text-[#000080]">Event</span>`;
         document.getElementById('new-ev-name').value = ev.event_name;
         document.getElementById('new-ev-desc').value = ev.description || '';
         document.getElementById('new-ev-start').value = ev.start_time.slice(0, 16);
         document.getElementById('new-ev-end').value = ev.end_time.slice(0, 16);
         document.getElementById('save-ev-btn').innerText = "Update Event Details";
-
         document.getElementById('modal-event').classList.remove('hidden');
     },
 
@@ -514,7 +501,6 @@ export const eventsModule = {
         try {
             const { error } = await supabase.from('events').delete().eq('id', id);
             if (error) throw error;
-            
             this.notify("Event Deleted Successfully", "success");
             document.getElementById('modal-event-detail').classList.add('hidden');
             await this.fetchEvents();
@@ -546,7 +532,7 @@ export const eventsModule = {
 
         grid.innerHTML = this.state.filteredEvents.map((ev, i) => {
             const isActive = ev.status === 'active';
-            const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 shadow-none' : 'bg-white border-slate-100 shadow-sm';
+            const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 shadow-none text-white' : 'bg-white border-slate-100 shadow-sm';
             
             return `
                 <div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' 
@@ -556,6 +542,10 @@ export const eventsModule = {
                     <div class="flex justify-between items-start mb-6">
                         <div class="px-4 py-1.5 rounded-xl bg-slate-100/50 text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-400'}">
                             ${ev.status}
+                        </div>
+                        <div class="flex items-center gap-2">
+                             <span class="text-[10px] font-black text-blue-600">${ev.inquiryCount || 0}</span>
+                             <i data-lucide="message-square" class="w-3 h-3 text-blue-600"></i>
                         </div>
                     </div>
 
