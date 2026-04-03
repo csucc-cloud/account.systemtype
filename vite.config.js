@@ -38,7 +38,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        ask: resolve(__dirname, 'ask.html'), // This tells Vite to export ask.html
+        ask: resolve(__dirname, 'ask.html'), 
+        general: resolve(__dirname, 'general.html'),
       },
     },
   }
