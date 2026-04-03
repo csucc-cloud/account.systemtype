@@ -4,32 +4,28 @@ export const attendanceModule = {
     state: {
         activeEventId: null,
         activeEventName: '',
-        activeDay: 1, // Supports Multi-day
+        activeDay: 1,
         attendanceList: [],
-        isLoading: false,
+        isLoading: false
     },
 
-    /**
-     * SMART SCANNER LOGIC: 
-     * 1st Scan -> Sets Time In, Status: "In Venue"
-     * 2nd Scan -> Sets Time Out, Status: "Completed"
-     */
+    // --- SMART SCANNER LOGIC ---
     async processScan(studentId) {
-        if (!this.state.activeEventId) return this.notify("Please select an event first", "error");
+        if (!this.state.activeEventId) return this.notify("Select an event first", "error");
         
         try {
-            // 1. Check for existing record for THIS STUDENT on THIS DAY for THIS EVENT
-            const { data: existing, error: fetchErr } = await supabase
+            // Check if student has scanned in today for this event
+            const { data: record, error: fetchErr } = await supabase
                 .from('attendance')
                 .select('*')
                 .eq('student_id', studentId)
                 .eq('event_id', this.state.activeEventId)
                 .eq('event_day', this.state.activeDay)
-                .single();
+                .maybeSingle();
 
-            if (!existing) {
-                // FIRST SCAN: Time In
-                const { error: inErr } = await supabase.from('attendance').insert([{
+            if (!record) {
+                // FIRST SCAN: Create record (Time In)
+                const { error } = await supabase.from('attendance').insert([{
                     student_id: studentId,
                     event_id: this.state.activeEventId,
                     event_name: this.state.activeEventName,
@@ -37,28 +33,31 @@ export const attendanceModule = {
                     time_in: new Date().toISOString(),
                     status: 'In Venue'
                 }]);
-                if (inErr) throw inErr;
-                this.notify("TIME IN recorded", "success");
-            } else if (existing && !existing.time_out) {
-                // SECOND SCAN: Time Out
-                const { error: outErr } = await supabase.from('attendance')
+                if (error) throw error;
+                this.notify(`TIME IN: ${studentId}`, "success");
+            } 
+            else if (record && !record.time_out) {
+                // SECOND SCAN: Update record (Time Out)
+                const { error } = await supabase.from('attendance')
                     .update({ 
                         time_out: new Date().toISOString(),
                         status: 'Completed' 
                     })
-                    .eq('id', existing.id);
-                if (outErr) throw outErr;
-                this.notify("TIME OUT recorded - Attendance Completed", "success");
-            } else {
-                this.notify("Attendance already completed for today", "info");
+                    .eq('id', record.id);
+                if (error) throw error;
+                this.notify(`TIME OUT: ${studentId}`, "success");
+            } 
+            else {
+                this.notify("Attendance already completed.", "info");
             }
 
-            await this.fetchAttendance(this.state.activeEventId);
+            this.fetchAttendance(this.state.activeEventId);
         } catch (err) {
             this.notify(err.message, "error");
         }
     },
 
+    // --- DATABASE SYNC ---
     async fetchAttendance(eventId) {
         this.state.activeEventId = eventId;
         const { data, error } = await supabase
@@ -74,91 +73,74 @@ export const attendanceModule = {
         }
     },
 
-    // --- CSV EXPORT ENGINE ---
+    // --- EXPORT TO CSV ---
     exportToCSV() {
-        if (this.state.attendanceList.length === 0) return this.notify("No data to export", "error");
+        if (this.state.attendanceList.length === 0) return;
         
-        const headers = ["Event", "Day", "Student Name", "ID", "Course/Year", "Time In", "Time Out", "Status"];
-        const rows = this.state.attendanceList.map(row => [
+        const headers = ["Event", "Day", "Name", "ID", "Course/Year", "In", "Out", "Status"];
+        const rows = this.state.attendanceList.map(entry => [
             this.state.activeEventName,
-            `Day ${row.event_day}`,
-            row.profiles?.full_name || 'N/A',
-            row.student_id,
-            `${row.profiles?.course} ${row.profiles?.year_level}`,
-            row.time_in ? new Date(row.time_in).toLocaleTimeString() : '-',
-            row.time_out ? new Date(row.time_out).toLocaleTimeString() : '-',
-            row.status
+            entry.event_day,
+            entry.profiles?.full_name || 'N/A',
+            entry.student_id,
+            `${entry.profiles?.course || ''} ${entry.profiles?.year_level || ''}`,
+            entry.time_in ? new Date(entry.time_in).toLocaleTimeString() : '',
+            entry.time_out ? new Date(entry.time_out).toLocaleTimeString() : '',
+            entry.status
         ]);
 
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `${this.state.activeEventName}_Day${this.state.activeDay}_Attendance.csv`;
-        link.click();
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Attendance_${this.state.activeEventName}_Day${this.state.activeDay}.csv`;
+        a.click();
     },
 
-    // --- UI RENDERING ---
+    // --- UI RENDER (Professional Light Theme) ---
     render() {
         const container = document.getElementById('mod-attendance');
         if (!container) return;
 
         container.innerHTML = `
-            <div class="min-h-screen bg-[#f8fafc] p-6 md:p-10 font-sans text-slate-900">
-                <div class="max-w-[1600px] mx-auto space-y-8">
-                    
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                        <div>
-                            <h1 class="text-5xl font-black italic tracking-tighter uppercase leading-none">
-                                Attendance<span class="text-blue-800 opacity-30">Scanner</span>
-                            </h1>
-                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Precision Tracking System</p>
-                        </div>
+            <div class="p-6 lg:p-10 bg-[#f8fafc] min-h-screen space-y-8">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h1 class="text-5xl font-black italic tracking-tighter uppercase">Registry<span class="text-blue-800/30">Master</span></h1>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Connected to Supabase Live</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <select id="day-selector" class="px-6 py-3 bg-white border border-slate-200 rounded-xl font-black text-[10px] outline-none">
+                            ${[1,2,3].map(d => `<option value="${d}">Day ${d}</option>`).join('')}
+                        </select>
+                        <button id="btn-export-csv" class="px-8 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">Export CSV</button>
+                    </div>
+                </div>
 
-                        <div class="flex flex-wrap gap-3">
-                            <select id="day-selector" class="px-6 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest outline-none">
-                                ${[1,2,3,4,5,6,7].map(d => `<option value="${d}" ${this.state.activeDay == d ? 'selected' : ''}>Day ${d}</option>`).join('')}
-                            </select>
-                            
-                            <button id="btn-export" class="px-8 py-4 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-emerald-600 transition-all">
-                                Export CSV
-                            </button>
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div class="lg:col-span-1 bg-white p-8 rounded-[2rem] border-2 border-blue-900 shadow-xl">
+                        <p class="text-[9px] font-black text-slate-400 uppercase mb-4 tracking-widest">Scanner Ready</p>
+                        <input type="text" id="scanner-input" autofocus placeholder="SCAN ID..." 
+                            class="w-full p-4 bg-slate-50 rounded-xl font-black text-center text-lg border-2 border-transparent focus:border-blue-500 outline-none uppercase">
+                        <div class="mt-4 h-1 w-full bg-slate-100 overflow-hidden rounded-full">
+                            <div class="h-full bg-blue-900 animate-progress w-1/2"></div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        <div class="lg:col-span-1 space-y-6">
-                            <div class="bg-white p-8 rounded-[2.5rem] border-2 border-[#000080] shadow-2xl relative overflow-hidden">
-                                <div class="absolute top-0 left-0 w-full h-1 bg-[#000080] animate-pulse"></div>
-                                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-4">Focus Scanner Here</label>
-                                <input type="text" id="scanner-input" autofocus placeholder="Waiting for scan..." 
-                                    class="w-full p-6 bg-slate-50 rounded-2xl font-black text-center text-lg border-2 border-transparent focus:border-blue-500 outline-none transition-all uppercase">
-                                <div class="mt-6 flex justify-center">
-                                    <div class="w-20 h-20 border-4 border-dashed border-slate-100 rounded-2xl flex items-center justify-center">
-                                        <div class="w-12 h-0.5 bg-red-500/30 animate-bounce"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lg:col-span-3 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left">
-                                    <thead class="bg-slate-50 border-b border-slate-100">
-                                        <tr>
-                                            <th class="p-5 text-[9px] font-black uppercase text-slate-400">Student Info</th>
-                                            <th class="p-5 text-[9px] font-black uppercase text-slate-400">Course & Year</th>
-                                            <th class="p-5 text-[9px] font-black uppercase text-slate-400">Event Name</th>
-                                            <th class="p-5 text-[9px] font-black uppercase text-slate-400">Time In</th>
-                                            <th class="p-5 text-[9px] font-black uppercase text-slate-400">Time Out</th>
-                                            <th class="p-5 text-[9px] font-black uppercase text-slate-400 text-center">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="att-list" class="divide-y divide-slate-50">
-                                        </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="lg:col-span-3 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100">
+                                <tr class="text-[9px] font-black text-slate-400 uppercase">
+                                    <th class="p-5">Student</th>
+                                    <th class="p-5">Program</th>
+                                    <th class="p-5 text-center">Time In</th>
+                                    <th class="p-5 text-center">Time Out</th>
+                                    <th class="p-5 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="att-table-body" class="divide-y divide-slate-50"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -167,58 +149,45 @@ export const attendanceModule = {
     },
 
     renderList() {
-        const list = document.getElementById('att-list');
-        if (!list) return;
+        const body = document.getElementById('att-table-body');
+        if (!body) return;
 
-        list.innerHTML = this.state.attendanceList.map(entry => {
-            const isCompleted = entry.status === 'Completed';
-            return `
-                <tr class="hover:bg-slate-50/50 transition-colors">
-                    <td class="p-5">
-                        <div class="flex flex-col">
-                            <span class="font-black text-xs uppercase text-slate-800">${entry.profiles?.full_name || 'Guest'}</span>
-                            <span class="text-[9px] font-mono text-slate-400">${entry.student_id}</span>
-                        </div>
-                    </td>
-                    <td class="p-5 text-[10px] font-black text-slate-500 uppercase">
-                        ${entry.profiles?.course || ''} ${entry.profiles?.year_level || ''}
-                    </td>
-                    <td class="p-5 text-[10px] font-bold text-slate-400 uppercase">
-                        ${entry.event_name}
-                    </td>
-                    <td class="p-5 text-[11px] font-black text-blue-900">
-                        ${entry.time_in ? new Date(entry.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}
-                    </td>
-                    <td class="p-5 text-[11px] font-black text-blue-900">
-                        ${entry.time_out ? new Date(entry.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}
-                    </td>
-                    <td class="p-5 text-center">
-                        <span class="px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest 
-                            ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600 animate-pulse'}">
-                            ${entry.status}
-                        </span>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+        body.innerHTML = this.state.attendanceList.map(entry => `
+            <tr class="text-xs font-bold text-slate-700 hover:bg-blue-50/50 transition-colors">
+                <td class="p-5">
+                    <div class="flex flex-col">
+                        <span class="uppercase font-black text-blue-900">${entry.profiles?.full_name || 'Unknown'}</span>
+                        <span class="text-[10px] font-mono text-slate-400">${entry.student_id}</span>
+                    </div>
+                </td>
+                <td class="p-5 text-[10px] uppercase">${entry.profiles?.course || ''} ${entry.profiles?.year_level || ''}</td>
+                <td class="p-5 text-center font-black text-blue-600">${entry.time_in ? new Date(entry.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
+                <td class="p-5 text-center font-black text-blue-600">${entry.time_out ? new Date(entry.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
+                <td class="p-5 text-center">
+                    <span class="px-4 py-1 rounded-full text-[8px] font-black uppercase ${entry.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
+                        ${entry.status}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
     },
 
     initListeners() {
-        const scanner = document.getElementById('scanner-input');
-        const daySel = document.getElementById('day-selector');
-        const exportBtn = document.getElementById('btn-export');
+        const input = document.getElementById('scanner-input');
+        const daySelect = document.getElementById('day-selector');
+        const exportBtn = document.getElementById('btn-export-csv');
 
-        if (scanner) {
-            scanner.onkeydown = (e) => {
+        if (input) {
+            input.onkeydown = (e) => {
                 if (e.key === 'Enter') {
-                    this.processScan(scanner.value.trim());
-                    scanner.value = '';
+                    this.processScan(input.value.trim());
+                    input.value = '';
                 }
             };
         }
 
-        if (daySel) {
-            daySel.onchange = (e) => {
+        if (daySelect) {
+            daySelect.onchange = (e) => {
                 this.state.activeDay = e.target.value;
                 this.fetchAttendance(this.state.activeEventId);
             };
@@ -229,13 +198,10 @@ export const attendanceModule = {
 
     notify(msg, type) {
         const toast = document.createElement('div');
-        const color = type === 'success' ? 'bg-[#000080]' : type === 'error' ? 'bg-red-600' : 'bg-blue-500';
-        toast.className = `fixed bottom-10 right-10 px-8 py-4 rounded-full text-white font-black uppercase text-[10px] tracking-widest z-[7000] shadow-2xl animate-in slide-in-from-right-10 ${color}`;
-        toast.innerHTML = msg;
+        const color = type === 'success' ? 'bg-blue-900' : 'bg-red-600';
+        toast.className = `fixed bottom-10 right-10 px-8 py-4 rounded-full text-white font-black uppercase text-[10px] tracking-widest shadow-2xl ${color}`;
+        toast.innerText = msg;
         document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add('animate-out', 'fade-out', 'slide-out-to-right-10');
-            setTimeout(() => toast.remove(), 500);
-        }, 3000);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
