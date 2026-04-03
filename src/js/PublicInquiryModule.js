@@ -29,47 +29,46 @@ export const PublicInquiryModule = {
         this.attachEventListeners();
     },
 
-    
     async fetchOrgDetails() {
-    try {
-        if (!this.state.currentEventId) return;
+        try {
+            if (!this.state.currentEventId) return;
 
-        // 1. First, try to find it directly in 'organizations' (for General Portals)
-        let { data: orgData } = await supabase
-            .from('organizations')
-            .select('full_name, org_name')
-            .eq('id', this.state.currentEventId)
-            .maybeSingle();
-
-        if (orgData) {
-            this.state.orgName = orgData.full_name || orgData.org_name;
-        } else {
-            // 2. If not found, it's likely an EVENT ID. 
-            // We need to 'Join' tables to find which Org owns this event.
-            const { data: eventData, error: eventErr } = await supabase
-                .from('events')
-                .select(`
-                    organization_id,
-                    organizations (full_name, org_name)
-                `)
+            // 1. First, try to find it directly in 'organizations' (for General Portals)
+            let { data: orgData } = await supabase
+                .from('organizations')
+                .select('full_name, org_name')
                 .eq('id', this.state.currentEventId)
                 .maybeSingle();
 
-            if (eventData && eventData.organizations) {
-                this.state.orgName = eventData.organizations.full_name || eventData.organizations.org_name;
+            if (orgData) {
+                this.state.orgName = orgData.full_name || orgData.org_name;
             } else {
-                this.state.orgName = "Organization Portal";
-            }
-        }
+                // 2. If not found, it's likely an EVENT ID. 
+                // We need to 'Join' tables to find which Org owns this event.
+                const { data: eventData, error: eventErr } = await supabase
+                    .from('events')
+                    .select(`
+                        organization_id,
+                        organizations (full_name, org_name)
+                    `)
+                    .eq('id', this.state.currentEventId)
+                    .maybeSingle();
 
-        this.renderForm();
-        this.attachEventListeners();
-    } catch (err) {
-        console.error("Lookup failed:", err);
-        this.state.orgName = "Inquiry Portal";
-        this.renderForm();
-    }
-},
+                if (eventData && eventData.organizations) {
+                    this.state.orgName = eventData.organizations.full_name || eventData.organizations.org_name;
+                } else {
+                    this.state.orgName = "Organization Portal";
+                }
+            }
+
+            this.renderForm();
+            this.attachEventListeners();
+        } catch (err) {
+            console.error("Lookup failed:", err);
+            this.state.orgName = "Inquiry Portal";
+            this.renderForm();
+        }
+    },
     
     renderForm() {
         const container = document.getElementById('inquiry-form-container');
