@@ -64,7 +64,8 @@ export const PublicInquiryModule = {
         this.state.orgName = "Inquiry Portal";
         this.renderForm();
     }
-}
+},
+    
     renderForm() {
         const container = document.getElementById('inquiry-form-container');
         if (!container) return;
