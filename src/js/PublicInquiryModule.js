@@ -29,30 +29,32 @@ export const PublicInquiryModule = {
         this.attachEventListeners();
     },
 
+    
     async fetchOrgDetails() {
         try {
             const { data, error } = await supabase
                 .from('organizations')
                 .select('full_name, org_name')
                 .eq('id', this.state.currentEventId)
-                .single();
+                .maybeSingle(); // Safer than .single()
 
             if (error) {
-                // This will pop up a message on your screen telling us the exact error
-                alert("Database Error: " + error.message); 
                 this.state.orgName = "Organization Portal";
                 this.renderForm();
                 return;
             }
 
             if (data) {
+                // Success! 
                 this.state.orgName = data.full_name || data.org_name;
-                this.renderForm();
-                this.attachEventListeners();
+            } else {
+                // This means the ID in the URL is not in your table
+                this.state.orgName = "Portal Not Found";
             }
+            
+            this.renderForm();
+            this.attachEventListeners();
         } catch (err) {
-            // This catches code crashes
-            alert("Script Crash: " + err.message);
             this.state.orgName = "Organization Portal";
             this.renderForm();
         }
