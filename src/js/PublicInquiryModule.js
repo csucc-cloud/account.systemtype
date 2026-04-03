@@ -3,12 +3,28 @@ import { supabase } from './auth.js';
 export const PublicInquiryModule = {
     state: {
         currentEventId: null,
-        isValidated: false,
-        studentId: null
+        studentId: null,
+        isSubmitting: false,
+        config: {
+            title: "Submit <span class='text-blue-700'>Inquiry</span>",
+            subtitle: "Inquiry Portal",
+            q1: "Question 1 (Required)",
+            q2: "Question 2 (Optional)",
+            q3: "Question 3 (Optional)",
+            buttonText: "Submit Inquiry"
+        }
     },
 
-    init(eventId) {
+    /**
+     * Initialize the module
+     * @param {string} eventId - UUID from Supabase
+     * @param {Object} customConfig - Optional labels for General Inquiry mode
+     */
+    init(eventId, customConfig = null) {
         this.state.currentEventId = eventId;
+        if (customConfig) {
+            this.state.config = { ...this.state.config, ...customConfig };
+        }
         this.renderForm();
         this.attachEventListeners();
     },
@@ -18,38 +34,38 @@ export const PublicInquiryModule = {
         if (!container) return;
 
         container.innerHTML = `
-            <div class="space-y-6">
+            <div class="space-y-6 animate-in fade-in duration-500">
                 <div class="text-center space-y-2">
-                    <h1 class="text-2xl font-black italic tracking-tighter uppercase">Submit <span class="text-blue-700">Inquiry</span></h1>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Event ID: ${this.state.currentEventId.slice(0,8)}</p>
+                    <h1 class="text-2xl font-black italic tracking-tighter uppercase">${this.state.config.title}</h1>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        ${this.state.config.subtitle === "Inquiry Portal" ? `Reference ID: ${this.state.currentEventId.slice(0,8)}` : this.state.config.subtitle}
+                    </p>
                 </div>
 
                 <div class="space-y-2">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Student ID Number</label>
                     <input type="text" id="student-id" placeholder="e.g. 2023-0001" 
-                        class="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold focus:outline-none transition-all">
+                        class="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold focus:outline-none focus:border-blue-500 focus:bg-white transition-all">
                     <p id="id-error-message" class="hidden text-red-500 text-[10px] font-bold ml-2 italic uppercase"></p>
                 </div>
 
                 <div class="space-y-3">
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Your Questions (Max 3)</label>
-                    <textarea id="q1" placeholder="Question 1 (Required)" class="w-full p-4 bg-slate-50 rounded-xl text-sm font-medium outline-none border border-transparent focus:border-blue-200 min-h-[80px]"></textarea>
-                    <textarea id="q2" placeholder="Question 2 (Optional)" class="w-full p-4 bg-slate-50 rounded-xl text-sm font-medium outline-none border border-transparent focus:border-blue-200 min-h-[80px]"></textarea>
-                    <textarea id="q3" placeholder="Question 3 (Optional)" class="w-full p-4 bg-slate-50 rounded-xl text-sm font-medium outline-none border border-transparent focus:border-blue-200 min-h-[80px]"></textarea>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Your Details</label>
+                    <textarea id="q1" placeholder="${this.state.config.q1}" class="w-full p-4 bg-slate-50 rounded-xl text-sm font-medium outline-none border border-transparent focus:border-blue-200 min-h-[80px] focus:bg-white transition-all"></textarea>
+                    <textarea id="q2" placeholder="${this.state.config.q2}" class="w-full p-4 bg-slate-50 rounded-xl text-sm font-medium outline-none border border-transparent focus:border-blue-200 min-h-[80px] focus:bg-white transition-all"></textarea>
+                    <textarea id="q3" placeholder="${this.state.config.q3}" class="w-full p-4 bg-slate-50 rounded-xl text-sm font-medium outline-none border border-transparent focus:border-blue-200 min-h-[80px] focus:bg-white transition-all"></textarea>
                 </div>
 
-                <button id="submit-btn" class="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all">
-                    Submit Inquiry
+                <button id="submit-btn" class="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center space-x-2">
+                    <span>${this.state.config.buttonText}</span>
                 </button>
             </div>
         `;
     },
 
     attachEventListeners() {
-        const submitBtn = document.getElementById('submit-btn');
-        if (submitBtn) {
-            submitBtn.addEventListener('click', () => this.submitInquiry());
-        }
+        const btn = document.getElementById('submit-btn');
+        if (btn) btn.addEventListener('click', () => this.handleSubmission());
     },
 
     async validateStudentId() {
@@ -59,14 +75,13 @@ export const PublicInquiryModule = {
 
         if (!inputVal) {
             alert("Please enter your Student ID.");
-            return false;
+            return null;
         }
 
         try {
-            // Updated to use 'students' table as per your requirement
             const { data, error } = await supabase
-                .from('students') 
-                .select('student_id') 
+                .from('students')
+                .select('student_id')
                 .eq('student_id', inputVal)
                 .single();
 
@@ -74,70 +89,86 @@ export const PublicInquiryModule = {
                 idInput.classList.add('border-red-500', 'bg-red-50');
                 idError.classList.remove('hidden');
                 idError.innerText = "Student ID not found in masterlist!";
-                this.state.isValidated = false;
-                return false;
-            } else {
-                idInput.classList.remove('border-red-500', 'bg-red-50');
-                idInput.classList.add('border-green-500');
-                idError.classList.add('hidden');
-                this.state.studentId = inputVal;
-                this.state.isValidated = true;
-                return true;
+                return null;
             }
+
+            idInput.classList.remove('border-red-500', 'bg-red-50');
+            idInput.classList.add('border-green-500');
+            idError.classList.add('hidden');
+            return inputVal;
         } catch (err) {
-            alert("Connection Error: " + err.message);
-            return false;
+            console.error(err);
+            return null;
         }
     },
 
-    async submitInquiry() {
-        const isNowValid = await this.validateStudentId();
-        if (!isNowValid) return;
+    async handleSubmission() {
+        if (this.state.isSubmitting) return;
+
+        const validatedId = await this.validateStudentId();
+        if (!validatedId) return;
 
         const q1 = document.getElementById('q1').value.trim();
         const q2 = document.getElementById('q2').value.trim();
         const q3 = document.getElementById('q3').value.trim();
 
         if (!q1) {
-            alert("Question 1 is required.");
+            alert("The first inquiry field is required.");
             return;
         }
+
+        // UI Loading State
+        this.setLoading(true);
 
         try {
             const { error } = await supabase
                 .from('event_inquiries')
                 .insert([{
                     event_id: this.state.currentEventId,
-                    student_id: this.state.studentId,
+                    student_id: validatedId,
                     question_1: q1,
                     question_2: q2,
                     question_3: q3
                 }]);
 
-            if (error) {
-                alert("Database Error: " + error.message);
-            } else {
-                this.showSuccessState();
-            }
+            if (error) throw error;
+            this.showSuccessState();
         } catch (err) {
-            alert("Submission Failed: " + err.message);
+            alert("Submission Error: " + err.message);
+            this.setLoading(false);
+        }
+    },
+
+    setLoading(isLoading) {
+        this.state.isSubmitting = isLoading;
+        const btn = document.getElementById('submit-btn');
+        if (btn) {
+            btn.disabled = isLoading;
+            btn.innerHTML = isLoading 
+                ? `<div class="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> <span>Sending...</span>`
+                : `<span>${this.state.config.buttonText}</span>`;
+            btn.style.opacity = isLoading ? "0.7" : "1";
         }
     },
 
     showSuccessState() {
         const formContainer = document.getElementById('inquiry-form-container');
         formContainer.innerHTML = `
-            <div class="text-center py-10 space-y-4 animate-in fade-in zoom-in">
-                <div class="text-emerald-500 text-6xl mb-4 text-center justify-center flex">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                    </svg>
+            <div class="text-center py-10 space-y-6 animate-in zoom-in duration-300">
+                <div class="flex justify-center">
+                    <div class="bg-emerald-100 text-emerald-600 p-4 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                    </div>
                 </div>
-                <h2 class="text-2xl font-black uppercase tracking-tight">Questions Sent!</h2>
-                <p class="text-slate-500 text-sm font-medium">Your inquiry has been successfully logged.</p>
-                <div class="pt-6">
-                    <button onclick="window.location.reload()" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Submit Another</button>
+                <div>
+                    <h2 class="text-2xl font-black uppercase tracking-tight">Success!</h2>
+                    <p class="text-slate-500 text-sm font-medium mt-1">Your inquiry has been logged successfully.</p>
                 </div>
+                <button onclick="window.location.reload()" class="px-8 py-3 border-2 border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 hover:border-slate-900 transition-all">
+                    Submit Another
+                </button>
             </div>
         `;
     }
