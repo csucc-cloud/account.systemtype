@@ -5,6 +5,7 @@ export const PublicInquiryModule = {
         currentEventId: null,
         studentId: null,
         isSubmitting: false,
+        orgName: "Loading Portal...",
         config: {
             title: "Submit <span class='text-blue-700'>Inquiry</span>",
             subtitle: "Inquiry Portal",
@@ -15,18 +16,36 @@ export const PublicInquiryModule = {
         }
     },
 
-    /**
-     * Initialize the module
-     * @param {string} eventId - UUID from Supabase
-     * @param {Object} customConfig - Optional labels for General Inquiry mode
-     */
-    init(eventId, customConfig = null) {
+    async init(eventId, customConfig = null) {
         this.state.currentEventId = eventId;
         if (customConfig) {
             this.state.config = { ...this.state.config, ...customConfig };
         }
+        
         this.renderForm();
+        
+        await this.fetchOrgDetails();
+        
         this.attachEventListeners();
+    },
+
+    async fetchOrgDetails() {
+        try {
+            const { data, error } = await supabase
+                .from('organizations')
+                .select('full_name, org_name')
+                .eq('id', this.state.currentEventId)
+                .single();
+
+            if (data) {
+                // Use full_name if it exists, otherwise fallback to org_name
+                this.state.orgName = data.full_name || data.org_name;
+                this.renderForm(); // Re-render to show the name
+            }
+        } catch (err) {
+            console.error("Org Lookup Error:", err);
+            this.state.orgName = "Inquiry Portal";
+        }
     },
 
     renderForm() {
@@ -36,7 +55,9 @@ export const PublicInquiryModule = {
         container.innerHTML = `
             <div class="space-y-6 animate-in fade-in duration-500">
                 <div class="text-center space-y-2">
-                    <h1 class="text-2xl font-black italic tracking-tighter uppercase">${this.state.config.title}</h1>
+                    <h1 class="text-2xl font-black italic tracking-tighter uppercase text-blue-700">
+                        ${this.state.orgName}
+                    </h1>
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         ${this.state.config.subtitle === "Inquiry Portal" ? `Reference ID: ${this.state.currentEventId.slice(0,8)}` : this.state.config.subtitle}
                     </p>
@@ -117,7 +138,6 @@ export const PublicInquiryModule = {
             return;
         }
 
-        // UI Loading State
         this.setLoading(true);
 
         try {
