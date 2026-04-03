@@ -30,24 +30,41 @@ export const PublicInquiryModule = {
     },
 
     async fetchOrgDetails() {
-        try {
-            const { data, error } = await supabase
-                .from('organizations')
-                .select('full_name, org_name')
-                .eq('id', this.state.currentEventId)
-                .single();
+    console.log("Attempting lookup for ID:", this.state.currentEventId);
+    
+    try {
+        const { data, error } = await supabase
+            .from('organizations')
+            .select('full_name, org_name')
+            .eq('id', this.state.currentEventId)
+            .single();
 
-            if (data) {
-                // Use full_name if it exists, otherwise fallback to org_name
-                this.state.orgName = data.full_name || data.org_name;
-                this.renderForm(); // Re-render to show the name
-            }
-        } catch (err) {
-            console.error("Org Lookup Error:", err);
-            this.state.orgName = "Inquiry Portal";
+        if (error) {
+            console.error("Supabase Error:", error.message);
+            // If it says 'PGRST116', it means the ID wasn't found in the table
+            this.state.orgName = "Organization Portal";
+            this.renderForm();
+            return;
         }
-    },
 
+        if (data) {
+            console.log("Data Found:", data);
+            // Priority: full_name -> org_name -> Fallback
+            this.state.orgName = data.full_name || data.org_name || "Official Portal";
+            
+            // 1. Update the UI with the new name
+            this.renderForm(); 
+            
+            // 2. CRITICAL: Re-attach listeners because renderForm() 
+            // deleted the old button and made a new one!
+            this.attachEventListeners(); 
+        }
+    } catch (err) {
+        console.error(" Unexpected Script Error:", err);
+        this.state.orgName = "Inquiry Portal";
+        this.renderForm();
+    }
+}
     renderForm() {
         const container = document.getElementById('inquiry-form-container');
         if (!container) return;
