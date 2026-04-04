@@ -3,6 +3,7 @@ import { dashboardModule } from './dashboard.js';
 import { studentModule } from './students.js';
 import { eventsModule } from './events.js'; 
 import { logAction } from './audit-logger.js';
+import { financeModule } from './finance.js';
 import { attendanceModule } from './attendance.js';
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
 
