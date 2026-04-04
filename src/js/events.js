@@ -1,14 +1,9 @@
 import { supabase } from './auth.js';
 import { AuditLogger } from './audit-logger.js';
 
-/**
- * EventsModule: Orchestrates Campus Event Management
- * Features: Stealth Mode, Conflict Detection, QR Generation, and Real-time Filtering.
- */
+
 export const eventsModule = {
-    // ---------------------------------------------------------
-    // 1. CONFIGURATION & STATE
-    // ---------------------------------------------------------
+    
     state: {
         events: [],
         filteredEvents: [],
@@ -23,10 +18,6 @@ export const eventsModule = {
         isEditMode: false,
         stats: { total: 0, active: 0, standby: 0, completed: 0 }
     },
-
-    // ---------------------------------------------------------
-    // 2. CORE INITIALIZATION
-    // ---------------------------------------------------------
     async render() {
         const container = document.getElementById('mod-events') || document.getElementById('mod-dashboard');
         if (!container) return;
@@ -55,9 +46,6 @@ export const eventsModule = {
         if (window.eventsModule === undefined) window.eventsModule = this;
     },
 
-    // ---------------------------------------------------------
-    // 3. DATA SERVICES
-    // ---------------------------------------------------------
     async fetchEvents() {
         this.setLoading(true);
         try {
