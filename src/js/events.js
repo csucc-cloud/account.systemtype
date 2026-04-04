@@ -20,7 +20,8 @@ export const eventsModule = {
                 .eq('id', user?.id).single();
             
             this.state.userRole = profile?.role || 'staff';
-            this.state.userOrgId = profile?.organization_id;
+            // FIX 1: Ensure we don't store literal "undefined"
+            this.state.userOrgId = profile?.organization_id || null;
             this.state.userOrgName = profile?.organizations?.organization_name || '';
         } catch (e) { console.error("Auth sync failed", e); }
         
@@ -37,6 +38,12 @@ export const eventsModule = {
             
             // RBAC: Super Admin sees all, others see their own org
             if (this.state.userRole !== 'super_admin') {
+                // FIX 2: Prevent querying with a null/undefined UUID
+                if (!this.state.userOrgId) {
+                    this.state.events = [];
+                    this.renderGrid();
+                    return;
+                }
                 query = query.eq('organization_id', this.state.userOrgId);
             }
 
@@ -71,6 +78,12 @@ export const eventsModule = {
         if (!name || !start || !end) return this.notify("Please fill in all required fields", "error");
         if (this.state.userOrgName !== 'HERO Org' && depts.length === 0) return this.notify("Please select at least one department", "error");
         if (years.length === 0) return this.notify("Please select at least one year level", "error");
+        
+        // FIX 3: Explicit check for the UUID before sending to Supabase
+        if (!this.state.userOrgId) {
+            return this.notify("Error: No Organization ID found for your profile. Cannot save event.", "error");
+        }
+
         if (this.checkConflicts(start, end)) return this.notify("Schedule conflict detected", "error");
 
         try {
