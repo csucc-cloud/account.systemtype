@@ -88,12 +88,11 @@ export const financeModule = {
                     <div id="finance-modal-content" class="flex-1 overflow-y-auto"></div>
                 </div>
             </div>
+
+            <div id="print-area" class="hidden"></div>
         `;
 
-        // 4. Bind Search Event
         document.getElementById('search-finance')?.addEventListener('input', (e) => this.fetchStudents(e.target.value));
-        
-        // 5. Fetch and fill the list
         await this.fetchStudents();
         if (window.lucide) window.lucide.createIcons();
     },
@@ -107,24 +106,26 @@ export const financeModule = {
     },
 
     async fetchStudents(searchTerm = '') {
-        const body = document.getElementById('finance-list-body');
         let query = supabase.from('students').select('*, payments(*)');
-        
-        if (searchTerm) {
-            query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
-        }
-
+        if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
         const { data, error } = await query.limit(20);
         if (error) return;
-        
         this.state.students = data || [];
         this.renderStudentRows();
+        this.updateCollectionTotal();
+    },
+
+    updateCollectionTotal() {
+        const total = this.state.students.reduce((acc, s) => {
+            return acc + (s.payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0);
+        }, 0);
+        const el = document.getElementById('total-val');
+        if (el) el.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
 
     renderStudentRows() {
         const body = document.getElementById('finance-list-body');
         if (!body) return;
-
         body.innerHTML = this.state.students.map(s => {
             const balance = s.payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0;
             return `
@@ -162,6 +163,7 @@ export const financeModule = {
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">${student.student_id}</p>
                     
                     <div class="mt-10 space-y-4">
+                        <button onclick="financeModule.showAddPaymentForm('${student.id}')" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">New Payment</button>
                         <div class="p-4 bg-white rounded-2xl border border-slate-100">
                             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Status</p>
                             <p class="text-xs font-bold text-slate-700 mt-1">${student.email || 'NO EMAIL PROVIDED'}</p>
@@ -175,7 +177,7 @@ export const financeModule = {
                             <i data-lucide="x" class="w-6 h-6 text-slate-400"></i>
                         </button>
                     </div>
-                    <div class="flex-1 overflow-y-auto space-y-4">
+                    <div id="payment-history-list" class="flex-1 overflow-y-auto space-y-4">
                         ${student.payments?.length ? student.payments.map(p => `
                             <div class="p-6 bg-white border border-slate-100 rounded-[2rem] flex justify-between items-center shadow-sm">
                                 <div>
@@ -183,7 +185,7 @@ export const financeModule = {
                                     <p class="text-[9px] font-bold text-slate-400 mt-1">${p.receipt_number} | ${new Date(p.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <div class="flex gap-2">
-                                    <button class="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                                    <button onclick="financeModule.reprintReceipt('${p.id}')" class="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all"><i data-lucide="printer" class="w-4 h-4"></i></button>
                                 </div>
                             </div>
                         `).join('') : '<div class="text-center py-20 text-slate-300 italic font-bold">No payments found for this semester.</div>'}
@@ -194,12 +196,108 @@ export const financeModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    handleRollover() {
-        if(confirm("Confirm Semestral Roll-over? Active period will be closed.")) {
-            alert("Rolling over...");
+    // --- NEW PAYMENT LOGIC ---
+    showAddPaymentForm(studentUUID) {
+        const student = this.state.students.find(s => s.id === studentUUID);
+        const historyList = document.getElementById('payment-history-list');
+        
+        historyList.innerHTML = `
+            <div class="bg-slate-50 p-8 rounded-[2rem] animate-in slide-in-from-right-4 duration-300">
+                <h4 class="text-lg font-black text-slate-900 mb-6">Record New Payment</h4>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase">Amount to Pay</label>
+                        <input type="number" id="new-pay-amount" value="${this.state.activePeriod?.target_amount || 0}" class="w-full mt-1 p-4 rounded-xl border-none ring-1 ring-slate-200 text-xl font-black">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase">Remarks</label>
+                        <input type="text" id="new-pay-remarks" placeholder="Optional notes..." class="w-full mt-1 p-4 rounded-xl border-none ring-1 ring-slate-200">
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button onclick="financeModule.submitPayment('${studentUUID}')" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest">Confirm Payment</button>
+                        <button onclick="financeModule.viewStudentFinance('${student.student_id}')" class="px-6 py-4 bg-slate-200 text-slate-600 rounded-xl font-black uppercase text-[10px]">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    async submitPayment(studentUUID) {
+        const amount = document.getElementById('new-pay-amount').value;
+        const remarks = document.getElementById('new-pay-remarks').value;
+        const receiptNo = `OR-${Date.now().toString().slice(-8)}`;
+
+        const { data, error } = await supabase.from('payments').insert([{
+            student_id: studentUUID,
+            amount_paid: parseFloat(amount),
+            receipt_number: receiptNo,
+            academic_period_id: this.state.activePeriod.id,
+            remarks: remarks
+        }]).select().single();
+
+        if (error) return alert(error.message);
+        
+        alert("Payment Recorded Successfully");
+        await this.fetchStudents(); // Refresh background
+        this.generateQRReceipt(data); // Trigger Print
+        document.getElementById('finance-modal').classList.add('hidden');
+    },
+
+    generateQRReceipt(payment) {
+        const student = this.state.students.find(s => s.id === payment.student_id);
+        const printArea = document.getElementById('print-area');
+        
+        printArea.innerHTML = `
+            <div class="receipt-print-wrapper p-10 bg-white border-2 border-dashed border-slate-300 w-[80mm] text-center">
+                <h2 class="text-lg font-black uppercase">Official Receipt</h2>
+                <p class="text-[10px] font-bold text-slate-400 mb-4">${this.state.activePeriod.year_range} | ${this.state.activePeriod.semester} Sem</p>
+                <div class="border-y border-slate-100 py-4 mb-4">
+                    <p class="text-sm font-black">${student.full_name}</p>
+                    <p class="text-[9px] text-slate-400">${student.student_id}</p>
+                </div>
+                <p class="text-2xl font-black italic">₱${payment.amount_paid.toLocaleString()}</p>
+                <div id="receipt-qr-code" class="flex justify-center my-6"></div>
+                <p class="text-[8px] font-mono uppercase">${payment.receipt_number}</p>
+            </div>
+        `;
+
+        // Ensure QRCode library is loaded in index.html
+        new QRCode(document.getElementById("receipt-qr-code"), {
+            text: `VERIFY:${payment.receipt_number}:${student.student_id}:${payment.amount_paid}`,
+            width: 128,
+            height: 128
+        });
+
+        setTimeout(() => { window.print(); }, 500);
+    },
+
+    // --- ROLL-OVER LOGIC ---
+    async handleRollover() {
+        if(!confirm("DANGER: This will deactivate the current semester and set up a new collection period. Continue?")) return;
+
+        const newYear = prompt("Enter Academic Year (e.g., 2026-2027):");
+        const newSem = prompt("Enter Semester (1st, 2nd, Summer):");
+        const newFee = prompt("Set Semestral Fee Amount (e.g., 500):");
+
+        if(!newYear || !newSem || !newFee) return alert("All fields are required for Roll-over.");
+
+        // 1. Deactivate current
+        await supabase.from('academic_periods').update({ is_active: false }).eq('is_active', true);
+
+        // 2. Create New
+        const { error } = await supabase.from('academic_periods').insert([{
+            year_range: newYear,
+            semester: newSem,
+            target_amount: parseFloat(newFee),
+            is_active: true
+        }]);
+
+        if (error) alert(error.message);
+        else {
+            alert("New Semester Initialized.");
+            location.reload();
         }
     }
 };
 
-// CRITICAL: Globalize the module so HTML onclicks work
 window.financeModule = financeModule;
