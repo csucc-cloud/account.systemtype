@@ -155,6 +155,17 @@ export const attendanceModule = {
             };
         }
 
+        // Camera Switch Logic
+        const cameraSelect = document.getElementById('camera-source');
+        if (cameraSelect) {
+            cameraSelect.onchange = async () => {
+                if (this.state.isScannerActive) {
+                    await this.stopScanner();
+                    await this.startScanner();
+                }
+            };
+        }
+
         document.getElementById('btn-export-excel').onclick = () => this.exportToExcel();
 
         document.getElementById('event-selector').onchange = (e) => {
