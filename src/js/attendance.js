@@ -8,8 +8,7 @@ export const attendanceModule = {
         lastScanned: null,
         isScannerActive: false
     },
-    yawaaaa
-
+    
     async render() {
         const container = document.getElementById('mod-attendance');
         if (!container) return;
