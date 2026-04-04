@@ -11,7 +11,7 @@ export const attendanceModule = {
         attendanceSubscription: null,
         // Pagination State
         currentPage: 1,
-        rowsPerPage: 50
+        rowsPerPage: 20
     },
 
     // --- AUDIO SYSTEM ---
