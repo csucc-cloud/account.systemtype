@@ -299,7 +299,7 @@ export const attendanceModule = {
         let query = supabase.from('students').select('*').order('full_name', { ascending: true });
 
         // Check Department Filter: Only apply if it's NOT 'All', 'NULL', or empty
-        if (event?.target_dept && !['All', 'all', 'NULL', ''].includes(event.target_dept)) {
+        if (event?.target_dept && !['All', 'all', 'NULL', 'All Dept', ''].includes(event.target_dept)) {
             query = query.ilike('department', `%${event.target_dept}%`);
         }
 
