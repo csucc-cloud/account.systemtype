@@ -170,6 +170,9 @@ window.showSection = function(sectionId) {
                 // Removed the guard. Attendance module now handles its own event selection.
                 attendanceModule.render(); 
                 break;
+            case 'finance':
+                financeModule.render();
+                break;
         }
     }
 
