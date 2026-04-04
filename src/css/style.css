@@ -101,3 +101,14 @@
     object-fit: cover !important;
     border-radius: 2.5rem;
 }
+
+@media print {
+    .audit-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        height: 297mm; /* A4 Height */
+        width: 210mm;  /* A4 Width */
+    }
+    .receipt-card { border: 1px dashed #ccc; padding: 10mm; }
+}
