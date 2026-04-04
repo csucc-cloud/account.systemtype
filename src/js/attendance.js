@@ -155,12 +155,13 @@ export const attendanceModule = {
             };
         }
 
-        // Camera Switch Logic
         const cameraSelect = document.getElementById('camera-source');
         if (cameraSelect) {
             cameraSelect.onchange = async () => {
                 if (this.state.isScannerActive) {
                     await this.stopScanner();
+                    // Short delay to release hardware resource
+                    await new Promise(resolve => setTimeout(resolve, 100));
                     await this.startScanner();
                 }
             };
@@ -212,7 +213,14 @@ export const attendanceModule = {
         try {
             await this.state.html5QrCode.start(
                 { facingMode: cameraFacing },
-                { fps: 20, qrbox: { width: 280, height: 280 }, videoConstraints: { focusMode: "continuous" } },
+                { 
+                    fps: 20, 
+                    qrbox: { width: 280, height: 280 }, 
+                    videoConstraints: { 
+                        facingMode: cameraFacing,
+                        focusMode: "continuous" 
+                    } 
+                },
                 (text) => {
                     this.markAttendance(text);
                     if (navigator.vibrate) navigator.vibrate(100);
