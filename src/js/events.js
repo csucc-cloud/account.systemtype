@@ -414,9 +414,7 @@ export const eventsModule = {
 
                             <div class="flex gap-4 pt-6 border-t border-slate-50">
                                 <button id="btn-edit-active" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#000080] transition-all">Update Info</button>
-<button id="btn-manage-attendance" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all">
-    Open Scanner
-</button>
+
                                 <button id="btn-delete-active" class="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">Delete Event</button>
                             </div>
                         </div>
@@ -474,26 +472,6 @@ export const eventsModule = {
         };
     });
 
-    // --- MANAGE ATTENDANCE BLOCK ---
-    const manageBtn = document.getElementById('btn-manage-attendance');
-    if (manageBtn) {
-        manageBtn.onclick = () => {
-            const ev = this.state.selectedEvent;
-            if (!ev) return; // Safety check
-
-            // 1. Pass the data to the attendance module
-            attendanceModule.state.activeEventId = ev.id;
-            attendanceModule.state.activeEventName = ev.event_name;
-            
-            // 2. Close the current detail modal and hide events
-            this.closeModal('modal-event-detail'); 
-            document.getElementById('mod-events').classList.add('hidden');
-            document.getElementById('mod-attendance').classList.remove('hidden');
-            
-            // 3. Render the scanner
-            attendanceModule.render();
-        };
-    } // <-- Added missing closing brace here
 
     const saveBtn = document.getElementById('save-ev-btn');
     if (saveBtn) saveBtn.onclick = () => this.deployMission();
