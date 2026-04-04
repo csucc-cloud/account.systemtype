@@ -4,9 +4,9 @@ export const attendanceModule = {
     state: {
         activeEventId: null,
         allEvents: [],
-        attendees: [],
+        attendees: [], // Now contains merged data: Students (Expected) + Attendance (Verified)
         isScannerActive: false,
-        currentCameraId: null, // Tracks if we are using front or back
+        currentCameraId: null,
     },
     
     async render() {
@@ -15,7 +15,6 @@ export const attendanceModule = {
 
         if (this.state.allEvents.length === 0) await this.fetchEventsForDropdown();
 
-        // REBRANDED UI: Deep Navy, Glassmorphism, and Bold Typography
         container.innerHTML = `
             <div class="p-4 md:p-10 min-h-screen bg-[#F4F7FA]">
                 <div class="max-w-[1600px] mx-auto space-y-8">
@@ -56,7 +55,6 @@ export const attendanceModule = {
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                        
                         <div class="lg:col-span-4 space-y-8">
                             <div class="bg-white p-2 rounded-[3rem] border border-slate-200 shadow-xl group overflow-hidden">
                                 <div id="reader" class="w-full aspect-square bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-[8px] border-slate-50 shadow-inner">
@@ -110,8 +108,8 @@ export const attendanceModule = {
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time verification log</p>
                                 </div>
                                 <div class="text-right">
-                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Registered</p>
-                                    <span id="attendee-count" class="text-5xl font-black italic text-[#000080] tracking-tighter">00</span>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Verified / Expected</p>
+                                    <span id="attendee-count" class="text-5xl font-black italic text-[#000080] tracking-tighter">00/00</span>
                                 </div>
                             </div>
                             
@@ -181,8 +179,42 @@ export const attendanceModule = {
 
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
-        const { data } = await supabase.from('attendance').select('*').eq('event_id', this.state.activeEventId).order('time_in', { ascending: false });
-        this.state.attendees = data || [];
+
+        // 1. Fetch Event target details
+        const { data: event } = await supabase
+            .from('events')
+            .select('target_dept, target_year')
+            .eq('id', this.state.activeEventId)
+            .single();
+
+        // 2. Fetch Students based on target
+        let studentQuery = supabase.from('students').select('student_id, full_name, department, year_level');
+        
+        if (event?.target_dept && event.target_dept !== 'All' && event.target_dept !== 'NULL') {
+            studentQuery = studentQuery.eq('department', event.target_dept);
+        }
+        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) {
+            studentQuery = studentQuery.eq('year_level', parseInt(event.target_year));
+        }
+
+        const { data: expectedStudents } = await studentQuery;
+
+        // 3. Fetch Actual Attendance Logs
+        const { data: logs } = await supabase
+            .from('attendance')
+            .select('*')
+            .eq('event_id', this.state.activeEventId);
+
+        // 4. Merge Data
+        this.state.attendees = (expectedStudents || []).map(student => {
+            const scan = (logs || []).find(l => l.student_id === student.student_id);
+            return {
+                ...student,
+                time_in: scan ? scan.time_in : null,
+                is_present: !!scan
+            };
+        });
+
         this.renderFeed();
     },
 
@@ -190,22 +222,36 @@ export const attendanceModule = {
         const feed = document.getElementById('attendance-feed');
         const count = document.getElementById('attendee-count');
         if (!feed) return;
-        count.innerText = this.state.attendees.length.toString().padStart(2, '0');
+
+        const presentCount = this.state.attendees.filter(a => a.is_present).length;
+        count.innerText = `${presentCount.toString().padStart(2, '0')}/${this.state.attendees.length.toString().padStart(2, '0')}`;
         
         if (this.state.attendees.length === 0) {
-            feed.innerHTML = `<tr><td colspan="3" class="p-32 text-center text-[11px] text-slate-300 uppercase font-black tracking-[0.4em] opacity-50 italic">Buffer Empty: No Active Participants</td></tr>`;
+            feed.innerHTML = `<tr><td colspan="3" class="p-32 text-center text-[11px] text-slate-300 uppercase font-black tracking-[0.4em] opacity-50 italic">Buffer Empty: No Students Match Target</td></tr>`;
             return;
         }
 
-        feed.innerHTML = this.state.attendees.map(row => `
-            <tr class="hover:bg-slate-50/80 transition-all group">
-                <td class="px-10 py-7 font-black text-slate-800 tracking-tight group-hover:text-[#000080] transition-colors">${row.student_id}</td>
-                <td class="px-10 py-7 text-[11px] font-black text-slate-400 uppercase tabular-nums">${new Date(row.time_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</td>
+        // Sort: Present ones first
+        const sorted = [...this.state.attendees].sort((a, b) => b.is_present - a.is_present);
+
+        feed.innerHTML = sorted.map(row => `
+            <tr class="hover:bg-slate-50/80 transition-all group ${!row.is_present ? 'opacity-60 bg-slate-50/30' : ''}">
+                <td class="px-10 py-7 font-black text-slate-800 tracking-tight group-hover:text-[#000080] transition-colors">
+                    ${row.full_name} <br>
+                    <span class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">${row.student_id}</span>
+                </td>
+                <td class="px-10 py-7 text-[11px] font-black text-slate-400 uppercase tabular-nums">
+                    ${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : '---'}
+                </td>
                 <td class="px-10 py-7 text-right">
-                    <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-emerald-100">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        Verified
-                    </span>
+                    ${row.is_present 
+                        ? `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-emerald-100">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Verified
+                           </span>`
+                        : `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200">
+                            Expected
+                           </span>`
+                    }
                 </td>
             </tr>
         `).join('');
