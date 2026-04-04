@@ -79,7 +79,10 @@ export const eventsModule = {
             : supabase.from('events').insert([{ ...payload }]);
 
         const { error } = await req;
-        if (error) throw error;
+        if (error) {
+            this.notify(error.message, "error");
+            throw error;
+        }
 
         this.notify(this.state.isEditMode ? "Event Updated" : "Event Published", "success");
         this.closeModal('modal-event');
@@ -87,12 +90,30 @@ export const eventsModule = {
     },
 
     async deleteEvent(id) {
-        if (!confirm("Are you sure you want to remove this event?")) return;
-        const { error } = await supabase.from('events').delete().eq('id', id);
-        if (error) return this.notify(error.message, "error");
-        this.notify("Event removed", "success");
-        this.closeModal('modal-event-detail');
-        await this.fetchEvents();
+        const result = await Swal.fire({
+            title: 'Remove Event?',
+            text: "This action cannot be undone.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#4f46e5',
+            cancelButtonColor: '#f1f5f9',
+            confirmButtonText: 'Yes, remove it',
+            color: '#0f172a',
+            background: '#ffffff',
+            customClass: {
+                popup: 'rounded-[2rem]',
+                confirmButton: 'rounded-xl px-6 py-3 font-bold',
+                cancelButton: 'rounded-xl px-6 py-3 font-bold text-slate-500'
+            }
+        });
+
+        if (result.isConfirmed) {
+            const { error } = await supabase.from('events').delete().eq('id', id);
+            if (error) return this.notify(error.message, "error");
+            this.notify("Event removed", "success");
+            this.closeModal('modal-event-detail');
+            await this.fetchEvents();
+        }
     },
 
     renderGrid() {
@@ -291,11 +312,9 @@ export const eventsModule = {
     },
 
     generateQR(eventId) {
-        // Your specific logic: Master Org vs Inquiry
         const MASTER_ORG_ID = '3c435a81-16c0-4472-92fd-3ff5949fc9ed';
         const baseUrl = window.location.href.split('index.html')[0]; 
         
-        // Determine the URL based on the Event ID
         let finalUrl = (eventId === MASTER_ORG_ID) 
             ? `${baseUrl}general.html` 
             : `${baseUrl}ask.html?id=${eventId}`;
@@ -303,7 +322,6 @@ export const eventsModule = {
         const qrImg = document.getElementById('qr-code-img');
         const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(finalUrl)}`;
 
-        // Update the UI
         qrImg.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" class="mx-auto shadow-sm rounded-lg">`;
         document.getElementById('qr-container').classList.remove('hidden');
     },
@@ -337,12 +355,29 @@ export const eventsModule = {
     setLoading(s) { 
         this.state.isLoading = s; 
         const g = document.getElementById('events-grid'); 
-        if(g) g.style.opacity = s ? '0.4' : '1'; 
-        if(g) g.style.pointerEvents = s ? 'none' : 'auto';
+        if(g) {
+            g.style.opacity = s ? '0.4' : '1'; 
+            g.style.pointerEvents = s ? 'none' : 'auto';
+        }
+        if (s) Swal.showLoading();
+        else Swal.close();
     },
+
     closeModal(id) { document.getElementById(id).classList.add('hidden'); },
-    notify(m, t) { alert(`${t.toUpperCase()}: ${m}`); },
+
+    notify(m, t) { 
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+        Toast.fire({ icon: t, title: m });
+    },
+
     checkConflicts(s, e) { return this.state.events.some(ev => (this.state.selectedEvent?.id !== ev.id && new Date(s) < new Date(ev.end_time) && new Date(e) > new Date(ev.start_time))); },
+    
     resetForm() { 
         document.getElementById('modal-title').innerHTML = 'Event <span class="text-indigo-600">Planner</span>';
         ['name', 'desc', 'start', 'end'].forEach(f => { const el = document.getElementById(`new-ev-${f}`); if(el) el.value = ''; }); 
