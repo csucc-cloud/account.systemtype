@@ -290,14 +290,21 @@ export const eventsModule = {
         });
     },
 
-    generateQR(id) {
-        // Points to ask.html
-        const askUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '/ask.html?id=' + id)}`;
-        // Points to general.html
-        const genUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '/general.html?id=' + id)}`;
+    generateQR(eventId) {
+        // Your specific logic: Master Org vs Inquiry
+        const MASTER_ORG_ID = '3c435a81-16c0-4472-92fd-3ff5949fc9ed';
+        const baseUrl = window.location.href.split('index.html')[0]; 
         
-        document.getElementById('qr-code-img').innerHTML = `<img src="${askUrl}" class="mx-auto rounded-xl">`;
-        document.getElementById('qr-code-img-gen').innerHTML = `<img src="${genUrl}" class="mx-auto rounded-xl">`;
+        // Determine the URL based on the Event ID
+        let finalUrl = (eventId === MASTER_ORG_ID) 
+            ? `${baseUrl}general.html` 
+            : `${baseUrl}ask.html?id=${eventId}`;
+
+        const qrImg = document.getElementById('qr-code-img');
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(finalUrl)}`;
+
+        // Update the UI
+        qrImg.innerHTML = `<img src="${qrApiUrl}" alt="QR Code" class="mx-auto shadow-sm rounded-lg">`;
         document.getElementById('qr-container').classList.remove('hidden');
     },
 
