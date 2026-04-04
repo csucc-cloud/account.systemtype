@@ -246,11 +246,6 @@ export const eventsModule = {
                                 <div id="qr-container" class="hidden p-8 bg-indigo-600 rounded-[2rem] text-center text-white shadow-xl shadow-indigo-100 flex flex-col gap-6">
                                      <div>
                                         <div id="qr-code-img" class="bg-white p-4 rounded-3xl inline-block mb-2 shadow-inner"></div>
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">Inquiry Form (ask.html)</p>
-                                     </div>
-                                     <div>
-                                        <div id="qr-code-img-gen" class="bg-white p-4 rounded-3xl inline-block mb-2 shadow-inner"></div>
-                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">General Access (general.html)</p>
                                      </div>
                                 </div>
                             </div>
