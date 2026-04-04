@@ -40,14 +40,14 @@ export const attendanceModule = {
                                 `).join('')}
                             </select>
 
-                            <button id="btn-export-excel" class="px-6 py-3.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg hover:bg-emerald-700 transition-all">
+                            <button id="btn-export-excel" class="px-6 py-3.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg hover:bg-emerald-700 transition-all hover:scale-105 active:scale-95">
                                 <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
                                 Export Excel
                             </button>
 
-                            <button id="btn-toggle-scanner" class="px-8 py-3.5 ${this.state.isScannerActive ? 'bg-rose-500' : 'bg-[#000080]'} text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg">
+                            <button id="btn-toggle-scanner" class="px-8 py-3.5 ${this.state.isScannerActive ? 'bg-rose-500' : 'bg-[#000080]'} text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg hover:scale-105 active:scale-95 transition-all">
                                 <i data-lucide="${this.state.isScannerActive ? 'camera-off' : 'camera'}" class="w-4 h-4"></i>
-                                ${this.state.isScannerActive ? 'Terminate' : 'Initialize'}
+                                ${this.state.isScannerActive ? 'Terminate Scanner' : 'Initialize Scanner'}
                             </button>
                         </div>
                     </div>
@@ -67,13 +67,24 @@ export const attendanceModule = {
                                         </div>
                                     `}
                                 </div>
+                                <div class="p-6 text-center">
+                                    <div class="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-slate-50 border border-slate-100">
+                                        <span class="relative flex h-2 w-2">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${this.state.isScannerActive ? 'bg-emerald-400' : 'bg-slate-300'} opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2 w-2 ${this.state.isScannerActive ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+                                        </span>
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                            ${this.state.isScannerActive ? 'Neural Link Active' : 'Waiting for Input'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="bg-[#000080] p-8 rounded-[2.5rem] shadow-2xl text-white relative overflow-hidden">
                                 <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300/60 mb-6">Manual Override</h3>
                                 <div class="flex gap-3 relative z-10">
-                                    <input type="text" id="manual-student-id" placeholder="STUDENT ID" class="flex-1 bg-white/10 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold outline-none uppercase">
-                                    <button id="btn-manual-submit" class="bg-yellow-400 px-6 rounded-2xl">
+                                    <input type="text" id="manual-student-id" placeholder="STUDENT ID" class="flex-1 bg-white/10 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold outline-none uppercase placeholder:text-white/20">
+                                    <button id="btn-manual-submit" class="bg-yellow-400 px-6 rounded-2xl hover:bg-yellow-300 transition-all active:scale-90 shadow-lg shadow-yellow-400/20">
                                         <i data-lucide="send" class="w-5 h-5 text-[#000080]"></i>
                                     </button>
                                 </div>
@@ -94,9 +105,9 @@ export const attendanceModule = {
                                 <table class="w-full text-left">
                                     <thead>
                                         <tr class="bg-slate-50/50">
-                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">ID</th>
-                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Full Name</th>
-                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Status</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Full Name</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="attendance-feed" class="divide-y divide-slate-50"></tbody>
@@ -118,15 +129,22 @@ export const attendanceModule = {
     },
 
     initEventListeners() {
-        document.getElementById('btn-toggle-scanner').onclick = async () => {
-            if (!this.state.activeEventId) return alert("Select event first!");
-            this.state.isScannerActive = !this.state.isScannerActive;
-            await this.render();
-            if (this.state.isScannerActive) this.startScanner();
-            else this.stopScanner();
-        };
+        const toggleBtn = document.getElementById('btn-toggle-scanner');
+        const exportBtn = document.getElementById('btn-export-excel');
 
-        document.getElementById('btn-export-excel').onclick = () => this.exportToExcel();
+        if (toggleBtn) {
+            toggleBtn.onclick = async () => {
+                if (!this.state.activeEventId) return alert("Select an active event first!");
+                this.state.isScannerActive = !this.state.isScannerActive;
+                await this.render();
+                if (this.state.isScannerActive) this.startScanner();
+                else this.stopScanner();
+            };
+        }
+
+        if (exportBtn) {
+            exportBtn.onclick = () => this.exportToExcel();
+        }
 
         document.getElementById('event-selector').onchange = (e) => {
             this.state.activeEventId = e.target.value;
@@ -142,32 +160,34 @@ export const attendanceModule = {
         };
     },
 
-    /**
-     * EXCEL EXPORT FEATURE
-     */
     exportToExcel() {
-        if (this.state.attendees.length === 0) return alert("No data to export.");
+        if (!this.state.activeEventId || this.state.attendees.length === 0) {
+            return alert("No attendance data available to export.");
+        }
         
-        const eventName = this.state.allEvents.find(e => e.id == this.state.activeEventId)?.event_name || "Event";
+        const activeEvent = this.state.allEvents.find(e => e.id == this.state.activeEventId);
+        const eventName = activeEvent ? activeEvent.event_name : "Event";
         
-        // Map data for Excel rows
+        // Prepare data
         const data = this.state.attendees.map(a => ({
             "Student ID": a.student_id,
             "Full Name": a.full_name,
-            "Department": a.department,
-            "Course": a.course,
-            "Year Level": a.year_level,
-            "Time In": a.time_in ? new Date(a.time_in).toLocaleString() : "N/A",
-            "Time Out": a.time_out ? new Date(a.time_out).toLocaleString() : "N/A",
-            "Status": (a.time_in && a.time_out) ? "Present" : (a.time_in ? "In Venue" : "Absent")
+            "Department": a.department || "N/A",
+            "Course": a.course || "N/A",
+            "Year Level": a.year_level || "N/A",
+            "Time In": a.time_in ? new Date(a.time_in).toLocaleTimeString() : "---",
+            "Time Out": a.time_out ? new Date(a.time_out).toLocaleTimeString() : "---",
+            "Attendance Status": (a.time_in && a.time_out) ? "Present" : (a.time_in ? "In Venue" : "Pending")
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+        // Create workbook
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
 
-        // Download file
-        XLSX.writeFile(workbook, `${eventName}_Attendance_${new Date().toLocaleDateString()}.xlsx`);
+        // Save file
+        const fileName = `${eventName}_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
     },
 
     async startScanner() {
@@ -175,28 +195,48 @@ export const attendanceModule = {
         const config = {
             fps: 20, 
             qrbox: { width: 280, height: 280 },
-            videoConstraints: { facingMode: "environment", focusMode: "continuous" }
+            videoConstraints: { 
+                facingMode: "environment", 
+                focusMode: "continuous",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
         };
         try {
-            await this.state.html5QrCode.start({ facingMode: "environment" }, config, (text) => this.markAttendance(text));
+            await this.state.html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                (text) => {
+                    this.markAttendance(text);
+                    if (navigator.vibrate) navigator.vibrate(100);
+                }
+            );
         } catch (err) {
+            console.error("Scanner failed:", err);
             this.state.isScannerActive = false;
             this.render();
         }
     },
 
     async stopScanner() {
-        if (this.state.html5QrCode) await this.state.html5QrCode.stop();
+        if (this.state.html5QrCode) {
+            try { await this.state.html5QrCode.stop(); } catch (e) {}
+        }
     },
 
     async markAttendance(studentId) {
         const student = this.state.attendees.find(a => a.student_id.toString() === studentId.toString());
-        if (!student) return alert("Student not in target list.");
+        if (!student) return alert(`Student ID ${studentId} not in target list.`);
 
         let data = { student_id: studentId, event_id: this.state.activeEventId };
-        if (!student.time_in) data.time_in = new Date().toISOString();
-        else if (!student.time_out) data.time_out = new Date().toISOString();
-        else return alert("Attendance complete.");
+        
+        if (!student.time_in) {
+            data.time_in = new Date().toISOString();
+        } else if (!student.time_out) {
+            data.time_out = new Date().toISOString();
+        } else {
+            return alert("Protocol: Student has already clocked out.");
+        }
 
         const { error } = await supabase.from('attendance').upsert(data, { onConflict: 'student_id, event_id' });
         if (!error) await this.fetchAttendance();
@@ -218,7 +258,10 @@ export const attendanceModule = {
 
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
+        const statusEl = document.getElementById('fetch-status');
+
         const { data: event } = await supabase.from('events').select('*').eq('id', this.state.activeEventId).single();
+        
         let query = supabase.from('students').select('*').order('full_name', { ascending: true });
         
         if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) query = query.ilike('department', `%${event.target_dept}%`);
@@ -231,6 +274,8 @@ export const attendanceModule = {
             const log = (logs || []).find(l => l.student_id === s.student_id);
             return { ...s, time_in: log?.time_in, time_out: log?.time_out, is_present: !!log };
         });
+
+        if (statusEl) statusEl.innerText = `Verified ${this.state.attendees.length} Target Participants`;
         this.renderFeed();
     },
 
@@ -238,19 +283,24 @@ export const attendanceModule = {
         const feed = document.getElementById('attendance-feed');
         const count = document.getElementById('attendee-count');
         if (!feed) return;
+
         const present = this.state.attendees.filter(a => a.is_present).length;
         count.innerText = `${present.toString().padStart(2, '0')}/${this.state.attendees.length}`;
+        
         const sorted = [...this.state.attendees].sort((a, b) => (b.time_in ? 1 : 0) - (a.time_in ? 1 : 0));
 
         feed.innerHTML = sorted.map(row => {
             let status = `<span class="px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase ring-1 ring-slate-200">Pending</span>`;
             if (row.time_in && !row.time_out) status = `<span class="px-4 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black uppercase ring-1 ring-amber-100 animate-pulse">In Venue</span>`;
             else if (row.time_in && row.time_out) status = `<span class="px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase ring-1 ring-emerald-100">Present</span>`;
-            return `<tr class="hover:bg-slate-50 ${!row.time_in ? 'opacity-60' : ''}">
-                <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
-                <td class="px-8 py-6 font-black text-slate-800">${row.full_name} <br> <span class="text-[9px] text-slate-400 uppercase">${row.course}</span></td>
-                <td class="px-8 py-6 text-right">${status}</td>
-            </tr>`;
+
+            return `
+                <tr class="hover:bg-slate-50 transition-all ${!row.time_in ? 'opacity-60' : ''}">
+                    <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
+                    <td class="px-8 py-6 font-black text-slate-800">${row.full_name} <br> <span class="text-[9px] text-slate-400 uppercase">${row.course || ''}</span></td>
+                    <td class="px-8 py-6 text-right">${status}</td>
+                </tr>
+            `;
         }).join('');
         if (window.lucide) window.lucide.createIcons();
     },
