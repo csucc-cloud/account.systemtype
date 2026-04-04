@@ -193,24 +193,55 @@ export const attendanceModule = {
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
 
+        console.log("🔍 System: Initiating Target Match Protocol for Event ID:", this.state.activeEventId);
+
         // 1. Fetch Event target details
-        const { data: event } = await supabase
+        const { data: event, error: eventError } = await supabase
             .from('events')
-            .select('target_dept, target_year')
+            .select('event_name, target_dept, target_year')
             .eq('id', this.state.activeEventId)
             .single();
 
-        // 2. Fetch Students based on target
-        let studentQuery = supabase.from('students').select('student_id, full_name, department, year_level, course');
-        
-        if (event?.target_dept && event.target_dept !== 'All' && event.target_dept !== 'NULL') {
-            studentQuery = studentQuery.eq('department', event.target_dept);
-        }
-        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) {
-            studentQuery = studentQuery.eq('year_level', parseInt(event.target_year));
+        if (eventError) {
+            console.error("❌ Identifier: Failed to fetch event details", eventError);
+            return;
         }
 
-        const { data: expectedStudents } = await studentQuery;
+        console.info(`📋 Event Found: "${event.event_name}" | Target Dept: "${event.target_dept}" | Target Year: "${event.target_year}"`);
+
+        // 2. Build Student Query
+        let studentQuery = supabase.from('students').select('student_id, full_name, department, year_level, course');
+        
+        // Logical check for Department
+        if (event?.target_dept && event.target_dept !== 'All' && event.target_dept !== 'NULL') {
+            // Using .ilike to handle the common "Education Dept" vs "Education Dept." dot issue
+            studentQuery = studentQuery.ilike('department', `%${event.target_dept}%`);
+        }
+
+        // Logical check for Year Level
+        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) {
+            const yearNum = parseInt(event.target_year);
+            if (!isNaN(yearNum)) {
+                studentQuery = studentQuery.eq('year_level', yearNum);
+            }
+        }
+
+        const { data: expectedStudents, error: studentError } = await studentQuery;
+
+        if (studentError) {
+            console.error("❌ Identifier: Database error during student lookup", studentError);
+        }
+
+        // Check if query returned nothing
+        if (!expectedStudents || expectedStudents.length === 0) {
+            console.warn(`⚠️ Identifier: NO MATCH FOUND. 
+                Possible Reasons:
+                1. No student has department matching "${event.target_dept}"
+                2. No student has year level matching "${event.target_year}"
+                3. String mismatch (check for trailing spaces or dots in Supabase)`);
+        } else {
+            console.log(`✅ Identifier: Successfully matched ${expectedStudents.length} students.`);
+        }
 
         // 3. Fetch Actual Attendance Logs
         const { data: logs } = await supabase
@@ -231,7 +262,6 @@ export const attendanceModule = {
 
         this.renderFeed();
     },
-
     /**
      * Sub-rendering logic for the data table
      */
