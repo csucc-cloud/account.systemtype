@@ -4,10 +4,19 @@ import { AuditLogger } from './audit-logger.js';
 /** EventsModule: Professional Student Organization Event Management */
 export const eventsModule = {
     state: { 
-        events: [], filteredEvents: [], selectedEvent: null, attachments: [], 
-        userRole: 'staff', userOrgId: null, userOrgName: '', searchTerm: '', 
-        currentFilter: 'all', isLoading: false, isDarkMode: false, 
-        isEditMode: false, stats: { total: 0, active: 0, upcoming: 0, completed: 0 } 
+        events: [], 
+        filteredEvents: [], 
+        selectedEvent: null, 
+        attachments: [], 
+        userRole: 'staff', 
+        userOrgId: null, 
+        userOrgName: '', 
+        searchTerm: '', 
+        currentFilter: 'all', 
+        isLoading: false, 
+        isDarkMode: false, 
+        isEditMode: false, 
+        stats: { total: 0, active: 0, upcoming: 0, completed: 0 } 
     },
 
     async render() {
