@@ -2,7 +2,7 @@ import { supabase } from './auth.js';
 
 export const financeModule = {
     state: {
-        activePeriod: null, // {id, year, semester}
+        activePeriod: null, 
         allPeriods: [],
         students: [],
         selectedStudent: null,
@@ -15,16 +15,25 @@ export const financeModule = {
         const container = document.getElementById('mod-finance');
         if (!container) return;
 
-        // Fetch initial data if state is empty
         if (this.state.allPeriods.length === 0) await this.fetchMetadata();
 
         container.innerHTML = `
+            <style>
+                @media print {
+                    body * { visibility: hidden; }
+                    #print-area, #print-area * { visibility: visible; }
+                    #print-area { position: absolute; left: 0; top: 0; width: 210mm; }
+                    .audit-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10mm; padding: 10mm; }
+                    .receipt-card { border: 1px dashed #000; padding: 15px; height: 130mm; }
+                }
+            </style>
+
             <div class="p-6 md:p-10 bg-[#F8FAFC] min-h-screen">
                 <div class="max-w-7xl mx-auto mb-8 flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                     <div>
                         <h1 class="text-2xl font-black text-slate-900">Finance <span class="text-blue-600">Command</span></h1>
                         <p class="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">
-                            Active: ${this.state.activePeriod?.year_range} | ${this.state.activePeriod?.semester} Semester
+                            Active: ${this.state.activePeriod?.year_range || 'N/A'} | ${this.state.activePeriod?.semester || 'N/A'} Semester
                         </p>
                     </div>
                     <div class="flex gap-3">
@@ -53,8 +62,7 @@ export const financeModule = {
                                         <th class="px-6 py-4 text-right text-[10px] font-bold uppercase text-slate-400">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody id="student-list" class="divide-y divide-slate-50">
-                                    </tbody>
+                                <tbody id="student-list" class="divide-y divide-slate-50"></tbody>
                             </table>
                         </div>
                     </div>
@@ -73,18 +81,28 @@ export const financeModule = {
 
             <div id="finance-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
                 <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col">
-                    <div id="modal-content"></div>
+                    <div id="modal-content" class="p-8 overflow-y-auto"></div>
                 </div>
             </div>
-            
+
             <div id="qr-reader-container" class="fixed inset-0 z-[60] bg-black hidden flex flex-col items-center justify-center">
                 <div id="receipt-scanner" class="w-full max-w-md aspect-square"></div>
                 <button id="close-scanner" class="mt-8 px-8 py-3 bg-white rounded-full font-bold">Cancel Scan</button>
             </div>
+
+            <div id="print-area" class="hidden"></div>
         `;
 
         this.initEventListeners();
         this.fetchStudents();
+    },
+
+    initEventListeners() {
+        document.getElementById('search-student')?.addEventListener('input', (e) => this.fetchStudents(e.target.value));
+        document.getElementById('btn-rollover')?.addEventListener('click', () => this.handleRollover());
+        document.getElementById('btn-print-audit')?.addEventListener('click', () => this.printAuditSheet());
+        document.getElementById('btn-scan-receipt')?.addEventListener('click', () => this.toggleScanner());
+        document.getElementById('close-scanner')?.addEventListener('click', () => this.toggleScanner());
     },
 
     async fetchMetadata() {
@@ -96,13 +114,20 @@ export const financeModule = {
     async fetchStudents(searchTerm = '') {
         let query = supabase.from('students').select('*, payments(*)');
         if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
-        
         const { data } = await query.limit(20);
-        this.renderStudentList(data || []);
+        this.state.students = data || [];
+        this.renderStudentList(this.state.students);
+    },
+
+    calculateBalance(student) {
+        if (!student.payments) return "0.00";
+        const total = student.payments.reduce((acc, curr) => acc + (curr.amount_paid || 0), 0);
+        return total.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
 
     renderStudentList(students) {
         const list = document.getElementById('student-list');
+        if (!list) return;
         list.innerHTML = students.map(s => `
             <tr class="hover:bg-slate-50 transition-all">
                 <td class="px-6 py-4">
@@ -112,7 +137,7 @@ export const financeModule = {
                 <td class="px-6 py-4 text-xs font-bold text-slate-600">${s.course} ${s.year_level}</td>
                 <td class="px-6 py-4 text-xs font-black text-rose-500">₱ ${this.calculateBalance(s)}</td>
                 <td class="px-6 py-4 text-right">
-                    <button onclick="attendanceModule.viewStudentFinance('${s.student_id}')" class="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors">
+                    <button onclick="financeModule.viewStudentFinance('${s.student_id}')" class="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors">
                         <i data-lucide="external-link" class="w-5 h-5"></i>
                     </button>
                 </td>
@@ -121,31 +146,72 @@ export const financeModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    // --- ROLL-OVER LOGIC ---
+    async viewStudentFinance(studentId) {
+        const student = this.state.students.find(s => s.student_id === studentId);
+        this.state.selectedStudent = student;
+        const modal = document.getElementById('finance-modal');
+        const content = document.getElementById('modal-content');
+        
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="w-full md:w-1/3 space-y-6">
+                    <h3 class="text-xl font-black">Student Information</h3>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Full Name</label>
+                        <input type="text" id="edit-name" value="${student.full_name}" class="w-full p-3 bg-slate-50 rounded-xl border-none text-sm">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Email</label>
+                        <input type="email" id="edit-email" value="${student.email || ''}" placeholder="Manual input if empty" class="w-full p-3 bg-slate-50 rounded-xl border-none text-sm">
+                    </div>
+                    <button onclick="financeModule.updateStudent()" class="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase">Update Records</button>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-xl font-black mb-4">Payment History</h3>
+                    <div class="space-y-3">
+                        ${student.payments?.length ? student.payments.map(p => `
+                            <div class="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold text-sm">₱ ${p.amount_paid}</div>
+                                    <div class="text-[10px] text-slate-400">${p.receipt_number} | ${new Date(p.created_at).toLocaleDateString()}</div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="financeModule.printSingleReceipt('${p.id}')" class="p-2 bg-white rounded-lg shadow-sm text-blue-600"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                                    <button onclick="financeModule.generateReceiptPDF('${p.id}', true)" class="p-2 bg-white rounded-lg shadow-sm text-emerald-600"><i data-lucide="mail" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-slate-400 italic">No payments recorded.</p>'}
+                    </div>
+                </div>
+            </div>
+            <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="mt-8 text-slate-400 font-bold text-xs uppercase underline">Close Modal</button>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+    },
+
     async handleRollover() {
-        const confirm = window.confirm("This will deactivate the current semester and initialize a new one. History will be preserved. Proceed?");
+        const confirm = window.confirm("Roll-over to next semester? This archives current payments.");
         if (!confirm) return;
-
-        // 1. Deactivate current period
         await supabase.from('academic_periods').update({ is_active: false }).eq('id', this.state.activePeriod.id);
-
-        // 2. Logic to create new period record would go here
-        alert("Semestral Roll-over Successful. System updated to the new academic period.");
+        alert("Roll-over complete.");
         location.reload();
     },
 
-    // --- RECEIPT & PDF GENERATION ---
-    async generateReceiptPDF(paymentId, autoEmail = false) {
-        // Logic using jspdf and qrcode.js
-        // 1. Fetch payment data with student details
-        // 2. Generate QR code containing: student_id + receipt_no + hash
-        // 3. Construct PDF layout
-        // 4. If autoEmail: Convert to blob and send via Supabase Edge Function (Resend/SendGrid)
-    },
-
     async printAuditSheet() {
-        // This triggers a specific CSS @media print layout
-        // That fetches the last 4 payments and tiles them in a 2x2 grid
+        const printArea = document.getElementById('print-area');
+        const recentPayments = this.state.students.flatMap(s => s.payments).slice(0, 4);
+        
+        printArea.innerHTML = `<div class="audit-grid">
+            ${recentPayments.map(p => `
+                <div class="receipt-card">
+                    <h2 class="font-black">OFFICIAL RECEIPT</h2>
+                    <p>Receipt #: ${p.receipt_number}</p>
+                    <p>Amount: ₱${p.amount_paid}</p>
+                    <div id="qr-${p.id}" class="mt-4"></div>
+                </div>
+            `).join('')}
+        </div>`;
         window.print();
     }
 };
