@@ -13,7 +13,6 @@ export const eventsModule = {
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            // Removed department from the profile fetch
             const { data: profile } = await supabase.from('profiles').select('role, organization_id').eq('id', user?.id).single();
             this.state.userRole = profile?.role || 'staff';
             this.state.userOrgId = profile?.organization_id;
@@ -29,11 +28,9 @@ export const eventsModule = {
         this.setLoading(true);
         try {
             let query = supabase.from('events').select(`*, event_inquiries (id)`).order('start_time', { ascending: false });
-            
             if (this.state.userRole !== 'super_admin') {
                 query = query.eq('organization_id', this.state.userOrgId);
             }
-
             const { data, error } = await query;
             if (error) throw error;
 
@@ -61,7 +58,6 @@ export const eventsModule = {
     },
 
     async deployMission() {
-        // Collects Name, Desc, Dates, PLUS the new Dept and Year
         const fields = ['name', 'desc', 'start', 'end', 'dept', 'year'].reduce((acc, f) => 
             ({...acc, [f]: document.getElementById(`new-ev-${f}`).value}), {});
         
@@ -74,8 +70,8 @@ export const eventsModule = {
             start_time: fields.start, 
             end_time: fields.end, 
             organization_id: this.state.userOrgId,
-            target_dept: fields.dept, // Student target dept
-            target_year: fields.year   // Student target year
+            target_dept: fields.dept,
+            target_year: fields.year
         };
 
         const req = this.state.isEditMode 
@@ -102,12 +98,10 @@ export const eventsModule = {
     renderGrid() {
         const grid = document.getElementById('events-grid');
         if (!grid) return;
-        
         if (!this.state.filteredEvents.length) {
             grid.innerHTML = `<div class="col-span-full py-20 text-center opacity-40 font-bold uppercase tracking-widest text-sm">No matches found</div>`;
             return;
         }
-
         grid.innerHTML = this.state.filteredEvents.map((ev, i) => `
             <div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' 
                  class="bg-white border border-slate-100 cursor-pointer rounded-[2rem] p-6 group hover:shadow-2xl hover:shadow-indigo-100/40 transition-all animate-in fade-in slide-in-from-bottom-2" style="animation-delay: ${i * 40}ms">
@@ -181,10 +175,8 @@ export const eventsModule = {
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="space-y-6 bg-slate-50 p-8 rounded-[2.5rem]">
-                                    <h4 class="text-[11px] font-black text-indigo-600 uppercase tracking-widest mb-2">Target Participants</h4>
-                                    
+                                    <h4 class="text-[11px] font-black text-indigo-600 uppercase tracking-widest mb-2">Target Students</h4>
                                     <div class="space-y-2">
                                         <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Department</label>
                                         <select id="new-ev-dept" class="w-full p-4 bg-white rounded-2xl border-none outline-none font-bold text-slate-600 text-sm shadow-sm">
@@ -194,7 +186,6 @@ export const eventsModule = {
                                             <option value="All Dept">All Dept</option>
                                         </select>
                                     </div>
-
                                     <div class="space-y-2">
                                         <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Year Level</label>
                                         <select id="new-ev-year" class="w-full p-4 bg-white rounded-2xl border-none outline-none font-bold text-slate-600 text-sm shadow-sm">
@@ -205,7 +196,6 @@ export const eventsModule = {
                                             <option value="4th Year">4th Year</option>
                                         </select>
                                     </div>
-
                                     <div class="pt-6 flex flex-col gap-3">
                                         <button id="save-ev-btn" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 hover:scale-[1.02] transition-all">Confirm & Publish</button>
                                         <button onclick="eventsModule.closeModal('modal-event')" class="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-red-400 transition-colors">Cancel</button>
@@ -232,19 +222,24 @@ export const eventsModule = {
                                     <h4 class="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">About this event</h4>
                                     <p id="detail-desc" class="text-slate-600 leading-relaxed text-sm"></p>
                                 </div>
-                                <div id="qr-container" class="hidden p-8 bg-indigo-600 rounded-[2rem] text-center text-white shadow-xl shadow-indigo-100">
-                                     <div id="qr-code-img" class="bg-white p-4 rounded-3xl inline-block mb-4 shadow-inner"></div>
-                                     <p class="text-[10px] font-black uppercase tracking-[0.2em]">Scan for Attendance</p>
+                                <div id="qr-container" class="hidden p-8 bg-indigo-600 rounded-[2rem] text-center text-white shadow-xl shadow-indigo-100 flex flex-col gap-6">
+                                     <div>
+                                        <div id="qr-code-img" class="bg-white p-4 rounded-3xl inline-block mb-2 shadow-inner"></div>
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">Inquiry Form (ask.html)</p>
+                                     </div>
+                                     <div>
+                                        <div id="qr-code-img-gen" class="bg-white p-4 rounded-3xl inline-block mb-2 shadow-inner"></div>
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">General Access (general.html)</p>
+                                     </div>
                                 </div>
                             </div>
-                            
                             <div class="space-y-6">
                                 <div>
                                     <h4 class="text-[10px] font-black uppercase text-indigo-600 mb-4 tracking-widest">Student Inquiries</h4>
                                     <div id="inquiry-list" class="space-y-3"></div>
                                 </div>
                                 <div class="pt-6 border-t border-slate-50 space-y-3">
-                                    <button id="btn-generate-qr" class="w-full py-4 bg-white border border-slate-200 text-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"><i data-lucide="qr-code" class="w-4 h-4"></i> Attendance QR</button>
+                                    <button id="btn-generate-qr" class="w-full py-4 bg-white border border-slate-200 text-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"><i data-lucide="qr-code" class="w-4 h-4"></i> Generate QRs</button>
                                     <button id="btn-edit-active" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all">Edit Details</button>
                                     <button id="btn-delete-active" class="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-100 transition-all">Cancel Event</button>
                                 </div>
@@ -259,13 +254,11 @@ export const eventsModule = {
         this.state.selectedEvent = event;
         const q = (id) => document.getElementById(id);
         q('detail-title').innerText = event.event_name;
-        q('detail-desc').innerText = event.description || 'No description provided for this campus event.';
+        q('detail-desc').innerText = event.description || 'No description provided.';
         q('qr-container').classList.add('hidden');
-        
         q('btn-edit-active').style.display = this.can('manage') ? 'block' : 'none';
         q('btn-delete-active').style.display = this.can('manage') ? 'block' : 'none';
         q('btn-generate-qr').style.display = this.can('attendance') ? 'flex' : 'none';
-        
         q('modal-event-detail').classList.remove('hidden');
         await this.fetchInquiries(event.id);
     },
@@ -291,16 +284,20 @@ export const eventsModule = {
         if (q('btn-generate-qr')) q('btn-generate-qr').onclick = () => this.generateQR(this.state.selectedEvent.id);
         document.querySelectorAll('.filter-tab').forEach(t => t.onclick = () => { 
             this.state.currentFilter = t.dataset.filter; 
-            this.applyFilters(); 
-            this.renderGrid();
+            this.applyFilters(); this.renderGrid();
             document.querySelectorAll('.filter-tab').forEach(btn => btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm'));
             t.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
         });
     },
 
     generateQR(id) {
-        const url = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '/attendance?id=' + id)}`;
-        document.getElementById('qr-code-img').innerHTML = `<img src="${url}" class="mx-auto rounded-xl">`;
+        // Points to ask.html
+        const askUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '/ask.html?id=' + id)}`;
+        // Points to general.html
+        const genUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + '/general.html?id=' + id)}`;
+        
+        document.getElementById('qr-code-img').innerHTML = `<img src="${askUrl}" class="mx-auto rounded-xl">`;
+        document.getElementById('qr-code-img-gen').innerHTML = `<img src="${genUrl}" class="mx-auto rounded-xl">`;
         document.getElementById('qr-container').classList.remove('hidden');
     },
 
@@ -313,11 +310,8 @@ export const eventsModule = {
         document.getElementById('new-ev-desc').value = ev.description;
         document.getElementById('new-ev-start').value = ev.start_time.slice(0, 16);
         document.getElementById('new-ev-end').value = ev.end_time.slice(0, 16);
-        
-        // Populate the dropdowns with existing target data
         if (ev.target_dept) document.getElementById('new-ev-dept').value = ev.target_dept;
         if (ev.target_year) document.getElementById('new-ev-year').value = ev.target_year;
-
         document.getElementById('modal-event').classList.remove('hidden');
     },
 
