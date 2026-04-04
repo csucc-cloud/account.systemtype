@@ -3,8 +3,8 @@ import { supabase } from './auth.js';
 export const eventsModule = {
     state: {
         events: [], filteredEvents: [], selectedEvent: null,
-        userRole: 'staff', userOrgId: null, searchTerm: '',
-        currentFilter: 'all', isLoading: false, isEditMode: false
+        userRole: 'staff', userOrgId: null, 
+        searchTerm: '', currentFilter: 'all', isLoading: false, isEditMode: false
     },
 
     async render() {
@@ -13,6 +13,7 @@ export const eventsModule = {
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
+            // Removed department from the profile fetch
             const { data: profile } = await supabase.from('profiles').select('role, organization_id').eq('id', user?.id).single();
             this.state.userRole = profile?.role || 'staff';
             this.state.userOrgId = profile?.organization_id;
@@ -29,7 +30,6 @@ export const eventsModule = {
         try {
             let query = supabase.from('events').select(`*, event_inquiries (id)`).order('start_time', { ascending: false });
             
-            // Org Isolation Logic
             if (this.state.userRole !== 'super_admin') {
                 query = query.eq('organization_id', this.state.userOrgId);
             }
@@ -61,14 +61,21 @@ export const eventsModule = {
     },
 
     async deployMission() {
-        const fields = ['name', 'desc', 'start', 'end'].reduce((acc, f) => ({...acc, [f]: document.getElementById(`new-ev-${f}`).value}), {});
+        // Collects Name, Desc, Dates, PLUS the new Dept and Year
+        const fields = ['name', 'desc', 'start', 'end', 'dept', 'year'].reduce((acc, f) => 
+            ({...acc, [f]: document.getElementById(`new-ev-${f}`).value}), {});
+        
         if (!fields.name || !fields.start || !fields.end) return this.notify("Missing required fields", "error");
         if (this.checkConflicts(fields.start, fields.end)) return this.notify("Scheduling conflict detected", "error");
 
         const payload = { 
-            event_name: fields.name, description: fields.desc, 
-            start_time: fields.start, end_time: fields.end, 
-            organization_id: this.state.userOrgId 
+            event_name: fields.name, 
+            description: fields.desc, 
+            start_time: fields.start, 
+            end_time: fields.end, 
+            organization_id: this.state.userOrgId,
+            target_dept: fields.dept, // Student target dept
+            target_year: fields.year   // Student target year
         };
 
         const req = this.state.isEditMode 
@@ -150,10 +157,10 @@ export const eventsModule = {
                 </div>
 
                 <div id="modal-event" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md transition-all">
-                    <div class="bg-white rounded-[3rem] w-full max-w-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div class="p-10 md:p-16">
+                    <div class="bg-white rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div class="p-10 md:p-14">
                             <h2 id="modal-title" class="text-3xl font-black text-slate-900 mb-8">Event <span class="text-indigo-600">Planner</span></h2>
-                            <div class="grid md:grid-cols-2 gap-8">
+                            <div class="grid md:grid-cols-2 gap-10">
                                 <div class="space-y-6">
                                     <div class="space-y-2">
                                         <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Event Name</label>
@@ -161,19 +168,45 @@ export const eventsModule = {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Description</label>
-                                        <textarea id="new-ev-desc" class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-indigo-100 outline-none text-sm" rows="4"></textarea>
+                                        <textarea id="new-ev-desc" class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-indigo-100 outline-none text-sm" rows="3"></textarea>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="space-y-2">
+                                            <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Start</label>
+                                            <input type="datetime-local" id="new-ev-start" class="w-full p-3 bg-slate-50 rounded-xl border-none outline-none text-xs font-bold text-slate-600">
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[10px] font-black uppercase text-slate-400 ml-1">End</label>
+                                            <input type="datetime-local" id="new-ev-end" class="w-full p-3 bg-slate-50 rounded-xl border-none outline-none text-xs font-bold text-slate-600">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="space-y-6 flex flex-col">
+
+                                <div class="space-y-6 bg-slate-50 p-8 rounded-[2.5rem]">
+                                    <h4 class="text-[11px] font-black text-indigo-600 uppercase tracking-widest mb-2">Target Participants</h4>
+                                    
                                     <div class="space-y-2">
-                                        <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Start Date/Time</label>
-                                        <input type="datetime-local" id="new-ev-start" class="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none text-xs font-bold text-slate-600">
+                                        <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Department</label>
+                                        <select id="new-ev-dept" class="w-full p-4 bg-white rounded-2xl border-none outline-none font-bold text-slate-600 text-sm shadow-sm">
+                                            <option value="Education Dept">Education Dept</option>
+                                            <option value="Industrial Technology Dept">Industrial Technology Dept</option>
+                                            <option value="Other Dept">Other Dept</option>
+                                            <option value="All Dept">All Dept</option>
+                                        </select>
                                     </div>
+
                                     <div class="space-y-2">
-                                        <label class="text-[10px] font-black uppercase text-slate-400 ml-1">End Date/Time</label>
-                                        <input type="datetime-local" id="new-ev-end" class="w-full p-4 bg-slate-50 rounded-2xl border-none outline-none text-xs font-bold text-slate-600">
+                                        <label class="text-[10px] font-black uppercase text-slate-400 ml-1">Year Level</label>
+                                        <select id="new-ev-year" class="w-full p-4 bg-white rounded-2xl border-none outline-none font-bold text-slate-600 text-sm shadow-sm">
+                                            <option value="All Year">All Year Levels</option>
+                                            <option value="1st Year">1st Year</option>
+                                            <option value="2nd Year">2nd Year</option>
+                                            <option value="3rd Year">3rd Year</option>
+                                            <option value="4th Year">4th Year</option>
+                                        </select>
                                     </div>
-                                    <div class="mt-auto pt-6 flex flex-col gap-3">
+
+                                    <div class="pt-6 flex flex-col gap-3">
                                         <button id="save-ev-btn" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 hover:scale-[1.02] transition-all">Confirm & Publish</button>
                                         <button onclick="eventsModule.closeModal('modal-event')" class="w-full py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-red-400 transition-colors">Cancel</button>
                                     </div>
@@ -280,6 +313,11 @@ export const eventsModule = {
         document.getElementById('new-ev-desc').value = ev.description;
         document.getElementById('new-ev-start').value = ev.start_time.slice(0, 16);
         document.getElementById('new-ev-end').value = ev.end_time.slice(0, 16);
+        
+        // Populate the dropdowns with existing target data
+        if (ev.target_dept) document.getElementById('new-ev-dept').value = ev.target_dept;
+        if (ev.target_year) document.getElementById('new-ev-year').value = ev.target_year;
+
         document.getElementById('modal-event').classList.remove('hidden');
     },
 
@@ -307,5 +345,7 @@ export const eventsModule = {
     resetForm() { 
         document.getElementById('modal-title').innerHTML = 'Event <span class="text-indigo-600">Planner</span>';
         ['name', 'desc', 'start', 'end'].forEach(f => { const el = document.getElementById(`new-ev-${f}`); if(el) el.value = ''; }); 
+        document.getElementById('new-ev-dept').selectedIndex = 0;
+        document.getElementById('new-ev-year').selectedIndex = 0;
     }
 };
