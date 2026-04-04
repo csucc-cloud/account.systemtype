@@ -269,7 +269,7 @@ export const attendanceModule = {
     },
 
     handleRealtimeUpdate(payload) {
-        const { eventType, new: newRecord } = payload;
+        const { new: newRecord } = payload;
         const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === newRecord.student_id.toString());
         
         if (studentIndex !== -1) {
@@ -280,99 +280,9 @@ export const attendanceModule = {
         }
     },
 
-    exportToExcel() {
-        if (this.state.attendees.length === 0) return alert("No data to export.");
-        const eventName = this.state.allEvents.find(e => e.id == this.state.activeEventId)?.event_name || "Event";
-        const data = this.state.attendees.map(a => ({
-            "Student ID": a.student_id,
-            "Full Name": a.full_name,
-            "Department": a.department,
-            "Course": a.course,
-            "Year Level": a.year_level,
-            "Time In": a.time_in ? new Date(a.time_in).toLocaleString() : "N/A",
-            "Time Out": a.time_out ? new Date(a.time_out).toLocaleString() : "N/A",
-            "Status": (a.time_in && a.time_out) ? "Present" : (a.time_in ? "In Venue" : "Absent")
-        }));
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
-        XLSX.writeFile(workbook, `${eventName}_Attendance_${new Date().toLocaleDateString()}.xlsx`);
-    },
-
-    async startScanner() {
-        const cameraFacing = document.getElementById('camera-source')?.value || "environment";
-        if (!this.state.html5QrCode) this.state.html5QrCode = new Html5Qrcode("reader");
-        try {
-            await this.state.html5QrCode.start(
-                { facingMode: cameraFacing },
-                { fps: 20, qrbox: { width: 280, height: 280 }, videoConstraints: { facingMode: cameraFacing, focusMode: "continuous" } },
-                (text) => {
-                    this.markAttendance(text);
-                    if (navigator.vibrate) navigator.vibrate(100);
-                }
-            );
-        } catch (err) {
-            console.error("Scanner Error:", err);
-            this.state.isScannerActive = false;
-            this.render();
-        }
-    },
-
-    async stopScanner() {
-        if (this.state.html5QrCode) {
-            try { await this.state.html5QrCode.stop(); } catch (e) { console.warn(e); }
-        }
-    },
-
-    async markAttendance(studentId) {
-        if (!this.state.activeEventId) return;
-
-        const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === studentId.toString());
-        
-        if (studentIndex === -1) {
-            this.playSound('error');
-            alert(`Access Denied: ID ${studentId} not in target list.`);
-            return;
-        }
-
-        const student = this.state.attendees[studentIndex];
-        let updateData = { student_id: studentId, event_id: this.state.activeEventId };
-
-        if (!student.time_in) {
-            updateData.time_in = new Date().toISOString();
-            this.playSound('in');
-        } else if (student.time_in && !student.time_out) {
-            updateData.time_out = new Date().toISOString();
-            this.playSound('out');
-        } else {
-            this.playSound('error');
-            alert("Protocol: Student already completed attendance.");
-            return;
-        }
-
-        const { error } = await supabase.from('attendance').upsert(updateData, { onConflict: 'student_id, event_id' });
-
-        if (error) {
-            console.error("DB Error:", error);
-        } else {
-            const pageOfStudent = Math.floor(studentIndex / this.state.rowsPerPage) + 1;
-            this.state.currentPage = pageOfStudent;
-            await this.fetchAttendance();
-        }
-    },
-
-    async fetchAllStudents(query) {
-        let allData = [];
-        let rangeStart = 0;
-        let hasMore = true;
-        while (hasMore) {
-            const { data, error } = await query.range(rangeStart, rangeStart + 999);
-            if (error || !data) break;
-            allData = [...allData, ...data];
-            if (data.length < 1000) hasMore = false;
-            else rangeStart += 1000;
-        }
-        return allData;
+    async fetchEventsForDropdown() {
+        const { data } = await supabase.from('events').select('id, event_name').order('created_at', { ascending: false });
+        this.state.allEvents = data || [];
     },
 
     async fetchAttendance() {
@@ -405,6 +315,20 @@ export const attendanceModule = {
         if (statusEl && !this.state.isScannerActive) statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
 
         this.renderFeed();
+    },
+
+    async fetchAllStudents(query) {
+        let allData = [];
+        let rangeStart = 0;
+        let hasMore = true;
+        while (hasMore) {
+            const { data, error } = await query.range(rangeStart, rangeStart + 999);
+            if (error || !data) break;
+            allData = [...allData, ...data];
+            if (data.length < 1000) hasMore = false;
+            else rangeStart += 1000;
+        }
+        return allData;
     },
 
     renderFeed() {
@@ -459,8 +383,84 @@ export const attendanceModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    async fetchEventsForDropdown() {
-        const { data } = await supabase.from('events').select('id, event_name').order('created_at', { ascending: false });
-        this.state.allEvents = data || [];
+    async markAttendance(studentId) {
+        if (!this.state.activeEventId) return;
+
+        const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === studentId.toString());
+        
+        if (studentIndex === -1) {
+            this.playSound('error');
+            alert(`Access Denied: ID ${studentId} not in target list.`);
+            return;
+        }
+
+        const student = this.state.attendees[studentIndex];
+        let updateData = { student_id: studentId, event_id: this.state.activeEventId };
+
+        if (!student.time_in) {
+            updateData.time_in = new Date().toISOString();
+            this.playSound('in');
+        } else if (student.time_in && !student.time_out) {
+            updateData.time_out = new Date().toISOString();
+            this.playSound('out');
+        } else {
+            this.playSound('error');
+            alert("Protocol: Student already completed attendance.");
+            return;
+        }
+
+        const { error } = await supabase.from('attendance').upsert(updateData, { onConflict: 'student_id, event_id' });
+
+        if (error) {
+            console.error("DB Error:", error);
+        } else {
+            const pageOfStudent = Math.floor(studentIndex / this.state.rowsPerPage) + 1;
+            this.state.currentPage = pageOfStudent;
+            await this.fetchAttendance();
+        }
+    },
+
+    async startScanner() {
+        const cameraFacing = document.getElementById('camera-source')?.value || "environment";
+        if (!this.state.html5QrCode) this.state.html5QrCode = new Html5Qrcode("reader");
+        try {
+            await this.state.html5QrCode.start(
+                { facingMode: cameraFacing },
+                { fps: 20, qrbox: { width: 280, height: 280 }, videoConstraints: { facingMode: cameraFacing, focusMode: "continuous" } },
+                (text) => {
+                    this.markAttendance(text);
+                    if (navigator.vibrate) navigator.vibrate(100);
+                }
+            );
+        } catch (err) {
+            console.error("Scanner Error:", err);
+            this.state.isScannerActive = false;
+            this.render();
+        }
+    },
+
+    async stopScanner() {
+        if (this.state.html5QrCode) {
+            try { await this.state.html5QrCode.stop(); } catch (e) { console.warn(e); }
+        }
+    },
+
+    exportToExcel() {
+        if (this.state.attendees.length === 0) return alert("No data to export.");
+        const eventName = this.state.allEvents.find(e => e.id == this.state.activeEventId)?.event_name || "Event";
+        const data = this.state.attendees.map(a => ({
+            "Student ID": a.student_id,
+            "Full Name": a.full_name,
+            "Department": a.department,
+            "Course": a.course,
+            "Year Level": a.year_level,
+            "Time In": a.time_in ? new Date(a.time_in).toLocaleString() : "N/A",
+            "Time Out": a.time_out ? new Date(a.time_out).toLocaleString() : "N/A",
+            "Status": (a.time_in && a.time_out) ? "Present" : (a.time_in ? "In Venue" : "Absent")
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
+        XLSX.writeFile(workbook, `${eventName}_Attendance_${new Date().toLocaleDateString()}.xlsx`);
     }
 };
