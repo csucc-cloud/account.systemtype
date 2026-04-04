@@ -7,6 +7,7 @@ export const attendanceModule = {
         attendees: [], // Contains merged data: Students (Expected) + Attendance (Verified)
         isScannerActive: false,
         currentCameraId: null,
+        html5QrCode: null // Internal reference for the scanner instance
     },
 
     /**
@@ -143,6 +144,7 @@ export const attendanceModule = {
                     100% { top: 100%; opacity: 0; } 
                 } 
                 #event-selector { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
+                #reader video { object-fit: cover !important; border-radius: 2.5rem; }
             </style>
         `;
 
@@ -168,21 +170,75 @@ export const attendanceModule = {
         };
 
         document.getElementById('btn-manual-submit').onclick = () => {
-            const id = document.getElementById('manual-student-id').value;
-            if (id) this.markAttendance(id);
+            const idInput = document.getElementById('manual-student-id');
+            const id = idInput.value.trim();
+            if (id) {
+                this.markAttendance(id);
+                idInput.value = '';
+            }
         };
     },
 
     /**
      * Data fetching and State logic
      */
-    startScanner() {
+    async startScanner() {
         const cameraFacing = document.getElementById('camera-source')?.value || "environment";
         console.log(`System: Engaging camera optic [${cameraFacing}]`);
+        
+        if (!this.state.html5QrCode) {
+            this.state.html5QrCode = new Html5Qrcode("reader");
+        }
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        try {
+            await this.state.html5QrCode.start(
+                { facingMode: cameraFacing }, 
+                config, 
+                (decodedText) => {
+                    this.markAttendance(decodedText);
+                    if (navigator.vibrate) navigator.vibrate(100);
+                }
+            );
+        } catch (err) {
+            console.error("Scanner failed:", err);
+            this.state.isScannerActive = false;
+            this.render();
+        }
     },
 
-    stopScanner() {
+    async stopScanner() {
         console.log("System: Disengaging camera optic...");
+        if (this.state.html5QrCode) {
+            await this.state.html5QrCode.stop();
+        }
+    },
+
+    async markAttendance(studentId) {
+        if (!this.state.activeEventId) return;
+
+        // Verify if student is in the target list
+        const student = this.state.attendees.find(a => a.student_id === studentId);
+        if (!student) {
+            alert(`Access Denied: Student ID ${studentId} not found in the target list for this event.`);
+            return;
+        }
+
+        const { error } = await supabase
+            .from('attendance')
+            .upsert({
+                student_id: studentId,
+                event_id: this.state.activeEventId,
+                time_in: new Date().toISOString()
+            }, { onConflict: 'student_id, event_id' });
+
+        if (error) {
+            console.error("Attendance Error:", error);
+        } else {
+            console.log(`Verified: ${studentId}`);
+            await this.fetchAttendance();
+        }
     },
 
     async fetchEventsForDropdown() {
@@ -195,30 +251,20 @@ export const attendanceModule = {
 
         console.log("🔍 System: Initiating Target Match Protocol for Event ID:", this.state.activeEventId);
 
-        // 1. Fetch Event target details
         const { data: event, error: eventError } = await supabase
             .from('events')
             .select('event_name, target_dept, target_year')
             .eq('id', this.state.activeEventId)
             .single();
 
-        if (eventError) {
-            console.error("❌ Identifier: Failed to fetch event details", eventError);
-            return;
-        }
+        if (eventError) return;
 
-        console.info(`📋 Event Found: "${event.event_name}" | Target Dept: "${event.target_dept}" | Target Year: "${event.target_year}"`);
-
-        // 2. Build Student Query
         let studentQuery = supabase.from('students').select('student_id, full_name, department, year_level, course');
         
-        // Logical check for Department
         if (event?.target_dept && event.target_dept !== 'All' && event.target_dept !== 'NULL') {
-            // Using .ilike to handle the common "Education Dept" vs "Education Dept." dot issue
             studentQuery = studentQuery.ilike('department', `%${event.target_dept}%`);
         }
 
-        // Logical check for Year Level
         if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) {
             const yearNum = parseInt(event.target_year);
             if (!isNaN(yearNum)) {
@@ -226,30 +272,13 @@ export const attendanceModule = {
             }
         }
 
-        const { data: expectedStudents, error: studentError } = await studentQuery;
+        const { data: expectedStudents } = await studentQuery;
 
-        if (studentError) {
-            console.error("❌ Identifier: Database error during student lookup", studentError);
-        }
-
-        // Check if query returned nothing
-        if (!expectedStudents || expectedStudents.length === 0) {
-            console.warn(`⚠️ Identifier: NO MATCH FOUND. 
-                Possible Reasons:
-                1. No student has department matching "${event.target_dept}"
-                2. No student has year level matching "${event.target_year}"
-                3. String mismatch (check for trailing spaces or dots in Supabase)`);
-        } else {
-            console.log(`✅ Identifier: Successfully matched ${expectedStudents.length} students.`);
-        }
-
-        // 3. Fetch Actual Attendance Logs
         const { data: logs } = await supabase
             .from('attendance')
             .select('*')
             .eq('event_id', this.state.activeEventId);
 
-        // 4. Merge Data
         this.state.attendees = (expectedStudents || []).map(student => {
             const scan = (logs || []).find(l => l.student_id === student.student_id);
             return {
@@ -262,6 +291,7 @@ export const attendanceModule = {
 
         this.renderFeed();
     },
+
     /**
      * Sub-rendering logic for the data table
      */
@@ -278,7 +308,6 @@ export const attendanceModule = {
             return;
         }
 
-        // Sort: Present ones first
         const sorted = [...this.state.attendees].sort((a, b) => b.is_present - a.is_present);
 
         feed.innerHTML = sorted.map(row => `
