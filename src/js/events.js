@@ -1,9 +1,8 @@
 import { supabase } from './auth.js';
 import { AuditLogger } from './audit-logger.js';
 
-/** EventsModule: Orchestrates Campus Event Management */
 export const eventsModule = {
-    state: { events: [], filteredEvents: [], selectedEvent: null, attachments: [], userRole: 'staff', userOrgId: null, searchTerm: '', currentFilter: 'all', isLoading: false, isStealthMode: false, isEditMode: false, stats: { total: 0, active: 0, standby: 0, completed: 0 } },
+    state: { events: [], filteredEvents: [], selectedEvent: null, attachments: [], userRole: 'staff', userOrgId: null, searchTerm: '', currentFilter: 'all', isLoading: false, isDarkMode: false, isEditMode: false, stats: { total: 0, active: 0, upcoming: 0, completed: 0 } },
 
     async render() {
         const container = document.getElementById('mod-events') || document.getElementById('mod-dashboard');
@@ -14,8 +13,7 @@ export const eventsModule = {
             this.state.userRole = profile?.role || 'staff';
             this.state.userOrgId = profile?.organization_id;
         } catch (e) { console.error("Auth sync failed", e); }
-
-        container.innerHTML = this.getTemplate(this.state.isStealthMode ? 'stealth-theme' : 'light-theme');
+        container.innerHTML = this.getTemplate(this.state.isDarkMode ? 'dark-theme' : 'light-theme');
         await this.fetchEvents();
         this.initEventListeners();
         if (window.eventsModule === undefined) window.eventsModule = this;
@@ -30,7 +28,7 @@ export const eventsModule = {
             this.state.events = (data || []).map(ev => {
                 const start = new Date(ev.start_time), end = new Date(ev.end_time);
                 let status = ev.status;
-                if (now < start) status = 'standby';
+                if (now < start) status = 'upcoming';
                 else if (now >= start && now <= end) status = 'active';
                 else if (now > end) status = 'completed';
                 return { ...ev, status, inquiryCount: ev.event_inquiries ? ev.event_inquiries.length : 0 };
@@ -38,32 +36,32 @@ export const eventsModule = {
             this.applyFilters();
             this.updateDashboardStats();
             this.renderGrid();
-        } catch (error) { this.notify(error.message || "Data Retrieval Failed", "error"); }
+        } catch (error) { this.notify(error.message || "Failed to load events", "error"); }
         finally { this.setLoading(false); }
     },
 
-    async deployMission() {
+    async saveEvent() {
         const name = document.getElementById('new-ev-name').value, desc = document.getElementById('new-ev-desc').value;
         const start = document.getElementById('new-ev-start').value, end = document.getElementById('new-ev-end').value;
-        if (!name || !start || !end) return this.notify("Missing required information", "error");
-        if (this.checkConflicts(start, end)) return this.notify("Schedule overlap detected", "error");
+        if (!name || !start || !end) return this.notify("Please fill in all required fields", "error");
+        if (this.checkConflicts(start, end)) return this.notify("Schedule conflict detected", "error");
         try {
             const payload = { event_name: name, description: desc, start_time: start, end_time: end, organization_id: this.state.userOrgId };
-            const action = this.state.isEditMode ? supabase.from('events').update(payload).eq('id', this.state.selectedEvent.id) : supabase.from('events').insert([{ ...payload, status: 'active' }]);
+            const action = this.state.isEditMode ? supabase.from('events').update(payload).eq('id', this.state.selectedEvent.id) : supabase.from('events').insert([{ ...payload, status: 'upcoming' }]);
             const { error } = await action;
             if (error) throw error;
-            this.notify(this.state.isEditMode ? "Mission Data Updated" : "New Mission Published", "success");
+            this.notify(this.state.isEditMode ? "Event updated successfully" : "Event created successfully", "success");
             this.closeModal('modal-event');
             await this.fetchEvents();
         } catch (err) { this.notify(err.message, "error"); }
     },
 
     async deleteEvent(id) {
-        if (!confirm("Execute deletion? This cannot be undone.")) return;
+        if (!confirm("Are you sure you want to delete this event? This cannot be undone.")) return;
         try {
             const { error } = await supabase.from('events').delete().eq('id', id);
             if (error) throw error;
-            this.notify("Event purged from records", "success");
+            this.notify("Event removed from system", "success");
             this.closeModal('modal-event-detail');
             await this.fetchEvents();
         } catch (err) { this.notify(err.message, "error"); }
@@ -88,9 +86,9 @@ export const eventsModule = {
     },
 
     updateDashboardStats() {
-        const stats = { all: this.state.events.length, active: this.state.events.filter(e => e.status === 'active').length, standby: this.state.events.filter(e => e.status === 'standby').length };
+        const stats = { all: this.state.events.length, active: this.state.events.filter(e => e.status === 'active').length, upcoming: this.state.events.filter(e => e.status === 'upcoming').length };
         const statEl = document.getElementById('event-stats');
-        if (statEl) statEl.innerText = `${stats.active} Active | ${stats.standby} Standby | ${stats.all} Total`;
+        if (statEl) statEl.innerText = `${stats.active} Ongoing | ${stats.upcoming} Upcoming | ${stats.all} Total`;
     },
 
     setLoading(status) {
@@ -103,48 +101,47 @@ export const eventsModule = {
         const grid = document.getElementById('events-grid');
         if (!grid) return;
         if (this.state.filteredEvents.length === 0) {
-            grid.innerHTML = `<div class="col-span-full py-40 text-center opacity-30 font-black uppercase tracking-[1em]">Empty Registry</div>`;
+            grid.innerHTML = `<div class="col-span-full py-40 text-center opacity-40 font-bold uppercase tracking-widest">No events found</div>`;
             return;
         }
         grid.innerHTML = this.state.filteredEvents.map((ev, i) => {
-            const isActive = ev.status === 'active';
-            const themeClass = this.state.isStealthMode ? 'bg-[#0f0f0f] border-white/5 text-white' : 'bg-white border-slate-100';
-            return `<div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' class="${themeClass} cursor-pointer rounded-[2.5rem] p-8 group hover:shadow-2xl transition-all relative overflow-hidden animate-in fade-in slide-in-from-bottom-4" style="animation-delay: ${i * 40}ms">
-                <div class="flex justify-between items-start mb-6"><div class="px-4 py-1.5 rounded-xl bg-slate-100/50 text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-500' : 'text-slate-400'}">${ev.status}</div>
-                <div class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-lg"><span class="text-[10px] font-black text-blue-600">${ev.inquiryCount}</span><i data-lucide="message-square" class="w-3 h-3 text-blue-600"></i></div></div>
-                <div class="space-y-3 mb-8"><h3 class="text-2xl font-black italic tracking-tighter uppercase leading-none group-hover:text-[#000080] transition-colors line-clamp-1">${ev.event_name}</h3><p class="text-xs text-slate-400 font-medium line-clamp-2">${ev.description || 'Secure communication details only.'}</p></div>
-                <div class="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50"><div class="flex flex-col gap-1"><span class="text-[8px] font-black text-slate-300 uppercase">Commencement</span><span class="text-[10px] font-black uppercase">${new Date(ev.start_time).toLocaleDateString()}</span></div>
-                <div class="flex flex-col gap-1 items-end"><span class="text-[8px] font-black text-slate-300 uppercase">Termination</span><span class="text-[10px] font-black uppercase">${new Date(ev.end_time).toLocaleDateString()}</span></div></div></div>`;
+            const themeClass = this.state.isDarkMode ? 'bg-[#1a1a1a] border-white/5 text-white' : 'bg-white border-slate-100';
+            return `<div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' class="${themeClass} cursor-pointer rounded-3xl p-8 group hover:shadow-xl transition-all relative animate-in fade-in slide-in-from-bottom-4" style="animation-delay: ${i * 40}ms">
+                <div class="flex justify-between items-start mb-6"><div class="px-4 py-1.5 rounded-full bg-slate-100/50 text-[10px] font-bold uppercase tracking-wider ${ev.status === 'active' ? 'text-blue-600' : 'text-slate-500'}">${ev.status}</div>
+                <div class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-lg"><span class="text-[10px] font-bold text-blue-600">${ev.inquiryCount}</span><i data-lucide="help-circle" class="w-3 h-3 text-blue-600"></i></div></div>
+                <div class="space-y-2 mb-8"><h3 class="text-xl font-bold tracking-tight group-hover:text-blue-600 transition-colors line-clamp-1">${ev.event_name}</h3><p class="text-xs text-slate-500 line-clamp-2">${ev.description || 'No description provided.'}</p></div>
+                <div class="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50"><div class="flex flex-col gap-1"><span class="text-[9px] font-bold text-slate-400 uppercase">Starts</span><span class="text-[11px] font-medium">${new Date(ev.start_time).toLocaleDateString()}</span></div>
+                <div class="flex flex-col gap-1 items-end"><span class="text-[9px] font-bold text-slate-400 uppercase">Ends</span><span class="text-[11px] font-medium">${new Date(ev.end_time).toLocaleDateString()}</span></div></div></div>`;
         }).join('');
         if (window.lucide) window.lucide.createIcons();
     },
 
     getTemplate(theme) {
-        return `<div class="${theme} min-h-screen transition-all duration-700 font-sans p-4 md:p-10"><style>.stealth-theme{background:#050505;color:#f1f5f9}.light-theme{background:#f8fafc;color:#0f172a}.text-stroke-custom{-webkit-text-stroke:1px #000080;color:transparent}.input-campus{background:${this.state.isStealthMode ? '#111' : '#fff'};border:2px solid ${this.state.isStealthMode ? '#333' : '#e2e8f0'}}.input-campus:focus{border-color:#000080}.custom-scrollbar::-webkit-scrollbar{width:4px}.custom-scrollbar::-webkit-scrollbar-thumb{background:#000080;border-radius:10px}</style>
-            <div class="max-w-[1600px] mx-auto space-y-10"><div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6"><div class="space-y-4"><div class="flex items-center gap-4"><span class="h-1 w-16 bg-[#000080] rounded-full"></span><p class="text-[11px] font-bold uppercase tracking-[0.4em] text-slate-500">Command Center</p></div>
-            <h1 class="text-5xl md:text-7xl font-black italic tracking-tighter uppercase leading-none">Mission<span class="text-stroke-custom opacity-70">Control</span></h1></div>
-            <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto"><div class="relative flex-grow max-w-md"><i data-lucide="search" class="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i><input type="text" id="ev-search" value="${this.state.searchTerm}" placeholder="Query registry..." class="w-full pl-14 pr-6 py-5 rounded-[2rem] input-campus text-sm font-bold outline-none"></div>
-            <button id="stealth-toggle" class="p-5 rounded-full input-campus hover:rotate-12 transition-all"><i data-lucide="${this.state.isStealthMode ? 'sun' : 'moon'}" class="w-5 h-5 text-[#000080]"></i></button>
-            ${(this.state.userRole.includes('admin')) ? `<button id="btn-add-event" class="px-10 py-5 bg-[#000080] text-white rounded-[2rem] text-[11px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-3"><i data-lucide="plus" class="w-5 h-5"></i> New Entry</button>` : ''}</div></div>
-            <div class="flex justify-between items-center py-4 border-b border-slate-200/60"><div class="flex p-1.5 bg-slate-200/40 rounded-[1.8rem] overflow-x-auto">
-            ${['all', 'active', 'standby', 'completed'].map(f => `<button data-filter="${f}" class="filter-tab px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${this.state.currentFilter === f ? 'bg-white text-[#000080] shadow-md' : 'text-slate-500'}">${f}</button>`).join('')}
-            </div><div id="event-stats" class="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:block">Synchronizing...</div></div><div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-8"></div></div>
-            <div id="modal-event" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/90 backdrop-blur-xl" onclick="eventsModule.closeModal('modal-event')"></div><div class="relative bg-white rounded-[2.5rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div class="px-8 py-6 border-b flex justify-between items-center"><h2 id="modal-title" class="text-2xl font-black italic uppercase">New<span class="text-[#000080]">Mission</span></h2><button id="close-ev-modal" class="p-2 rounded-full hover:bg-slate-100"><i data-lucide="x"></i></button></div>
-            <div class="overflow-y-auto p-8 custom-scrollbar"><div class="grid lg:grid-cols-2 gap-10"><div class="space-y-6"><input type="text" id="new-ev-name" placeholder="Mission Name" class="w-full p-6 bg-slate-50 rounded-2xl font-black border-none focus:ring-2 focus:ring-blue-100"><textarea id="new-ev-desc" rows="5" placeholder="Strategic Briefing..." class="w-full p-6 bg-slate-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-100"></textarea></div>
-            <div class="space-y-6"><input type="datetime-local" id="new-ev-start" class="w-full p-5 bg-slate-50 rounded-2xl font-black"><input type="datetime-local" id="new-ev-end" class="w-full p-5 bg-slate-50 rounded-2xl font-black"><div id="conflict-engine" class="p-5 bg-emerald-50 rounded-2xl flex items-center gap-3"><i data-lucide="shield-check" class="text-emerald-500"></i><p id="conflict-msg" class="text-[10px] font-black uppercase text-emerald-700">Vector Clear</p></div><button id="save-ev-btn" class="w-full py-6 bg-[#000080] text-white rounded-2xl font-black uppercase tracking-widest shadow-xl">Deploy Signal</button></div></div></div></div></div>
-            <div id="modal-event-detail" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div><div class="relative bg-white rounded-[3rem] w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"><div class="p-10 overflow-y-auto custom-scrollbar space-y-8"><div class="flex justify-between"><h2 id="detail-title" class="text-4xl font-black italic uppercase"></h2><button onclick="document.getElementById('modal-event-detail').classList.add('hidden')"><i data-lucide="x" class="w-8 h-8 text-slate-300"></i></button></div>
-            <div class="grid md:grid-cols-2 gap-8"><div class="space-y-4"><p id="detail-desc" class="text-sm text-slate-500 leading-relaxed"></p><div id="qr-container" class="hidden p-6 bg-slate-50 rounded-3xl text-center"><div id="qr-code-img" class="mb-4"></div><p class="text-[9px] font-black uppercase text-slate-400">Secure Inquiry Link</p></div><button id="btn-generate-qr" class="w-full py-4 border-2 border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">Generate Access Key</button></div>
-            <div class="space-y-4"><h4 class="text-[10px] font-black uppercase text-[#000080]">Inquiry Feed</h4><div id="inquiry-list" class="space-y-2 h-64 overflow-y-auto custom-scrollbar"></div></div></div><div class="flex gap-4 pt-6 border-t"><button id="btn-edit-active" class="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase">Modify</button><button id="btn-delete-active" class="px-8 py-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase">Purge</button></div></div></div></div></div>`;
+        return `<div class="${theme} min-h-screen transition-colors duration-500 font-sans p-6 md:p-10"><style>.dark-theme{background:#111;color:#eee}.light-theme{background:#fdfdfd;color:#1e293b}.input-field{background:${this.state.isDarkMode ? '#222' : '#f8fafc'};border:1px solid ${this.state.isDarkMode ? '#444' : '#e2e8f0'}}.input-field:focus{border-color:#3b82f6}.custom-scrollbar::-webkit-scrollbar{width:5px}.custom-scrollbar::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}</style>
+            <div class="max-w-7xl mx-auto space-y-8"><div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6"><div>
+            <h1 class="text-4xl font-extrabold tracking-tight">Event <span class="text-blue-600">Planner</span></h1><p class="text-sm text-slate-500 mt-1 font-medium">Manage organization schedules and inquiries</p></div>
+            <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto"><div class="relative flex-grow max-w-md"><i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i><input type="text" id="ev-search" value="${this.state.searchTerm}" placeholder="Search events..." class="w-full pl-11 pr-4 py-3 rounded-2xl input-field text-sm outline-none"></div>
+            <button id="theme-toggle" class="p-3 rounded-xl input-field hover:bg-slate-100 transition-all"><i data-lucide="${this.state.isDarkMode ? 'sun' : 'moon'}" class="w-5 h-5"></i></button>
+            ${(this.state.userRole.includes('admin')) ? `<button id="btn-add-event" class="px-6 py-3 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-blue-700 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Create Event</button>` : ''}</div></div>
+            <div class="flex justify-between items-center py-2 border-b border-slate-100"><div class="flex gap-2">
+            ${['all', 'active', 'upcoming', 'completed'].map(f => `<button data-filter="${f}" class="filter-tab px-5 py-2 rounded-xl text-xs font-bold capitalize transition-all ${this.state.currentFilter === f ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:text-slate-600'}">${f}</button>`).join('')}
+            </div><div id="event-stats" class="text-xs font-bold text-slate-400 uppercase hidden md:block">Loading...</div></div><div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></div>
+            <div id="modal-event" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="eventsModule.closeModal('modal-event')"></div><div class="relative bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b flex justify-between items-center"><h2 id="modal-title" class="text-xl font-bold">New Event</h2><button id="close-ev-modal" class="p-2 rounded-full hover:bg-slate-100"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+            <div class="overflow-y-auto p-8 custom-scrollbar"><div class="grid md:grid-cols-2 gap-8"><div class="space-y-4"><label class="text-xs font-bold text-slate-500 uppercase">Details</label><input type="text" id="new-ev-name" placeholder="Event Title" class="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"><textarea id="new-ev-desc" rows="4" placeholder="Describe the event..." class="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"></textarea></div>
+            <div class="space-y-4"><label class="text-xs font-bold text-slate-500 uppercase">Schedule</label><input type="datetime-local" id="new-ev-start" class="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200"><input type="datetime-local" id="new-ev-end" class="w-full p-4 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200"><div id="conflict-engine" class="p-4 bg-emerald-50 rounded-xl flex items-center gap-3 text-emerald-700"><i data-lucide="check-circle" class="w-4 h-4"></i><p id="conflict-msg" class="text-[11px] font-bold uppercase">No Conflicts</p></div><button id="save-ev-btn" class="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all">Save Event</button></div></div></div></div></div>
+            <div id="modal-event-detail" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4"><div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div><div class="relative bg-white rounded-3xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col"><div class="p-8 overflow-y-auto custom-scrollbar space-y-6"><div class="flex justify-between items-center"><h2 id="detail-title" class="text-2xl font-bold"></h2><button onclick="document.getElementById('modal-event-detail').classList.add('hidden')"><i data-lucide="x" class="w-6 h-6 text-slate-400"></i></button></div>
+            <div class="grid md:grid-cols-2 gap-8"><div><p id="detail-desc" class="text-sm text-slate-600 leading-relaxed mb-4"></p><div id="qr-container" class="hidden p-6 bg-slate-50 rounded-2xl text-center"><div id="qr-code-img" class="mb-2"></div><p class="text-[10px] font-bold text-slate-400 uppercase">Event QR Code</p></div><button id="btn-generate-qr" class="w-full py-3 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all">Generate Inquiry QR</button></div>
+            <div class="space-y-4"><h4 class="text-xs font-bold uppercase text-blue-600 tracking-wider">Recent Inquiries</h4><div id="inquiry-list" class="space-y-2 h-48 overflow-y-auto custom-scrollbar"></div></div></div><div class="flex gap-3 pt-6 border-t"><button id="btn-edit-active" class="flex-1 py-3 bg-slate-800 text-white rounded-xl font-bold">Edit Details</button><button id="btn-delete-active" class="px-6 py-3 text-red-600 font-bold hover:bg-red-50 rounded-xl transition-all">Delete</button></div></div></div></div></div>`;
     },
 
     initEventListeners() {
         const query = (id) => document.getElementById(id);
-        if (query('stealth-toggle')) query('stealth-toggle').onclick = () => { this.state.isStealthMode = !this.state.isStealthMode; this.render(); };
+        if (query('theme-toggle')) query('theme-toggle').onclick = () => { this.state.isDarkMode = !this.state.isDarkMode; this.render(); };
         if (query('btn-add-event')) query('btn-add-event').onclick = () => { this.state.isEditMode = false; this.state.selectedEvent = null; this.resetForm(); query('modal-event').classList.remove('hidden'); };
         if (query('ev-search')) query('ev-search').oninput = (e) => { this.state.searchTerm = e.target.value; this.applyFilters(); this.renderGrid(); };
         document.querySelectorAll('.filter-tab').forEach(tab => { tab.onclick = () => { this.state.currentFilter = tab.dataset.filter; this.applyFilters(); this.render(); }; });
-        if (query('save-ev-btn')) query('save-ev-btn').onclick = () => this.deployMission();
+        if (query('save-ev-btn')) query('save-ev-btn').onclick = () => this.saveEvent();
         if (query('close-ev-modal')) query('close-ev-modal').onclick = () => this.closeModal('modal-event');
         ['new-ev-start', 'new-ev-end'].forEach(id => { if (query(id)) query(id).onchange = () => this.handleConflictUI(query('new-ev-start').value, query('new-ev-end').value); });
         if (query('btn-edit-active')) query('btn-edit-active').onclick = () => this.openEditMode();
@@ -154,25 +151,24 @@ export const eventsModule = {
 
     handleConflictUI(start, end) {
         const isConflict = this.checkConflicts(start, end), engine = document.getElementById('conflict-engine'), msg = document.getElementById('conflict-msg');
-        engine.className = isConflict ? "p-5 bg-amber-50 rounded-2xl flex items-center gap-3 animate-pulse" : "p-5 bg-emerald-50 rounded-2xl flex items-center gap-3";
-        msg.innerText = isConflict ? "Temporal Conflict Detected" : "Vector Clear";
+        engine.className = isConflict ? "p-4 bg-red-50 rounded-xl flex items-center gap-3 text-red-700" : "p-4 bg-emerald-50 rounded-xl flex items-center gap-3 text-emerald-700";
+        msg.innerText = isConflict ? "Schedule Conflict" : "Slot Available";
     },
 
     async openDetailModal(event) {
         this.state.selectedEvent = event;
-        const query = (id) => document.getElementById(id);
-        query('detail-title').innerText = event.event_name;
-        query('detail-desc').innerText = event.description || 'No public briefing available.';
-        query('qr-container').classList.add('hidden');
-        query('modal-event-detail').classList.remove('hidden');
+        document.getElementById('detail-title').innerText = event.event_name;
+        document.getElementById('detail-desc').innerText = event.description || 'No description.';
+        document.getElementById('qr-container').classList.add('hidden');
+        document.getElementById('modal-event-detail').classList.remove('hidden');
         await this.fetchInquiries(event.id);
     },
 
     async fetchInquiries(eventId) {
         const list = document.getElementById('inquiry-list');
         const { data } = await supabase.from('event_inquiries').select('*').eq('event_id', eventId).order('created_at', { ascending: false });
-        if (!data || data.length === 0) { list.innerHTML = `<p class="text-[10px] italic text-slate-300">No active inquiries.</p>`; return; }
-        list.innerHTML = data.map(iq => `<div class="p-4 bg-slate-50 rounded-2xl border border-slate-100"><span class="text-[8px] font-black text-blue-600 uppercase">ID: ${iq.student_id}</span><p class="text-xs text-slate-700 font-bold mt-1">${iq.question_1 || 'General Query'}</p></div>`).join('');
+        if (!data || data.length === 0) { list.innerHTML = `<p class="text-[11px] italic text-slate-400">No inquiries yet.</p>`; return; }
+        list.innerHTML = data.map(iq => `<div class="p-3 bg-slate-50 rounded-xl border border-slate-100"><span class="text-[9px] font-bold text-blue-500">Student ID: ${iq.student_id}</span><p class="text-[11px] text-slate-600 mt-1">${iq.question_1 || 'General Question'}</p></div>`).join('');
     },
 
     generateQR(eventId) {
@@ -183,7 +179,7 @@ export const eventsModule = {
 
     openEditMode() {
         const ev = this.state.selectedEvent; this.state.isEditMode = true; this.closeModal('modal-event-detail');
-        document.getElementById('modal-title').innerText = "Edit Mission";
+        document.getElementById('modal-title').innerText = "Edit Event Details";
         document.getElementById('new-ev-name').value = ev.event_name;
         document.getElementById('new-ev-desc').value = ev.description || '';
         document.getElementById('new-ev-start').value = ev.start_time.slice(0, 16);
