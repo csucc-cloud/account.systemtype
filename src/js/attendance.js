@@ -287,32 +287,61 @@ export const attendanceModule = {
 
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
-        const { data: event } = await supabase.from('events').select('*').eq('id', this.state.activeEventId).single();
+
+        // 1. Get the Event details
+        const { data: event } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', this.state.activeEventId)
+            .single();
         
+        // 2. Build the Student Query
         let query = supabase.from('students').select('*').order('full_name', { ascending: true });
-        if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) query = query.ilike('department', `%${event.target_dept}%`);
-        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) query = query.eq('year_level', parseInt(event.target_year));
+
+        // Check Department Filter: Only apply if it's NOT 'All', 'NULL', or empty
+        if (event?.target_dept && !['All', 'all', 'NULL', ''].includes(event.target_dept)) {
+            query = query.ilike('department', `%${event.target_dept}%`);
+        }
+
+        // Check Year Filter: Only apply if it's NOT 'All', 'All Year', etc.
+        if (event?.target_year && !['All', 'All Year', 'NULL', '0', ''].includes(event.target_year.toString())) {
+            query = query.eq('year_level', parseInt(event.target_year));
+        }
 
         const students = await this.fetchAllStudents(query);
         
+        // 3. Fetch Attendance Logs for this event
         let allLogs = [];
         let logStart = 0;
         let moreLogs = true;
         while (moreLogs) {
-            const { data: logs } = await supabase.from('attendance').select('*').eq('event_id', this.state.activeEventId).range(logStart, logStart + 999);
+            const { data: logs } = await supabase
+                .from('attendance')
+                .select('*')
+                .eq('event_id', this.state.activeEventId)
+                .range(logStart, logStart + 999);
+            
             if (!logs || logs.length === 0) break;
             allLogs = [...allLogs, ...logs];
             if (logs.length < 1000) moreLogs = false;
             else logStart += 1000;
         }
 
+        // 4. Map logs to students
         this.state.attendees = (students || []).map(s => {
-            const log = allLogs.find(l => l.student_id === s.student_id);
-            return { ...s, time_in: log?.time_in, time_out: log?.time_out, is_present: !!log };
+            const log = allLogs.find(l => l.student_id.toString() === s.student_id.toString());
+            return { 
+                ...s, 
+                time_in: log?.time_in, 
+                time_out: log?.time_out, 
+                is_present: !!log 
+            };
         });
 
         const statusEl = document.getElementById('fetch-status');
-        if (statusEl && !this.state.isScannerActive) statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
+        if (statusEl && !this.state.isScannerActive) {
+            statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
+        }
 
         this.renderFeed();
     },
