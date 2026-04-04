@@ -2,7 +2,8 @@ import { authHandler } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
 import { eventsModule } from './events.js'; 
-import { logAction } from './audit-logger.js'; // 1. Added Audit Logger Import
+import { logAction } from './audit-logger.js';
+import { attendanceModule } from './attendance.js';
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
 
 // Make logAction global for all other modules to use easily
