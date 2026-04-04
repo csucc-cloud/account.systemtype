@@ -4,7 +4,7 @@ export const attendanceModule = {
     state: {
         activeEventId: null,
         allEvents: [],
-        attendees: [], // Now contains merged data: Students (Expected) + Attendance (Verified)
+        attendees: [], // Contains merged data: Students (Expected) + Attendance (Verified)
         isScannerActive: false,
         currentCameraId: null,
     },
@@ -55,6 +55,7 @@ export const attendanceModule = {
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        
                         <div class="lg:col-span-4 space-y-8">
                             <div class="bg-white p-2 rounded-[3rem] border border-slate-200 shadow-xl group overflow-hidden">
                                 <div id="reader" class="w-full aspect-square bg-slate-950 rounded-[2.5rem] overflow-hidden relative border-[8px] border-slate-50 shadow-inner">
@@ -117,9 +118,12 @@ export const attendanceModule = {
                                 <table class="w-full text-left border-collapse">
                                     <thead>
                                         <tr class="bg-slate-50/50">
-                                            <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Identity Token</th>
-                                            <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Timestamp</th>
-                                            <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">Verification</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">ID</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Name</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Course & Year</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time In</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Time Out</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="attendance-feed" class="divide-y divide-slate-50"></tbody>
@@ -188,7 +192,7 @@ export const attendanceModule = {
             .single();
 
         // 2. Fetch Students based on target
-        let studentQuery = supabase.from('students').select('student_id, full_name, department, year_level');
+        let studentQuery = supabase.from('students').select('student_id, full_name, department, year_level, course');
         
         if (event?.target_dept && event.target_dept !== 'All' && event.target_dept !== 'NULL') {
             studentQuery = studentQuery.eq('department', event.target_dept);
@@ -211,6 +215,7 @@ export const attendanceModule = {
             return {
                 ...student,
                 time_in: scan ? scan.time_in : null,
+                time_out: scan ? scan.time_out : null,
                 is_present: !!scan
             };
         });
@@ -227,7 +232,7 @@ export const attendanceModule = {
         count.innerText = `${presentCount.toString().padStart(2, '0')}/${this.state.attendees.length.toString().padStart(2, '0')}`;
         
         if (this.state.attendees.length === 0) {
-            feed.innerHTML = `<tr><td colspan="3" class="p-32 text-center text-[11px] text-slate-300 uppercase font-black tracking-[0.4em] opacity-50 italic">Buffer Empty: No Students Match Target</td></tr>`;
+            feed.innerHTML = `<tr><td colspan="6" class="p-32 text-center text-[11px] text-slate-300 uppercase font-black tracking-[0.4em] opacity-50 italic">Buffer Empty: No Students Match Target</td></tr>`;
             return;
         }
 
@@ -236,20 +241,25 @@ export const attendanceModule = {
 
         feed.innerHTML = sorted.map(row => `
             <tr class="hover:bg-slate-50/80 transition-all group ${!row.is_present ? 'opacity-60 bg-slate-50/30' : ''}">
-                <td class="px-10 py-7 font-black text-slate-800 tracking-tight group-hover:text-[#000080] transition-colors">
-                    ${row.full_name} <br>
-                    <span class="text-[9px] text-slate-400 uppercase font-bold tracking-widest">${row.student_id}</span>
+                <td class="px-8 py-7 font-black text-slate-500 text-[11px] uppercase tracking-tighter">${row.student_id}</td>
+                <td class="px-8 py-7 font-black text-slate-800 tracking-tight group-hover:text-[#000080] transition-colors">${row.full_name}</td>
+                <td class="px-8 py-7 text-[10px] font-bold text-slate-400 uppercase">
+                    <div class="text-slate-700 font-black">${row.course || row.department}</div>
+                    <div>Year ${row.year_level}</div>
                 </td>
-                <td class="px-10 py-7 text-[11px] font-black text-slate-400 uppercase tabular-nums">
-                    ${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}) : '---'}
+                <td class="px-8 py-7 text-[11px] font-black text-slate-400 uppercase tabular-nums">
+                    ${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
                 </td>
-                <td class="px-10 py-7 text-right">
+                <td class="px-8 py-7 text-[11px] font-black text-slate-400 uppercase tabular-nums">
+                    ${row.time_out ? new Date(row.time_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
+                </td>
+                <td class="px-8 py-7 text-right">
                     ${row.is_present 
                         ? `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-emerald-100">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Verified
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Present
                            </span>`
                         : `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200">
-                            Expected
+                            Pending
                            </span>`
                     }
                 </td>
