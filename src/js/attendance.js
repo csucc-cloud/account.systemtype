@@ -7,7 +7,10 @@ export const attendanceModule = {
         attendees: [], 
         isScannerActive: false,
         currentCameraId: null,
-        html5QrCode: null 
+        html5QrCode: null,
+        // Pagination State
+        currentPage: 1,
+        rowsPerPage: 50
     },
 
     async render() {
@@ -122,6 +125,17 @@ export const attendanceModule = {
                                     <tbody id="attendance-feed" class="divide-y divide-slate-50"></tbody>
                                 </table>
                             </div>
+                            <div id="pagination-controls" class="p-6 border-t border-slate-50 flex justify-between items-center bg-slate-50/30">
+                                <p id="pagination-info" class="text-[10px] font-black text-slate-400 uppercase tracking-widest"></p>
+                                <div class="flex gap-2">
+                                    <button id="prev-page" class="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30">
+                                        <i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i>
+                                    </button>
+                                    <button id="next-page" class="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30">
+                                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -129,6 +143,7 @@ export const attendanceModule = {
             <style>
                 @keyframes scan { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
                 #reader video { object-fit: cover !important; width: 100% !important; height: 100% !important; border-radius: 2.5rem; }
+                .highlight-row { background-color: #f0fdf4 !important; transition: background-color 2s ease; }
             </style>
         `;
 
@@ -142,7 +157,6 @@ export const attendanceModule = {
         if (toggleBtn) {
             toggleBtn.onclick = async () => {
                 if (!this.state.activeEventId) return alert("CRITICAL: Select an active event first!");
-                
                 if (this.state.isScannerActive) {
                     await this.stopScanner();
                     this.state.isScannerActive = false;
@@ -160,7 +174,6 @@ export const attendanceModule = {
             cameraSelect.onchange = async () => {
                 if (this.state.isScannerActive) {
                     await this.stopScanner();
-                    // Short delay to release hardware resource
                     await new Promise(resolve => setTimeout(resolve, 100));
                     await this.startScanner();
                 }
@@ -171,6 +184,7 @@ export const attendanceModule = {
 
         document.getElementById('event-selector').onchange = (e) => {
             this.state.activeEventId = e.target.value;
+            this.state.currentPage = 1;
             this.fetchAttendance();
         };
 
@@ -182,12 +196,26 @@ export const attendanceModule = {
                 idInput.value = '';
             }
         };
+
+        document.getElementById('prev-page').onclick = () => {
+            if (this.state.currentPage > 1) {
+                this.state.currentPage--;
+                this.renderFeed();
+            }
+        };
+
+        document.getElementById('next-page').onclick = () => {
+            const totalPages = Math.ceil(this.state.attendees.length / this.state.rowsPerPage);
+            if (this.state.currentPage < totalPages) {
+                this.state.currentPage++;
+                this.renderFeed();
+            }
+        };
     },
 
     exportToExcel() {
         if (this.state.attendees.length === 0) return alert("No data to export.");
         const eventName = this.state.allEvents.find(e => e.id == this.state.activeEventId)?.event_name || "Event";
-        
         const data = this.state.attendees.map(a => ({
             "Student ID": a.student_id,
             "Full Name": a.full_name,
@@ -198,7 +226,6 @@ export const attendanceModule = {
             "Time Out": a.time_out ? new Date(a.time_out).toLocaleString() : "N/A",
             "Status": (a.time_in && a.time_out) ? "Present" : (a.time_in ? "In Venue" : "Absent")
         }));
-
         const worksheet = XLSX.utils.json_to_sheet(data);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
@@ -207,20 +234,11 @@ export const attendanceModule = {
 
     async startScanner() {
         const cameraFacing = document.getElementById('camera-source')?.value || "environment";
-        if (!this.state.html5QrCode) {
-            this.state.html5QrCode = new Html5Qrcode("reader");
-        }
+        if (!this.state.html5QrCode) this.state.html5QrCode = new Html5Qrcode("reader");
         try {
             await this.state.html5QrCode.start(
                 { facingMode: cameraFacing },
-                { 
-                    fps: 20, 
-                    qrbox: { width: 280, height: 280 }, 
-                    videoConstraints: { 
-                        facingMode: cameraFacing,
-                        focusMode: "continuous" 
-                    } 
-                },
+                { fps: 20, qrbox: { width: 280, height: 280 }, videoConstraints: { facingMode: cameraFacing, focusMode: "continuous" } },
                 (text) => {
                     this.markAttendance(text);
                     if (navigator.vibrate) navigator.vibrate(100);
@@ -242,12 +260,15 @@ export const attendanceModule = {
     async markAttendance(studentId) {
         if (!this.state.activeEventId) return;
 
-        const student = this.state.attendees.find(a => a.student_id.toString() === studentId.toString());
-        if (!student) {
+        // Search the WHOLE list, not just the current page
+        const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === studentId.toString());
+        
+        if (studentIndex === -1) {
             alert(`Access Denied: ID ${studentId} not in target list.`);
             return;
         }
 
+        const student = this.state.attendees[studentIndex];
         let updateData = { student_id: studentId, event_id: this.state.activeEventId };
 
         if (!student.time_in) {
@@ -264,6 +285,10 @@ export const attendanceModule = {
         if (error) {
             console.error("DB Error:", error);
         } else {
+            // Success! Jump to the page where this student lives so the user sees the update
+            const pageOfStudent = Math.floor(studentIndex / this.state.rowsPerPage) + 1;
+            this.state.currentPage = pageOfStudent;
+            
             await this.fetchAttendance();
         }
     },
@@ -284,22 +309,27 @@ export const attendanceModule = {
 
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
-
         const { data: event } = await supabase.from('events').select('*').eq('id', this.state.activeEventId).single();
         
         let query = supabase.from('students').select('*').order('full_name', { ascending: true });
-        if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) {
-            query = query.ilike('department', `%${event.target_dept}%`);
-        }
-        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) {
-            query = query.eq('year_level', parseInt(event.target_year));
-        }
+        if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) query = query.ilike('department', `%${event.target_dept}%`);
+        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) query = query.eq('year_level', parseInt(event.target_year));
 
         const students = await this.fetchAllStudents(query);
-        const { data: logs } = await supabase.from('attendance').select('*').eq('event_id', this.state.activeEventId);
+        
+        let allLogs = [];
+        let logStart = 0;
+        let moreLogs = true;
+        while (moreLogs) {
+            const { data: logs } = await supabase.from('attendance').select('*').eq('event_id', this.state.activeEventId).range(logStart, logStart + 999);
+            if (!logs || logs.length === 0) break;
+            allLogs = [...allLogs, ...logs];
+            if (logs.length < 1000) moreLogs = false;
+            else logStart += 1000;
+        }
 
         this.state.attendees = (students || []).map(s => {
-            const log = (logs || []).find(l => l.student_id === s.student_id);
+            const log = allLogs.find(l => l.student_id === s.student_id);
             return { ...s, time_in: log?.time_in, time_out: log?.time_out, is_present: !!log };
         });
 
@@ -312,6 +342,10 @@ export const attendanceModule = {
     renderFeed() {
         const feed = document.getElementById('attendance-feed');
         const count = document.getElementById('attendee-count');
+        const infoEl = document.getElementById('pagination-info');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+
         if (!feed || !count) return;
 
         const present = this.state.attendees.filter(a => a.is_present).length;
@@ -319,37 +353,38 @@ export const attendanceModule = {
         
         if (this.state.attendees.length === 0) {
             feed.innerHTML = `<tr><td colspan="6" class="p-32 text-center text-slate-300 uppercase font-black italic">No Target Match</td></tr>`;
+            infoEl.innerText = "Showing 0 of 0";
             return;
         }
 
-        const sorted = [...this.state.attendees].sort((a, b) => (b.time_in ? 1 : 0) - (a.time_in ? 1 : 0));
+        // We use the master list (sorted by name as per fetch)
+        const totalItems = this.state.attendees.length;
+        const totalPages = Math.ceil(totalItems / this.state.rowsPerPage);
+        const startIdx = (this.state.currentPage - 1) * this.state.rowsPerPage;
+        const endIdx = startIdx + this.state.rowsPerPage;
+        const paginatedData = this.state.attendees.slice(startIdx, endIdx);
 
-        feed.innerHTML = sorted.map(row => {
+        infoEl.innerText = `Showing ${startIdx + 1} to ${Math.min(endIdx, totalItems)} of ${totalItems}`;
+        prevBtn.disabled = this.state.currentPage === 1;
+        nextBtn.disabled = this.state.currentPage === totalPages || totalPages === 0;
+
+        feed.innerHTML = paginatedData.map(row => {
             let statusHTML = '';
             if (row.time_in && !row.time_out) {
-                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-amber-100">
-                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In Venue</span>`;
+                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-amber-100"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In Venue</span>`;
             } else if (row.time_in && row.time_out) {
-                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-emerald-100">
-                                Present</span>`;
+                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-emerald-100">Present</span>`;
             } else {
-                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200">
-                                Pending</span>`;
+                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200">Pending</span>`;
             }
 
             return `
                 <tr class="hover:bg-slate-50 transition-all ${!row.time_in ? 'opacity-60' : ''}">
                     <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
                     <td class="px-8 py-6 font-black text-slate-800">${row.full_name}</td>
-                    <td class="px-8 py-6 text-[10px] font-bold text-slate-700">
-                        ${row.course || row.department}<br><span class="text-slate-400">Year ${row.year_level}</span>
-                    </td>
-                    <td class="px-8 py-6 text-[11px] font-black text-slate-400">
-                        ${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}
-                    </td>
-                    <td class="px-8 py-6 text-[11px] font-black text-slate-400">
-                        ${row.time_out ? new Date(row.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}
-                    </td>
+                    <td class="px-8 py-6 text-[10px] font-bold text-slate-700">${row.course || row.department}<br><span class="text-slate-400">Year ${row.year_level}</span></td>
+                    <td class="px-8 py-6 text-[11px] font-black text-slate-400">${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
+                    <td class="px-8 py-6 text-[11px] font-black text-slate-400">${row.time_out ? new Date(row.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
                     <td class="px-8 py-6 text-right">${statusHTML}</td>
                 </tr>
             `;
