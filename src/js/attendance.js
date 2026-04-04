@@ -3,205 +3,191 @@ import { supabase } from './auth.js';
 export const attendanceModule = {
     state: {
         activeEventId: null,
-        activeEventName: '',
-        activeDay: 1,
-        attendanceList: [],
-        isLoading: false
+        activeEventName: 'UNASSIGNED',
+        attendees: [],
+        lastScanned: null,
+        isScannerActive: false
     },
 
-    // --- SMART SCANNER LOGIC ---
-    async processScan(studentId) {
-        if (!this.state.activeEventId) return this.notify("Select an event first", "error");
-        
-        try {
-            // Check if student has scanned in today for this event
-            const { data: record, error: fetchErr } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('student_id', studentId)
-                .eq('event_id', this.state.activeEventId)
-                .eq('event_day', this.state.activeDay)
-                .maybeSingle();
-
-            if (!record) {
-                // FIRST SCAN: Create record (Time In)
-                const { error } = await supabase.from('attendance').insert([{
-                    student_id: studentId,
-                    event_id: this.state.activeEventId,
-                    event_name: this.state.activeEventName,
-                    event_day: this.state.activeDay,
-                    time_in: new Date().toISOString(),
-                    status: 'In Venue'
-                }]);
-                if (error) throw error;
-                this.notify(`TIME IN: ${studentId}`, "success");
-            } 
-            else if (record && !record.time_out) {
-                // SECOND SCAN: Update record (Time Out)
-                const { error } = await supabase.from('attendance')
-                    .update({ 
-                        time_out: new Date().toISOString(),
-                        status: 'Completed' 
-                    })
-                    .eq('id', record.id);
-                if (error) throw error;
-                this.notify(`TIME OUT: ${studentId}`, "success");
-            } 
-            else {
-                this.notify("Attendance already completed.", "info");
-            }
-
-            this.fetchAttendance(this.state.activeEventId);
-        } catch (err) {
-            this.notify(err.message, "error");
-        }
-    },
-
-    // --- DATABASE SYNC ---
-    async fetchAttendance(eventId) {
-        this.state.activeEventId = eventId;
-        const { data, error } = await supabase
-            .from('attendance')
-            .select(`*, profiles:student_id (full_name, course, year_level)`)
-            .eq('event_id', eventId)
-            .eq('event_day', this.state.activeDay)
-            .order('time_in', { ascending: false });
-
-        if (!error) {
-            this.state.attendanceList = data || [];
-            this.renderList();
-        }
-    },
-
-    // --- EXPORT TO CSV ---
-    exportToCSV() {
-        if (this.state.attendanceList.length === 0) return;
-        
-        const headers = ["Event", "Day", "Name", "ID", "Course/Year", "In", "Out", "Status"];
-        const rows = this.state.attendanceList.map(entry => [
-            this.state.activeEventName,
-            entry.event_day,
-            entry.profiles?.full_name || 'N/A',
-            entry.student_id,
-            `${entry.profiles?.course || ''} ${entry.profiles?.year_level || ''}`,
-            entry.time_in ? new Date(entry.time_in).toLocaleTimeString() : '',
-            entry.time_out ? new Date(entry.time_out).toLocaleTimeString() : '',
-            entry.status
-        ]);
-
-        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Attendance_${this.state.activeEventName}_Day${this.state.activeDay}.csv`;
-        a.click();
-    },
-
-    // --- UI RENDER (Professional Light Theme) ---
-    render() {
+    async render() {
         const container = document.getElementById('mod-attendance');
         if (!container) return;
 
+        // Base Layout: Left Column (Scanner) | Right Column (Table)
         container.innerHTML = `
-            <div class="p-6 lg:p-10 bg-[#f8fafc] min-h-screen space-y-8">
-                <div class="flex justify-between items-end">
-                    <div>
-                        <h1 class="text-5xl font-black italic tracking-tighter uppercase">Registry<span class="text-blue-800/30">Master</span></h1>
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Connected to Supabase Live</p>
-                    </div>
-                    <div class="flex gap-4">
-                        <select id="day-selector" class="px-6 py-3 bg-white border border-slate-200 rounded-xl font-black text-[10px] outline-none">
-                            ${[1,2,3].map(d => `<option value="${d}">Day ${d}</option>`).join('')}
-                        </select>
-                        <button id="btn-export-csv" class="px-8 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">Export CSV</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <div class="lg:col-span-1 bg-white p-8 rounded-[2rem] border-2 border-blue-900 shadow-xl">
-                        <p class="text-[9px] font-black text-slate-400 uppercase mb-4 tracking-widest">Scanner Ready</p>
-                        <input type="text" id="scanner-input" autofocus placeholder="SCAN ID..." 
-                            class="w-full p-4 bg-slate-50 rounded-xl font-black text-center text-lg border-2 border-transparent focus:border-blue-500 outline-none uppercase">
-                        <div class="mt-4 h-1 w-full bg-slate-100 overflow-hidden rounded-full">
-                            <div class="h-full bg-blue-900 animate-progress w-1/2"></div>
+            <div class="p-6 md:p-8 min-h-screen bg-[#fcfcfc]">
+                <div class="max-w-[1600px] mx-auto space-y-6">
+                    
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                        <div class="flex items-center gap-6">
+                            <div class="w-14 h-14 bg-[#000080] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
+                                <i data-lucide="scan-line" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-2xl font-black italic tracking-tighter uppercase text-slate-800">Attendance <span class="text-[#000080]">Monitor</span></h1>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> System Active • ${this.state.activeEventName}
+                                </p>
+                            </div>
                         </div>
+                        <button id="close-attendance" class="px-6 py-3 bg-rose-50 text-rose-600 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all flex items-center gap-2">
+                            <i data-lucide="log-out" class="w-4 h-4"></i> Close Session
+                        </button>
                     </div>
 
-                    <div class="lg:col-span-3 bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-                        <table class="w-full text-left">
-                            <thead class="bg-slate-50 border-b border-slate-100">
-                                <tr class="text-[9px] font-black text-slate-400 uppercase">
-                                    <th class="p-5">Student</th>
-                                    <th class="p-5">Program</th>
-                                    <th class="p-5 text-center">Time In</th>
-                                    <th class="p-5 text-center">Time Out</th>
-                                    <th class="p-5 text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="att-table-body" class="divide-y divide-slate-50"></tbody>
-                        </table>
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        
+                        <div class="lg:col-span-4 space-y-6">
+                            
+                            <div class="bg-slate-900 rounded-[2.5rem] p-4 shadow-2xl overflow-hidden relative border-8 border-slate-800">
+                                <div id="reader" class="w-full aspect-square rounded-[1.8rem] overflow-hidden bg-black relative">
+                                    <div class="absolute inset-0 pointer-events-none z-10 border-[20px] border-black/40">
+                                        <div class="w-full h-1 bg-blue-500/50 shadow-[0_0_15px_blue] absolute top-0 animate-[scan_2s_linear_infinite]"></div>
+                                    </div>
+                                </div>
+                                <div class="p-6 text-center">
+                                    <div id="scan-status-pill" class="inline-block px-4 py-1 rounded-full bg-slate-800 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2">
+                                        Waiting for Scan...
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm space-y-4">
+                                <h3 class="text-[11px] font-black uppercase tracking-widest text-slate-400">Manual Entry</h3>
+                                <div class="flex gap-2">
+                                    <input type="text" id="manual-student-id" placeholder="STUDENT ID" class="flex-1 bg-slate-50 border-none rounded-xl px-4 py-4 text-sm font-bold placeholder:text-slate-300 focus:ring-2 focus:ring-[#000080]">
+                                    <button id="btn-manual-submit" class="bg-yellow-400 p-4 rounded-xl hover:scale-105 transition-transform">
+                                        <i data-lucide="send" class="w-5 h-5 text-black"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-8">
+                            <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+                                <div class="p-8 border-b border-slate-50 flex justify-between items-center">
+                                    <div class="flex items-center gap-3">
+                                        <i data-lucide="users" class="w-5 h-5 text-[#000080]"></i>
+                                        <span class="text-[11px] font-black uppercase tracking-widest text-slate-800">Verified Personnel</span>
+                                    </div>
+                                    <div class="flex gap-4 items-center">
+                                        <span id="attendee-count" class="text-2xl font-black italic text-[#000080]">00</span>
+                                        <button id="export-csv" class="p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                                            <i data-lucide="download" class="w-4 h-4 text-slate-400"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-slate-50/50">
+                                                <th class="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Student ID</th>
+                                                <th class="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Time In</th>
+                                                <th class="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                                                <th class="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="attendance-feed" class="divide-y divide-slate-50">
+                                            </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <style>
+                @keyframes scan {
+                    0% { top: 0%; }
+                    100% { top: 100%; }
+                }
+            </style>
         `;
-        this.initListeners();
+
+        if (this.state.activeEventId) {
+            this.fetchAttendance();
+            this.initScanner();
+        }
+        
+        this.initEventListeners();
+        if (window.lucide) window.lucide.createIcons();
     },
 
-    renderList() {
-        const body = document.getElementById('att-table-body');
-        if (!body) return;
+    async fetchAttendance() {
+        const { data, error } = await supabase
+            .from('attendance')
+            .select('*')
+            .eq('event_id', this.state.activeEventId)
+            .order('time_in', { ascending: false });
 
-        body.innerHTML = this.state.attendanceList.map(entry => `
-            <tr class="text-xs font-bold text-slate-700 hover:bg-blue-50/50 transition-colors">
-                <td class="p-5">
-                    <div class="flex flex-col">
-                        <span class="uppercase font-black text-blue-900">${entry.profiles?.full_name || 'Unknown'}</span>
-                        <span class="text-[10px] font-mono text-slate-400">${entry.student_id}</span>
-                    </div>
+        if (!error) {
+            this.state.attendees = data || [];
+            this.renderFeed();
+        }
+    },
+
+    renderFeed() {
+        const feed = document.getElementById('attendance-feed');
+        const count = document.getElementById('attendee-count');
+        if (!feed) return;
+
+        count.innerText = this.state.attendees.length.toString().padStart(2, '0');
+
+        feed.innerHTML = this.state.attendees.map(row => `
+            <tr class="hover:bg-slate-50/50 transition-colors group">
+                <td class="px-8 py-5">
+                    <span class="text-sm font-black text-slate-700">${row.student_id}</span>
                 </td>
-                <td class="p-5 text-[10px] uppercase">${entry.profiles?.course || ''} ${entry.profiles?.year_level || ''}</td>
-                <td class="p-5 text-center font-black text-blue-600">${entry.time_in ? new Date(entry.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
-                <td class="p-5 text-center font-black text-blue-600">${entry.time_out ? new Date(entry.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
-                <td class="p-5 text-center">
-                    <span class="px-4 py-1 rounded-full text-[8px] font-black uppercase ${entry.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
-                        ${entry.status}
+                <td class="px-8 py-5">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase">${new Date(row.time_in).toLocaleTimeString()}</span>
+                </td>
+                <td class="px-8 py-5">
+                    <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest">
+                        ${row.status || 'Verified'}
                     </span>
+                </td>
+                <td class="px-8 py-5 text-right">
+                    <button onclick="attendanceModule.deleteEntry('${row.id}')" class="opacity-0 group-hover:opacity-100 p-2 text-rose-400 hover:text-rose-600 transition-all">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
                 </td>
             </tr>
         `).join('');
+        
+        if (window.lucide) window.lucide.createIcons();
     },
 
-    initListeners() {
-        const input = document.getElementById('scanner-input');
-        const daySelect = document.getElementById('day-selector');
-        const exportBtn = document.getElementById('btn-export-csv');
+    initEventListeners() {
+        document.getElementById('close-attendance').onclick = () => {
+            document.getElementById('mod-attendance').classList.add('hidden');
+            document.getElementById('mod-events').classList.remove('hidden');
+        };
 
-        if (input) {
-            input.onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    this.processScan(input.value.trim());
-                    input.value = '';
-                }
-            };
-        }
-
-        if (daySelect) {
-            daySelect.onchange = (e) => {
-                this.state.activeDay = e.target.value;
-                this.fetchAttendance(this.state.activeEventId);
-            };
-        }
-
-        if (exportBtn) exportBtn.onclick = () => this.exportToCSV();
+        document.getElementById('btn-manual-submit').onclick = () => {
+            const id = document.getElementById('manual-student-id').value;
+            if (id) this.markAttendance(id);
+        };
     },
 
-    notify(msg, type) {
-        const toast = document.createElement('div');
-        const color = type === 'success' ? 'bg-blue-900' : 'bg-red-600';
-        toast.className = `fixed bottom-10 right-10 px-8 py-4 rounded-full text-white font-black uppercase text-[10px] tracking-widest shadow-2xl ${color}`;
-        toast.innerText = msg;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+    async markAttendance(studentId) {
+        // Implementation for Supabase Insertion based on your Table Editor screenshot
+        try {
+            const { error } = await supabase.from('attendance').insert([{
+                event_id: this.state.activeEventId,
+                student_id: studentId,
+                time_in: new Date().toISOString(),
+                status: 'present'
+            }]);
+
+            if (error) throw error;
+            
+            // Visual feedback
+            this.fetchAttendance();
+            document.getElementById('manual-student-id').value = '';
+        } catch (err) {
+            alert("Entry Failed: " + err.message);
+        }
     }
 };
