@@ -3,7 +3,8 @@ import { supabase } from './auth.js';
 export const attendanceModule = {
     state: {
         activeEventId: null,
-        activeEventName: 'UNASSIGNED',
+        activeEventName: 'No Event Selected',
+        allEvents: [], // Stores list for the dropdown
         attendees: [],
         lastScanned: null,
         isScannerActive: false
@@ -13,7 +14,12 @@ export const attendanceModule = {
         const container = document.getElementById('mod-attendance');
         if (!container) return;
 
-        // Base Layout: Left Column (Scanner) | Right Column (Table)
+        // 1. Fetch events if we don't have them yet for the dropdown
+        if (this.state.allEvents.length === 0) {
+            await this.fetchEventsForDropdown();
+        }
+
+        // Base Layout with the Event Selector integrated into the header
         container.innerHTML = `
             <div class="p-6 md:p-8 min-h-screen bg-[#fcfcfc]">
                 <div class="max-w-[1600px] mx-auto space-y-6">
@@ -25,9 +31,17 @@ export const attendanceModule = {
                             </div>
                             <div>
                                 <h1 class="text-2xl font-black italic tracking-tighter uppercase text-slate-800">Attendance <span class="text-[#000080]">Monitor</span></h1>
-                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> System Active • ${this.state.activeEventName}
-                                </p>
+                                <div class="mt-1 flex items-center gap-3">
+                                    <select id="event-selector" class="bg-slate-50 border-none rounded-lg px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#000080] focus:ring-2 focus:ring-[#000080] cursor-pointer">
+                                        <option value="">-- Select Student Event --</option>
+                                        ${this.state.allEvents.map(ev => `
+                                            <option value="${ev.id}" ${this.state.activeEventId === ev.id ? 'selected' : ''}>
+                                                ${ev.event_name.toUpperCase()}
+                                            </option>
+                                        `).join('')}
+                                    </select>
+                                    <span class="w-2 h-2 bg-emerald-500 rounded-full ${this.state.activeEventId ? 'animate-pulse' : 'grayscale'}"></span>
+                                </div>
                             </div>
                         </div>
                         <button id="close-attendance" class="px-6 py-3 bg-rose-50 text-rose-600 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all flex items-center gap-2">
@@ -38,7 +52,6 @@ export const attendanceModule = {
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                         
                         <div class="lg:col-span-4 space-y-6">
-                            
                             <div class="bg-slate-900 rounded-[2.5rem] p-4 shadow-2xl overflow-hidden relative border-8 border-slate-800">
                                 <div id="reader" class="w-full aspect-square rounded-[1.8rem] overflow-hidden bg-black relative">
                                     <div class="absolute inset-0 pointer-events-none z-10 border-[20px] border-black/40">
@@ -47,7 +60,7 @@ export const attendanceModule = {
                                 </div>
                                 <div class="p-6 text-center">
                                     <div id="scan-status-pill" class="inline-block px-4 py-1 rounded-full bg-slate-800 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2">
-                                        Waiting for Scan...
+                                        ${this.state.activeEventId ? 'System Ready' : 'Select Event to Begin'}
                                     </div>
                                 </div>
                             </div>
@@ -99,13 +112,12 @@ export const attendanceModule = {
             </div>
 
             <style>
-                @keyframes scan {
-                    0% { top: 0%; }
-                    100% { top: 100%; }
-                }
+                @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+                #event-selector { -webkit-appearance: none; }
             </style>
         `;
 
+        // If an event is already selected, load data and scanner
         if (this.state.activeEventId) {
             this.fetchAttendance();
             this.initScanner();
@@ -115,7 +127,19 @@ export const attendanceModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
+    async fetchEventsForDropdown() {
+        const { data, error } = await supabase
+            .from('events')
+            .select('id, event_name')
+            .order('start_time', { ascending: false });
+        
+        if (!error) {
+            this.state.allEvents = data || [];
+        }
+    },
+
     async fetchAttendance() {
+        if (!this.state.activeEventId) return;
         const { data, error } = await supabase
             .from('attendance')
             .select('*')
@@ -134,6 +158,11 @@ export const attendanceModule = {
         if (!feed) return;
 
         count.innerText = this.state.attendees.length.toString().padStart(2, '0');
+
+        if (this.state.attendees.length === 0) {
+            feed.innerHTML = `<tr><td colspan="4" class="p-20 text-center text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">No Participants Detected</td></tr>`;
+            return;
+        }
 
         feed.innerHTML = this.state.attendees.map(row => `
             <tr class="hover:bg-slate-50/50 transition-colors group">
@@ -160,11 +189,33 @@ export const attendanceModule = {
     },
 
     initEventListeners() {
+        // CLOSE SESSION
         document.getElementById('close-attendance').onclick = () => {
-            document.getElementById('mod-attendance').classList.add('hidden');
-            document.getElementById('mod-events').classList.remove('hidden');
+            window.showSection('dashboard');
         };
 
+        // DROPDOWN SELECTOR LOGIC
+        const selector = document.getElementById('event-selector');
+        if (selector) {
+            selector.onchange = async (e) => {
+                const selectedId = e.target.value;
+                if (!selectedId) {
+                    this.state.activeEventId = null;
+                    this.state.activeEventName = 'No Event Selected';
+                    this.render();
+                    return;
+                }
+
+                this.state.activeEventId = selectedId;
+                const evObj = this.state.allEvents.find(ev => ev.id === selectedId);
+                this.state.activeEventName = evObj ? evObj.event_name : 'Selected Event';
+                
+                await this.fetchAttendance();
+                this.render(); // Re-render to start scanner and show table
+            };
+        }
+
+        // MANUAL ENTRY
         document.getElementById('btn-manual-submit').onclick = () => {
             const id = document.getElementById('manual-student-id').value;
             if (id) this.markAttendance(id);
@@ -172,7 +223,8 @@ export const attendanceModule = {
     },
 
     async markAttendance(studentId) {
-        // Implementation for Supabase Insertion based on your Table Editor screenshot
+        if (!this.state.activeEventId) return alert("Error: Please select an event first.");
+        
         try {
             const { error } = await supabase.from('attendance').insert([{
                 event_id: this.state.activeEventId,
@@ -183,11 +235,15 @@ export const attendanceModule = {
 
             if (error) throw error;
             
-            // Visual feedback
             this.fetchAttendance();
             document.getElementById('manual-student-id').value = '';
         } catch (err) {
             alert("Entry Failed: " + err.message);
         }
+    },
+
+    initScanner() {
+        console.log("Scanner Logic Hooked for event:", this.state.activeEventId);
+        // Add your html5-qrcode initialization here
     }
 };
