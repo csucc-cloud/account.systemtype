@@ -8,9 +8,43 @@ export const attendanceModule = {
         isScannerActive: false,
         currentCameraId: null,
         html5QrCode: null,
+        attendanceSubscription: null,
         // Pagination State
         currentPage: 1,
         rowsPerPage: 50
+    },
+
+    // --- AUDIO SYSTEM ---
+    playSound(type) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'in') { // High beep for Time In
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.2);
+        } else if (type === 'out') { // Double beep for Time Out
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(660, ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+        } else if (type === 'error') { // Low buzz for Error
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(120, ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.4);
+        }
     },
 
     async render() {
@@ -148,7 +182,10 @@ export const attendanceModule = {
         `;
 
         this.initEventListeners();
-        if (this.state.activeEventId) this.fetchAttendance();
+        if (this.state.activeEventId) {
+            await this.fetchAttendance();
+            this.setupRealtimeListener();
+        }
         if (window.lucide) window.lucide.createIcons();
     },
 
@@ -186,6 +223,7 @@ export const attendanceModule = {
             this.state.activeEventId = e.target.value;
             this.state.currentPage = 1;
             this.fetchAttendance();
+            this.setupRealtimeListener();
         };
 
         document.getElementById('btn-manual-submit').onclick = () => {
@@ -211,6 +249,35 @@ export const attendanceModule = {
                 this.renderFeed();
             }
         };
+    },
+
+    setupRealtimeListener() {
+        if (this.state.attendanceSubscription) supabase.removeChannel(this.state.attendanceSubscription);
+        if (!this.state.activeEventId) return;
+
+        this.state.attendanceSubscription = supabase
+            .channel('attendance_sync')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'attendance',
+                filter: `event_id=eq.${this.state.activeEventId}` 
+            }, (payload) => {
+                this.handleRealtimeUpdate(payload);
+            })
+            .subscribe();
+    },
+
+    handleRealtimeUpdate(payload) {
+        const { eventType, new: newRecord } = payload;
+        const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === newRecord.student_id.toString());
+        
+        if (studentIndex !== -1) {
+            this.state.attendees[studentIndex].time_in = newRecord.time_in;
+            this.state.attendees[studentIndex].time_out = newRecord.time_out;
+            this.state.attendees[studentIndex].is_present = true;
+            this.renderFeed();
+        }
     },
 
     exportToExcel() {
@@ -260,10 +327,10 @@ export const attendanceModule = {
     async markAttendance(studentId) {
         if (!this.state.activeEventId) return;
 
-        // Search the WHOLE list, not just the current page
         const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === studentId.toString());
         
         if (studentIndex === -1) {
+            this.playSound('error');
             alert(`Access Denied: ID ${studentId} not in target list.`);
             return;
         }
@@ -273,9 +340,12 @@ export const attendanceModule = {
 
         if (!student.time_in) {
             updateData.time_in = new Date().toISOString();
+            this.playSound('in');
         } else if (student.time_in && !student.time_out) {
             updateData.time_out = new Date().toISOString();
+            this.playSound('out');
         } else {
+            this.playSound('error');
             alert("Protocol: Student already completed attendance.");
             return;
         }
@@ -285,10 +355,8 @@ export const attendanceModule = {
         if (error) {
             console.error("DB Error:", error);
         } else {
-            // Success! Jump to the page where this student lives so the user sees the update
             const pageOfStudent = Math.floor(studentIndex / this.state.rowsPerPage) + 1;
             this.state.currentPage = pageOfStudent;
-            
             await this.fetchAttendance();
         }
     },
@@ -357,7 +425,6 @@ export const attendanceModule = {
             return;
         }
 
-        // We use the master list (sorted by name as per fetch)
         const totalItems = this.state.attendees.length;
         const totalPages = Math.ceil(totalItems / this.state.rowsPerPage);
         const startIdx = (this.state.currentPage - 1) * this.state.rowsPerPage;
