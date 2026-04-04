@@ -8,7 +8,10 @@ export const attendanceModule = {
         isScannerActive: false,
         currentCameraId: null,
     },
-    
+
+    /**
+     * Core UI Rendering logic
+     */
     async render() {
         const container = document.getElementById('mod-attendance');
         if (!container) return;
@@ -148,6 +151,9 @@ export const attendanceModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
+    /**
+     * Event binding logic
+     */
     initEventListeners() {
         document.getElementById('btn-toggle-scanner').onclick = () => {
             if (!this.state.activeEventId) return alert("CRITICAL: Please select an active event first!");
@@ -167,6 +173,9 @@ export const attendanceModule = {
         };
     },
 
+    /**
+     * Data fetching and State logic
+     */
     startScanner() {
         const cameraFacing = document.getElementById('camera-source')?.value || "environment";
         console.log(`System: Engaging camera optic [${cameraFacing}]`);
@@ -223,6 +232,9 @@ export const attendanceModule = {
         this.renderFeed();
     },
 
+    /**
+     * Sub-rendering logic for the data table
+     */
     renderFeed() {
         const feed = document.getElementById('attendance-feed');
         const count = document.getElementById('attendee-count');
