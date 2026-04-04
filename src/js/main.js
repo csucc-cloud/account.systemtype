@@ -6,10 +6,10 @@ import { logAction } from './audit-logger.js';
 import { attendanceModule } from './attendance.js';
 import { createIcons, Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X } from 'lucide';
 
-// Make logAction global for all other modules to use easily
+// Global access for module interoperability
 window.logAction = logAction;
 window.eventsModule = eventsModule;
-eventsModule.render();
+window.attendanceModule = attendanceModule;
 
 /**
  * SIDEBAR CONTROLLER 
@@ -54,7 +54,6 @@ const sidebarController = {
  * APP INITIALIZATION
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize icons
     createIcons({
         icons: { Compass, LayoutDashboard, Users, CalendarRange, Wallet, QrCode, LogOut, Menu, X }
     });
@@ -75,9 +74,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('user_role', role);
             
             setupUserUI(user);
+            
+            // Start at Dashboard by default
             window.showSection('dashboard');
             
-            // 2. LOG: Session Restoration
             logAction('SESSION_RESTORED', `User ${user.email} reconnected.`);
         } else {
             authScreen?.classList.remove('hidden');
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Auth Connection Failed:", err.message);
     }
 
-    // Login logic
+    // Login Action
     document.getElementById('btn-login-exec')?.addEventListener('click', async () => {
         const email = document.getElementById('login-email')?.value;
         const pass = document.getElementById('login-password')?.value;
@@ -96,20 +96,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const { data, error } = await authHandler.signIn(email, pass);
         if (error) {
-            logAction('LOGIN_FAILED', `Attempted email: ${email}`); // 3. LOG: Failed Login
+            logAction('LOGIN_FAILED', `Attempted email: ${email}`);
             window.showAlert?.(error.message);
         } else {
-            // 4. LOG: Successful Login
             await logAction('LOGIN_SUCCESS', `User ${email} logged in.`);
             window.location.reload();
         }
     });
 
-    // Logout logic
+    // Logout Action
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
-        // 5. LOG: Logout (done before clearing storage)
         await logAction('LOGOUT', 'User initiated logout.');
-        
         await authHandler.logout();
         localStorage.clear(); 
         window.location.reload();
@@ -140,7 +137,7 @@ function setupUserUI(user) {
  * ROUTER / SECTION SWITCHER
  */
 window.showSection = function(sectionId) {
-    // 1. Hide all containers
+    // 1. Hide all containers and reset animations
     document.querySelectorAll('.module-container, section').forEach(el => {
         el.classList.add('hidden');
         el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-2');
@@ -154,10 +151,10 @@ window.showSection = function(sectionId) {
             target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
         });
 
-        // 6. LOG: Navigation Tracking
         logAction('NAVIGATE', `Viewed ${sectionId} section`);
 
         // 3. Initialize Module-Specific Logic
+        // Each module is now responsible for its own data fetching and rendering
         switch(sectionId) {
             case 'dashboard':
                 dashboardModule.init();
@@ -169,16 +166,13 @@ window.showSection = function(sectionId) {
                 eventsModule.render(); 
                 break;
             case 'attendance':
-                if(!sessionStorage.getItem('active_event')) {
-                    window.showAlert?.("Select an active event first!");
-                    window.showSection('events');
-                } else {
-                    // attendanceModule.render(); 
-                }
+                // Removed the guard. Attendance module now handles its own event selection.
+                attendanceModule.render(); 
                 break;
         }
     }
 
+    // Update Header Title
     const title = document.getElementById('current-page-title');
     if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     
