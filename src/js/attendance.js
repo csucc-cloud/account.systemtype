@@ -6,6 +6,7 @@ export const attendanceModule = {
         allEvents: [],
         attendees: [], 
         isScannerActive: false,
+        currentCameraId: null,
         html5QrCode: null 
     },
 
@@ -27,7 +28,7 @@ export const attendanceModule = {
                             <div>
                                 <h1 class="text-2xl font-black text-slate-900 tracking-tight">Attendance <span class="text-[#000080]">Console</span></h1>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Pro-Optic Scan v2.0
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Live Validation Protocol
                                 </p>
                             </div>
                         </div>
@@ -41,13 +42,13 @@ export const attendanceModule = {
                             </select>
 
                             <select id="camera-source" class="${this.state.isScannerActive ? '' : 'hidden'} bg-white border border-slate-200 rounded-xl px-3 py-3.5 text-[10px] font-bold text-slate-500 uppercase outline-none">
-                                <option value="environment">Rear Lens (HD)</option>
-                                <option value="user">Front Lens</option>
+                                <option value="environment">Rear Lens</option>
+                                <option value="user">Selfie Lens</option>
                             </select>
 
                             <button id="btn-toggle-scanner" class="px-8 py-3.5 ${this.state.isScannerActive ? 'bg-rose-500' : 'bg-[#000080]'} text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg">
                                 <i data-lucide="${this.state.isScannerActive ? 'camera-off' : 'camera'}" class="w-4 h-4"></i>
-                                ${this.state.isScannerActive ? 'Terminate' : 'Initialize'}
+                                ${this.state.isScannerActive ? 'Terminate Scanner' : 'Initialize Scanner'}
                             </button>
                         </div>
                     </div>
@@ -59,13 +60,24 @@ export const attendanceModule = {
                                     ${!this.state.isScannerActive ? `
                                         <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-4">
                                             <i data-lucide="video-off" class="w-8 h-8 text-slate-700"></i>
-                                            <p class="text-[10px] font-black uppercase tracking-[0.3em]">Optic Standby</p>
+                                            <p class="text-[10px] font-black uppercase tracking-[0.3em]">Scanner Standby</p>
                                         </div>
                                     ` : `
                                         <div class="absolute inset-0 z-10 pointer-events-none border-[40px] border-black/10">
-                                            <div class="w-full h-1 bg-blue-400 shadow-[0_0_20px_rgba(59,130,246,1)] absolute top-0 animate-[scan_2s_ease-in-out_infinite]"></div>
+                                            <div class="w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_20px_rgba(59,130,246,1)] absolute top-0 animate-[scan_2.5s_ease-in-out_infinite]"></div>
                                         </div>
                                     `}
+                                </div>
+                                <div class="p-6 text-center">
+                                    <div class="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-slate-50 border border-slate-100">
+                                        <span class="relative flex h-2 w-2">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${this.state.isScannerActive ? 'bg-emerald-400' : 'bg-slate-300'} opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2 w-2 ${this.state.isScannerActive ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+                                        </span>
+                                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                                            ${this.state.isScannerActive ? 'Neural Link Active' : 'Waiting for Input'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -84,7 +96,7 @@ export const attendanceModule = {
                             <div class="p-10 border-b border-slate-50 flex justify-between items-end">
                                 <div>
                                     <h2 class="text-lg font-black text-slate-900 uppercase tracking-tight">Participant Stream</h2>
-                                    <p id="fetch-status" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Syncing Database...</p>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time verification</p>
                                 </div>
                                 <div class="text-right">
                                     <span id="attendee-count" class="text-5xl font-black italic text-[#000080] tracking-tighter">00/00</span>
@@ -95,8 +107,11 @@ export const attendanceModule = {
                                     <thead>
                                         <tr class="bg-slate-50/50">
                                             <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">ID</th>
-                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Full Name</th>
-                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Status</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Name</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Course & Year</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Time In</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400">Time Out</th>
+                                            <th class="px-8 py-6 text-[10px] font-black uppercase text-slate-400 text-right">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="attendance-feed" class="divide-y divide-slate-50"></tbody>
@@ -121,11 +136,17 @@ export const attendanceModule = {
         const toggleBtn = document.getElementById('btn-toggle-scanner');
         if (toggleBtn) {
             toggleBtn.onclick = async () => {
-                if (!this.state.activeEventId) return alert("Select event first!");
-                this.state.isScannerActive = !this.state.isScannerActive;
-                await this.render();
-                if (this.state.isScannerActive) this.startScanner();
-                else this.stopScanner();
+                if (!this.state.activeEventId) return alert("CRITICAL: Select an active event first!");
+                
+                if (this.state.isScannerActive) {
+                    await this.stopScanner();
+                    this.state.isScannerActive = false;
+                    this.render();
+                } else {
+                    this.state.isScannerActive = true;
+                    await this.render(); // Ensure #reader exists before calling startScanner
+                    this.startScanner(); 
+                }
             };
         }
 
@@ -135,43 +156,31 @@ export const attendanceModule = {
         };
 
         document.getElementById('btn-manual-submit').onclick = () => {
-            const el = document.getElementById('manual-student-id');
-            if (el.value.trim()) {
-                this.markAttendance(el.value.trim());
-                el.value = '';
+            const idInput = document.getElementById('manual-student-id');
+            const idVal = idInput.value.trim();
+            if (idVal) {
+                this.markAttendance(idVal);
+                idInput.value = '';
             }
         };
     },
 
     async startScanner() {
-        const facing = document.getElementById('camera-source')?.value || "environment";
-        if (!this.state.html5QrCode) this.state.html5QrCode = new Html5Qrcode("reader");
-
-        // High-Quality Constraints for Auto-Focus and Clarity
-        const config = {
-            fps: 20, 
-            qrbox: { width: 280, height: 280 },
-            aspectRatio: 1.0,
-            videoConstraints: {
-                facingMode: facing,
-                focusMode: "continuous",
-                whiteBalanceMode: "continuous",
-                width: { min: 640, ideal: 1280, max: 1920 },
-                height: { min: 480, ideal: 720, max: 1080 }
-            }
-        };
-
+        const cameraFacing = document.getElementById('camera-source')?.value || "environment";
+        if (!this.state.html5QrCode) {
+            this.state.html5QrCode = new Html5Qrcode("reader");
+        }
         try {
             await this.state.html5QrCode.start(
-                { facingMode: facing },
-                config,
+                { facingMode: cameraFacing },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
                 (text) => {
                     this.markAttendance(text);
-                    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+                    if (navigator.vibrate) navigator.vibrate(100);
                 }
             );
         } catch (err) {
-            console.error("Optic Error:", err);
+            console.error("Scanner Error:", err);
             this.state.isScannerActive = false;
             this.render();
         }
@@ -179,58 +188,59 @@ export const attendanceModule = {
 
     async stopScanner() {
         if (this.state.html5QrCode) {
-            try { await this.state.html5QrCode.stop(); } catch (e) {}
+            try { await this.state.html5QrCode.stop(); } catch (e) { console.warn(e); }
         }
     },
 
     async markAttendance(studentId) {
+        if (!this.state.activeEventId) return;
+
         const student = this.state.attendees.find(a => a.student_id.toString() === studentId.toString());
-        if (!student) return alert("Student not in target list.");
+        if (!student) {
+            alert(`Access Denied: ID ${studentId} not in target list.`);
+            return;
+        }
 
-        let data = { student_id: studentId, event_id: this.state.activeEventId };
-        if (!student.time_in) data.time_in = new Date().toISOString();
-        else if (!student.time_out) data.time_out = new Date().toISOString();
-        else return alert("Attendance complete.");
+        let updateData = { student_id: studentId, event_id: this.state.activeEventId };
 
-        const { error } = await supabase.from('attendance').upsert(data, { onConflict: 'student_id, event_id' });
-        if (!error) await this.fetchAttendance();
+        // Smart Toggle Logic
+        if (!student.time_in) {
+            updateData.time_in = new Date().toISOString();
+        } else if (student.time_in && !student.time_out) {
+            updateData.time_out = new Date().toISOString();
+        } else {
+            alert("Protocol: Student already completed attendance.");
+            return;
+        }
+
+        const { error } = await supabase.from('attendance').upsert(updateData, { onConflict: 'student_id, event_id' });
+
+        if (error) {
+            console.error("DB Error:", error);
+        } else {
+            await this.fetchAttendance();
+        }
     },
 
-    /**
-     * PAGINATION BYPASS: Fetches ALL students, even if more than 1000.
-     */
-    async fetchAllStudents(query) {
-        let allData = [];
-        let rangeStart = 0;
-        let rangeEnd = 999;
-        let hasMore = true;
-
-        while (hasMore) {
-            const { data, error } = await query.range(rangeStart, rangeEnd);
-            if (error || !data) break;
-            allData = [...allData, ...data];
-            if (data.length < 1000) hasMore = false;
-            else {
-                rangeStart += 1000;
-                rangeEnd += 1000;
-            }
-        }
-        return allData;
+    async fetchEventsForDropdown() {
+        const { data } = await supabase.from('events').select('id, event_name').order('created_at', { ascending: false });
+        this.state.allEvents = data || [];
     },
 
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
-        const statusEl = document.getElementById('fetch-status');
 
         const { data: event } = await supabase.from('events').select('*').eq('id', this.state.activeEventId).single();
         
-        let query = supabase.from('students').select('*').order('full_name', { ascending: true });
-        
-        // Filtering
-        if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) query = query.ilike('department', `%${event.target_dept}%`);
-        if (event?.target_year && !['All', 'NULL'].includes(event.target_year)) query = query.eq('year_level', parseInt(event.target_year));
+        let query = supabase.from('students').select('*');
+        if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) {
+            query = query.ilike('department', `%${event.target_dept}%`);
+        }
+        if (event?.target_year && !['All', 'All Year', 'NULL'].includes(event.target_year)) {
+            query = query.eq('year_level', parseInt(event.target_year));
+        }
 
-        const students = await this.fetchAllStudents(query);
+        const { data: students } = await query;
         const { data: logs } = await supabase.from('attendance').select('*').eq('event_id', this.state.activeEventId);
 
         this.state.attendees = (students || []).map(s => {
@@ -238,38 +248,54 @@ export const attendanceModule = {
             return { ...s, time_in: log?.time_in, time_out: log?.time_out, is_present: !!log };
         });
 
-        if(statusEl) statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
         this.renderFeed();
     },
 
     renderFeed() {
         const feed = document.getElementById('attendance-feed');
         const count = document.getElementById('attendee-count');
-        if (!feed) return;
+        if (!feed || !count) return;
 
         const present = this.state.attendees.filter(a => a.is_present).length;
-        count.innerText = `${present.toString().padStart(2, '0')}/${this.state.attendees.length}`;
+        count.innerText = `${present.toString().padStart(2, '0')}/${this.state.attendees.length.toString().padStart(2, '0')}`;
         
+        if (this.state.attendees.length === 0) {
+            feed.innerHTML = `<tr><td colspan="6" class="p-32 text-center text-slate-300 uppercase font-black italic">No Target Match</td></tr>`;
+            return;
+        }
+
         const sorted = [...this.state.attendees].sort((a, b) => (b.time_in ? 1 : 0) - (a.time_in ? 1 : 0));
 
         feed.innerHTML = sorted.map(row => {
-            let status = `<span class="px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase ring-1 ring-slate-200">Pending</span>`;
-            if (row.time_in && !row.time_out) status = `<span class="px-4 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black uppercase ring-1 ring-amber-100 animate-pulse">In Venue</span>`;
-            else if (row.time_in && row.time_out) status = `<span class="px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase ring-1 ring-emerald-100">Present</span>`;
+            let statusHTML = '';
+            if (row.time_in && !row.time_out) {
+                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-amber-100">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In Venue</span>`;
+            } else if (row.time_in && row.time_out) {
+                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest ring-1 ring-emerald-100">
+                                Present</span>`;
+            } else {
+                statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200">
+                                Pending</span>`;
+            }
 
             return `
                 <tr class="hover:bg-slate-50 transition-all ${!row.time_in ? 'opacity-60' : ''}">
                     <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
-                    <td class="px-8 py-6 font-black text-slate-800">${row.full_name} <br> <span class="text-[9px] text-slate-400 uppercase">${row.course}</span></td>
-                    <td class="px-8 py-6 text-right">${status}</td>
+                    <td class="px-8 py-6 font-black text-slate-800">${row.full_name}</td>
+                    <td class="px-8 py-6 text-[10px] font-bold text-slate-700">
+                        ${row.course || row.department}<br><span class="text-slate-400">Year ${row.year_level}</span>
+                    </td>
+                    <td class="px-8 py-6 text-[11px] font-black text-slate-400">
+                        ${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}
+                    </td>
+                    <td class="px-8 py-6 text-[11px] font-black text-slate-400">
+                        ${row.time_out ? new Date(row.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}
+                    </td>
+                    <td class="px-8 py-6 text-right">${statusHTML}</td>
                 </tr>
             `;
         }).join('');
         if (window.lucide) window.lucide.createIcons();
-    },
-
-    async fetchEventsForDropdown() {
-        const { data } = await supabase.from('events').select('id, event_name').order('created_at', { ascending: false });
-        this.state.allEvents = data || [];
     }
 };
