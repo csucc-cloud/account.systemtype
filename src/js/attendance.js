@@ -40,10 +40,10 @@ export const attendanceModule = {
                                 `).join('')}
                             </select>
 
-                            <button id="btn-export-excel" class="px-6 py-3.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg hover:bg-emerald-700 transition-all">
-                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-                                Export Excel
-                            </button>
+                            <select id="camera-source" class="${this.state.isScannerActive ? '' : 'hidden'} bg-white border border-slate-200 rounded-xl px-3 py-3.5 text-[10px] font-bold text-slate-500 uppercase outline-none">
+                                <option value="environment">Rear Lens (HD)</option>
+                                <option value="user">Front Lens</option>
+                            </select>
 
                             <button id="btn-toggle-scanner" class="px-8 py-3.5 ${this.state.isScannerActive ? 'bg-rose-500' : 'bg-[#000080]'} text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 shadow-lg">
                                 <i data-lucide="${this.state.isScannerActive ? 'camera-off' : 'camera'}" class="w-4 h-4"></i>
@@ -66,12 +66,6 @@ export const attendanceModule = {
                                             <div class="w-full h-1 bg-blue-400 shadow-[0_0_20px_rgba(59,130,246,1)] absolute top-0 animate-[scan_2s_ease-in-out_infinite]"></div>
                                         </div>
                                     `}
-                                </div>
-                                <div class="p-4 text-center">
-                                     <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
-                                        <span class="w-1.5 h-1.5 rounded-full ${this.state.isScannerActive ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
-                                        Neural Link ${this.state.isScannerActive ? 'Active' : 'Offline'}
-                                     </p>
                                 </div>
                             </div>
 
@@ -124,15 +118,16 @@ export const attendanceModule = {
     },
 
     initEventListeners() {
-        document.getElementById('btn-toggle-scanner').onclick = async () => {
-            if (!this.state.activeEventId) return alert("Select event first!");
-            this.state.isScannerActive = !this.state.isScannerActive;
-            await this.render();
-            if (this.state.isScannerActive) this.startScanner();
-            else this.stopScanner();
-        };
-
-        document.getElementById('btn-export-excel').onclick = () => this.exportToExcel();
+        const toggleBtn = document.getElementById('btn-toggle-scanner');
+        if (toggleBtn) {
+            toggleBtn.onclick = async () => {
+                if (!this.state.activeEventId) return alert("Select event first!");
+                this.state.isScannerActive = !this.state.isScannerActive;
+                await this.render();
+                if (this.state.isScannerActive) this.startScanner();
+                else this.stopScanner();
+            };
+        }
 
         document.getElementById('event-selector').onchange = (e) => {
             this.state.activeEventId = e.target.value;
@@ -148,45 +143,35 @@ export const attendanceModule = {
         };
     },
 
-    exportToExcel() {
-        if (this.state.attendees.length === 0) return alert("No data to export.");
-        const eventName = this.state.allEvents.find(e => e.id == this.state.activeEventId)?.event_name || "Event";
-        
-        const data = this.state.attendees.map(a => ({
-            "Student ID": a.student_id,
-            "Full Name": a.full_name,
-            "Department": a.department,
-            "Course": a.course,
-            "Year Level": a.year_level,
-            "Time In": a.time_in ? new Date(a.time_in).toLocaleString() : "N/A",
-            "Time Out": a.time_out ? new Date(a.time_out).toLocaleString() : "N/A",
-            "Status": (a.time_in && a.time_out) ? "Present" : (a.time_in ? "In Venue" : "Absent")
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance");
-        XLSX.writeFile(workbook, `${eventName}_Attendance_${new Date().toLocaleDateString()}.xlsx`);
-    },
-
     async startScanner() {
+        const facing = document.getElementById('camera-source')?.value || "environment";
         if (!this.state.html5QrCode) this.state.html5QrCode = new Html5Qrcode("reader");
+
+        // High-Quality Constraints for Auto-Focus and Clarity
         const config = {
             fps: 20, 
             qrbox: { width: 280, height: 280 },
-            videoConstraints: { 
-                facingMode: "environment", 
+            aspectRatio: 1.0,
+            videoConstraints: {
+                facingMode: facing,
                 focusMode: "continuous",
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                whiteBalanceMode: "continuous",
+                width: { min: 640, ideal: 1280, max: 1920 },
+                height: { min: 480, ideal: 720, max: 1080 }
             }
         };
+
         try {
-            await this.state.html5QrCode.start({ facingMode: "environment" }, config, (text) => {
-                this.markAttendance(text);
-                if (navigator.vibrate) navigator.vibrate(100);
-            });
+            await this.state.html5QrCode.start(
+                { facingMode: facing },
+                config,
+                (text) => {
+                    this.markAttendance(text);
+                    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+                }
+            );
         } catch (err) {
+            console.error("Optic Error:", err);
             this.state.isScannerActive = false;
             this.render();
         }
@@ -211,16 +196,24 @@ export const attendanceModule = {
         if (!error) await this.fetchAttendance();
     },
 
+    /**
+     * PAGINATION BYPASS: Fetches ALL students, even if more than 1000.
+     */
     async fetchAllStudents(query) {
         let allData = [];
         let rangeStart = 0;
+        let rangeEnd = 999;
         let hasMore = true;
+
         while (hasMore) {
-            const { data, error } = await query.range(rangeStart, rangeStart + 999);
+            const { data, error } = await query.range(rangeStart, rangeEnd);
             if (error || !data) break;
             allData = [...allData, ...data];
             if (data.length < 1000) hasMore = false;
-            else rangeStart += 1000;
+            else {
+                rangeStart += 1000;
+                rangeEnd += 1000;
+            }
         }
         return allData;
     },
@@ -230,8 +223,10 @@ export const attendanceModule = {
         const statusEl = document.getElementById('fetch-status');
 
         const { data: event } = await supabase.from('events').select('*').eq('id', this.state.activeEventId).single();
+        
         let query = supabase.from('students').select('*').order('full_name', { ascending: true });
         
+        // Filtering
         if (event?.target_dept && !['All', 'NULL'].includes(event.target_dept)) query = query.ilike('department', `%${event.target_dept}%`);
         if (event?.target_year && !['All', 'NULL'].includes(event.target_year)) query = query.eq('year_level', parseInt(event.target_year));
 
@@ -243,7 +238,7 @@ export const attendanceModule = {
             return { ...s, time_in: log?.time_in, time_out: log?.time_out, is_present: !!log };
         });
 
-        if (statusEl) statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
+        if(statusEl) statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
         this.renderFeed();
     },
 
@@ -251,19 +246,24 @@ export const attendanceModule = {
         const feed = document.getElementById('attendance-feed');
         const count = document.getElementById('attendee-count');
         if (!feed) return;
+
         const present = this.state.attendees.filter(a => a.is_present).length;
         count.innerText = `${present.toString().padStart(2, '0')}/${this.state.attendees.length}`;
+        
         const sorted = [...this.state.attendees].sort((a, b) => (b.time_in ? 1 : 0) - (a.time_in ? 1 : 0));
 
         feed.innerHTML = sorted.map(row => {
             let status = `<span class="px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase ring-1 ring-slate-200">Pending</span>`;
             if (row.time_in && !row.time_out) status = `<span class="px-4 py-1.5 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-black uppercase ring-1 ring-amber-100 animate-pulse">In Venue</span>`;
             else if (row.time_in && row.time_out) status = `<span class="px-4 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase ring-1 ring-emerald-100">Present</span>`;
-            return `<tr class="hover:bg-slate-50 ${!row.time_in ? 'opacity-60' : ''}">
-                <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
-                <td class="px-8 py-6 font-black text-slate-800">${row.full_name} <br> <span class="text-[9px] text-slate-400 uppercase">${row.course}</span></td>
-                <td class="px-8 py-6 text-right">${status}</td>
-            </tr>`;
+
+            return `
+                <tr class="hover:bg-slate-50 transition-all ${!row.time_in ? 'opacity-60' : ''}">
+                    <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
+                    <td class="px-8 py-6 font-black text-slate-800">${row.full_name} <br> <span class="text-[9px] text-slate-400 uppercase">${row.course}</span></td>
+                    <td class="px-8 py-6 text-right">${status}</td>
+                </tr>
+            `;
         }).join('');
         if (window.lucide) window.lucide.createIcons();
     },
