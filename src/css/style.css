@@ -112,3 +112,30 @@
     }
     .receipt-card { border: 1px dashed #ccc; padding: 10mm; }
 }
+
+
+@media print {
+    /* Hide everything else */
+    #sidebar-main, #app-header, .no-print { display: none !important; }
+    
+    /* Setup the A4 Page */
+    @page { size: A4; margin: 0; }
+    
+    .audit-print-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr; /* 2 columns */
+        grid-template-rows: 1fr 1fr;    /* 2 rows */
+        gap: 0;
+        width: 210mm;
+        height: 297mm;
+        padding: 10mm;
+    }
+
+    .receipt-item {
+        border: 1px dashed #ccc;
+        padding: 15mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+}
