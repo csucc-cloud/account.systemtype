@@ -96,3 +96,8 @@
     30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
     40%, 60% { transform: translate3d(4px, 0, 0); }
 }
+
+  #reader video {
+    object-fit: cover !important;
+    border-radius: 2.5rem;
+}
