@@ -13,7 +13,6 @@ export const eventsModule = {
         searchTerm: '',
         currentFilter: 'all',
         isLoading: false,
-        isStealthMode: false, // Now "Compact/Focus Mode"
         isEditMode: false,
         stats: { total: 0, active: 0, standby: 0, completed: 0 }
     },
@@ -35,8 +34,8 @@ export const eventsModule = {
             console.error("Auth sync failed", e);
         }
 
-        const theme = this.state.isStealthMode ? 'focus-theme' : 'campus-theme';
-        container.innerHTML = this.getTemplate(theme);
+        // Fixed to campus-theme
+        container.innerHTML = this.getTemplate('campus-theme');
 
         await this.fetchEvents();
         this.initEventListeners();
@@ -128,9 +127,6 @@ export const eventsModule = {
         }
     },
 
-    // ---------------------------------------------------------
-    // 4. LOGIC & UTILITIES
-    // ---------------------------------------------------------
     applyFilters() {
         let filtered = [...this.state.events];
         if (this.state.searchTerm) {
@@ -173,9 +169,6 @@ export const eventsModule = {
         else if (grid) grid.style.opacity = '1';
     },
 
-    // ---------------------------------------------------------
-    // 5. UI RENDERERS
-    // ---------------------------------------------------------
     renderGrid() {
         const grid = document.getElementById('events-grid');
         if (!grid) return;
@@ -187,7 +180,7 @@ export const eventsModule = {
 
         grid.innerHTML = this.state.filteredEvents.map((ev, i) => {
             const isActive = ev.status === 'active';
-            const themeClass = this.state.isStealthMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-slate-100 shadow-sm';
+            const themeClass = 'bg-white border-slate-100 shadow-sm';
             
             return `
                 <div onclick='eventsModule.openDetailModal(${JSON.stringify(ev).replace(/'/g, "&apos;")})' 
@@ -225,10 +218,9 @@ export const eventsModule = {
         return `
             <div class="${theme} min-h-screen transition-all duration-500 font-sans p-6 md:p-12">
                 <style>
-                    .focus-theme { background: #0f172a; color: #f8fafc; }
                     .campus-theme { background: #fdfdfd; color: #1e293b; }
                     .org-gradient-text { background: linear-gradient(135deg, #4f46e5, #9333ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                    .input-campus { background: ${this.state.isStealthMode ? '#1e293b' : '#fff'}; border: 1px solid ${this.state.isStealthMode ? '#334155' : '#e2e8f0'}; transition: all 0.2s; }
+                    .input-campus { background: #fff; border: 1px solid #e2e8f0; transition: all 0.2s; }
                     .input-campus:focus { border-color: #6366f1; ring: 2px; ring-color: #6366f1; }
                     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
                     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -252,9 +244,6 @@ export const eventsModule = {
                                 <input type="text" id="ev-search" value="${this.state.searchTerm}" placeholder="Search events..." 
                                     class="w-full pl-11 pr-4 py-3.5 rounded-2xl input-campus text-sm font-medium outline-none">
                             </div>
-                            <button id="stealth-toggle" class="p-3.5 rounded-xl input-campus hover:bg-slate-50 transition-all shadow-sm">
-                                <i data-lucide="${this.state.isStealthMode ? 'layout' : 'maximize'}" class="w-5 h-5 text-indigo-600"></i>
-                            </button>
                             ${(this.state.userRole.includes('admin')) ? `
                                 <button id="btn-add-event" class="px-8 py-3.5 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-200 flex items-center gap-2 hover:bg-indigo-700 transition-all">
                                     <i data-lucide="calendar-plus" class="w-4 h-4"></i> Create Event
@@ -356,16 +345,8 @@ export const eventsModule = {
             </div>`;
     },
 
-    // ---------------------------------------------------------
-    // 6. EVENT BINDING (Unchanged logic)
-    // ---------------------------------------------------------
     initEventListeners() {
         const query = (id) => document.getElementById(id);
-
-        if (query('stealth-toggle')) query('stealth-toggle').onclick = () => {
-            this.state.isStealthMode = !this.state.isStealthMode;
-            this.render();
-        };
 
         if (query('btn-add-event')) query('btn-add-event').onclick = () => {
             this.state.isEditMode = false;
@@ -484,7 +465,6 @@ export const eventsModule = {
     },
 
     notify(msg, type) {
-        // Styled alert fallback
         alert(`${type.toUpperCase()}: ${msg}`);
     }
 };
