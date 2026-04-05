@@ -242,7 +242,7 @@ const brainInterceptor = {
             const method = args[1]?.method?.toUpperCase() || 'GET';
 
             // CRITICAL GUARD: Prevent recursion crash
-            // If the fetch is related to logging actions or Supabase RPCs, ignore it.
+            // We exit immediately if the request is related to the logger itself
             if (url.includes('audit_logs') || url.includes('rpc')) {
                 return originalFetch(...args);
             }
