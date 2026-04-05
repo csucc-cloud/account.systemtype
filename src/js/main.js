@@ -77,7 +77,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             setupUserUI(user);
             
             // --- URL ROUTER INITIALIZATION ---
-            // Check if there is already a hash in the URL (e.g., #finance)
             const initialSection = window.location.hash.replace('#', '') || 'dashboard';
             window.showSection(initialSection);
             
@@ -140,7 +139,7 @@ function setupUserUI(user) {
  * ROUTER / SECTION SWITCHER
  */
 window.showSection = function(sectionId) {
-    // 1. Update URL Hash without refreshing (This fixes your URL issue)
+    // 1. Update URL Hash without refreshing
     if (window.location.hash !== `#${sectionId}`) {
         window.history.pushState(null, null, `#${sectionId}`);
     }
@@ -194,9 +193,17 @@ window.addEventListener('popstate', () => {
     window.showSection(sectionId);
 });
 
+/**
+ * UPDATED NAV UI: Handles both onclick and href triggers to keep blue indicator working
+ */
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
         const clickAttr = btn.getAttribute('onclick') || "";
-        btn.classList.toggle('active', clickAttr.includes(`'${sectionId}'`));
+        const hrefAttr = btn.getAttribute('href') || "";
+        
+        // Active if either the onclick or the href contains the section ID
+        const isActive = clickAttr.includes(`'${sectionId}'`) || hrefAttr === `#${sectionId}`;
+        
+        btn.classList.toggle('active', isActive);
     });
 }
