@@ -274,7 +274,7 @@ export const financeModule = {
         const { data, error } = await supabase.from('payments').insert([{
             student_id: studentIDString,
             amount_paid: parseFloat(amount),
-            receit_number: receiptNo,
+            receipt_number: receiptNo,
             academic_period_id: this.state.activePeriod.id,
             remarks: remarks
         }]).select().single();
