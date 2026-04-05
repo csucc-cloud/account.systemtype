@@ -238,13 +238,20 @@ const brainInterceptor = {
     interceptFetch() {
         const originalFetch = window.fetch;
         window.fetch = async (...args) => {
-            const response = await originalFetch(...args);
             const url = args[0].toString();
             const method = args[1]?.method?.toUpperCase() || 'GET';
+
+            // CRITICAL GUARD: Prevent recursion crash
+            // If the fetch is related to logging actions or Supabase RPCs, ignore it.
+            if (url.includes('audit_logs') || url.includes('rpc')) {
+                return originalFetch(...args);
+            }
+
+            const response = await originalFetch(...args);
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const userName = document.getElementById('user-full-name')?.innerText || "An officer";
 
-            // 1. LOGIN / LOGOUT SENTENCES
+            // 1. LOGIN SENTENCES
             if (url.includes('/auth/v1/token') && response.ok && method === 'POST') {
                 setTimeout(() => {
                     const freshName = document.getElementById('user-full-name')?.innerText || "Officer";
@@ -254,7 +261,7 @@ const brainInterceptor = {
 
             // 2. DATA ACTIVITY SENTENCES
             if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(method)) {
-                if (url.includes('/auth/v1/')) return response; // Ignore internal auth traffic
+                if (url.includes('/auth/v1/')) return response; 
 
                 let sentence = "";
                 let category = "Activity";
@@ -291,7 +298,9 @@ const brainInterceptor = {
         
         this.render();
         this.toast(title, message);
-        document.getElementById('noti-badge')?.classList.remove('hidden');
+        
+        const badge = document.getElementById('noti-badge');
+        if (badge) badge.classList.remove('hidden');
     },
 
     render() {
