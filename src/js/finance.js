@@ -89,7 +89,7 @@ export const financeModule = {
                 </div>
             </div>
 
-            <div id="print-area" class="hidden"></div>
+            <div id="print-area" class="hidden print:block"></div>
         `;
 
         document.getElementById('search-finance')?.addEventListener('input', (e) => this.fetchStudents(e.target.value));
@@ -106,10 +106,26 @@ export const financeModule = {
     },
 
     async fetchStudents(searchTerm = '') {
-        let query = supabase.from('students').select('*, payments(*)');
-        if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
-        const { data, error } = await query.limit(20);
-        if (error) return;
+        // Dynamic Org Detection based on your sidebar labels
+        const activeOrg = document.querySelector('.organization-name-label')?.innerText || 
+                          document.querySelector('.organization-info p')?.innerText || 
+                          'CITTE LSG';
+
+        // Filter by organization_owner array
+        let query = supabase.from('students')
+            .select('*, payments(*)')
+            .contains('organization_owner', [activeOrg.trim()]);
+
+        if (searchTerm) {
+            query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
+        }
+
+        const { data, error } = await query.limit(50);
+        if (error) {
+            console.error("Fetch error:", error);
+            return;
+        }
+
         this.state.students = data || [];
         this.renderStudentRows();
         this.updateCollectionTotal();
@@ -126,6 +142,10 @@ export const financeModule = {
     renderStudentRows() {
         const body = document.getElementById('finance-list-body');
         if (!body) return;
+        if (this.state.students.length === 0) {
+            body.innerHTML = `<tr><td colspan="3" class="p-10 text-center text-slate-400 italic">No students found for this organization.</td></tr>`;
+            return;
+        }
         body.innerHTML = this.state.students.map(s => {
             const balance = s.payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0;
             return `
@@ -196,7 +216,6 @@ export const financeModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    // --- NEW PAYMENT LOGIC ---
     showAddPaymentForm(studentUUID) {
         const student = this.state.students.find(s => s.id === studentUUID);
         const historyList = document.getElementById('payment-history-list');
@@ -238,8 +257,8 @@ export const financeModule = {
         if (error) return alert(error.message);
         
         alert("Payment Recorded Successfully");
-        await this.fetchStudents(); // Refresh background
-        this.generateQRReceipt(data); // Trigger Print
+        await this.fetchStudents(); 
+        this.generateQRReceipt(data); 
         document.getElementById('finance-modal').classList.add('hidden');
     },
 
@@ -248,7 +267,7 @@ export const financeModule = {
         const printArea = document.getElementById('print-area');
         
         printArea.innerHTML = `
-            <div class="receipt-print-wrapper p-10 bg-white border-2 border-dashed border-slate-300 w-[80mm] text-center">
+            <div class="receipt-print-wrapper p-10 bg-white border-2 border-dashed border-slate-300 w-[80mm] text-center mx-auto mt-10">
                 <h2 class="text-lg font-black uppercase">Official Receipt</h2>
                 <p class="text-[10px] font-bold text-slate-400 mb-4">${this.state.activePeriod.year_range} | ${this.state.activePeriod.semester} Sem</p>
                 <div class="border-y border-slate-100 py-4 mb-4">
@@ -261,17 +280,58 @@ export const financeModule = {
             </div>
         `;
 
-        // Ensure QRCode library is loaded in index.html
         new QRCode(document.getElementById("receipt-qr-code"), {
             text: `VERIFY:${payment.receipt_number}:${student.student_id}:${payment.amount_paid}`,
             width: 128,
             height: 128
         });
 
-        setTimeout(() => { window.print(); }, 500);
+        setTimeout(() => { window.print(); }, 800);
     },
 
-    // --- ROLL-OVER LOGIC ---
+    async printAuditSheet() {
+        const activeOrg = document.querySelector('.organization-name-label')?.innerText || 'CITTE LSG';
+        
+        const { data: payments, error } = await supabase
+            .from('payments')
+            .select('*, students!inner(full_name, student_id, organization_owner)')
+            .contains('students.organization_owner', [activeOrg.trim()])
+            .order('created_at', { ascending: false })
+            .limit(4);
+
+        if (error || !payments?.length) return alert("No recent payments found for audit.");
+
+        const printArea = document.getElementById('print-area');
+        printArea.innerHTML = `
+            <div class="grid grid-cols-2 grid-rows-2 w-[210mm] h-[297mm] bg-white p-4 gap-4 mx-auto">
+                ${payments.map(p => `
+                    <div class="border-2 border-dashed border-slate-300 p-8 flex flex-col justify-between text-center bg-white">
+                        <div>
+                            <h2 class="text-sm font-black uppercase">Audit Copy - ${activeOrg}</h2>
+                            <p class="text-[8px] text-slate-400">${p.receipt_number}</p>
+                        </div>
+                        <div class="py-4">
+                            <p class="text-xs font-bold">${p.students?.full_name}</p>
+                            <p class="text-xl font-black italic">₱${p.amount_paid.toLocaleString()}</p>
+                        </div>
+                        <div id="audit-qr-${p.id}" class="flex justify-center"></div>
+                        <p class="text-[8px] font-mono">${new Date(p.created_at).toLocaleString()}</p>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        payments.forEach(p => {
+            new QRCode(document.getElementById(`audit-qr-${p.id}`), {
+                text: p.receipt_number,
+                width: 70,
+                height: 70
+            });
+        });
+
+        setTimeout(() => { window.print(); }, 1000);
+    },
+
     async handleRollover() {
         if(!confirm("DANGER: This will deactivate the current semester and set up a new collection period. Continue?")) return;
 
@@ -281,10 +341,8 @@ export const financeModule = {
 
         if(!newYear || !newSem || !newFee) return alert("All fields are required for Roll-over.");
 
-        // 1. Deactivate current
         await supabase.from('academic_periods').update({ is_active: false }).eq('is_active', true);
 
-        // 2. Create New
         const { error } = await supabase.from('academic_periods').insert([{
             year_range: newYear,
             semester: newSem,
