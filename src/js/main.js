@@ -52,6 +52,145 @@ const sidebarController = {
 };
 
 /**
+ * THE STORYTELLER BRAIN: Global Activity Monitor
+ * FIX #1: Moved ABOVE the DOMContentLoaded block so brainInterceptor.init()
+ * can safely reference it without a ReferenceError.
+ */
+const brainInterceptor = {
+    notifications: [],
+
+    init() {
+        this.setupUI();
+        this.interceptFetch();
+    },
+
+    setupUI() {
+        const btn = document.getElementById('btn-notifications');
+        const dropdown = document.getElementById('noti-dropdown');
+        
+        btn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown?.classList.toggle('hidden');
+            document.getElementById('noti-badge')?.classList.add('hidden');
+        });
+
+        document.addEventListener('click', () => dropdown?.classList.add('hidden'));
+    },
+
+    interceptFetch() {
+        const originalFetch = window.fetch;
+        // FIX #3: Added a re-entry flag to prevent cascading notifications
+        // from any intercepted fetch triggered inside the storyteller logic itself.
+        let _intercepting = false;
+
+        window.fetch = async (...args) => {
+            const url = args[0].toString();
+            const method = args[1]?.method?.toUpperCase() || 'GET';
+
+            // RECURSION SHIELD: Ignore audit logs, RPC calls, and auth refreshes.
+            // Also skip if we're already inside the interceptor (re-entry guard).
+            const isInternal = url.includes('audit_logs') || 
+                               url.includes('rpc') || 
+                               url.includes('/auth/v1/user');
+            
+            if (isInternal || _intercepting) {
+                return originalFetch(...args);
+            }
+
+            _intercepting = true;
+            // FIX #4: Clone the response so both the interceptor and the
+            // original caller can each consume the body independently.
+            const response = await originalFetch(...args);
+            _intercepting = false;
+
+            // STORYTELLER LOGIC: Only for successful data changes.
+            if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const userName = document.getElementById('user-full-name')?.innerText || "An officer";
+                
+                let sentence = "";
+                let category = "Activity";
+
+                if (url.includes('finance')) {
+                    sentence = `${userName} added a new payment record at ${time}`;
+                    category = "Finance";
+                } 
+                else if (url.includes('attendance')) {
+                    sentence = `${userName} updated attendance at ${time}`;
+                    category = "Attendance";
+                }
+                else if (url.includes('students')) {
+                    const action = method === 'DELETE' ? 'removed a student' : 'registered a new student';
+                    sentence = `${userName} ${action} at ${time}`;
+                    category = "Registry";
+                }
+
+                if (sentence) {
+                    requestAnimationFrame(() => this.push(sentence, category));
+                }
+            }
+
+            return response;
+        };
+    },
+
+    push(message, title) {
+        const entry = { id: Date.now(), title, message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        this.notifications.unshift(entry);
+        if (this.notifications.length > 25) this.notifications.pop();
+        
+        this.render();
+        this.toast(title, message);
+        
+        const badge = document.getElementById('noti-badge');
+        if (badge) badge.classList.remove('hidden');
+    },
+
+    render() {
+        const list = document.getElementById('noti-list');
+        if (!list) return;
+        list.innerHTML = this.notifications.map(n => `
+            <div class="px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-in slide-in-from-right-2">
+                <p class="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">${n.title}</p>
+                <p class="text-[11px] text-slate-700 font-medium leading-relaxed">${n.message}</p>
+                <p class="text-[9px] text-slate-300 mt-2 font-bold uppercase tracking-widest">${n.time}</p>
+            </div>
+        `).join('');
+    },
+
+    toast(title, msg) {
+        if (!window.Swal) return;
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            icon: 'info',
+            title: `<span class="text-xs font-black uppercase tracking-tight">${title}</span>`,
+            html: `<span class="text-[11px] text-slate-500 leading-snug">${msg}</span>`,
+            customClass: { popup: 'rounded-3xl border-none shadow-2xl' }
+        });
+    }
+};
+
+/**
+ * FIX #2: Defined window.showAlert so the calls in the login handler
+ * actually do something instead of silently failing.
+ */
+window.showAlert = function(message) {
+    if (window.Swal) {
+        Swal.fire({
+            icon: 'warning',
+            title: message,
+            confirmButtonText: 'OK',
+            customClass: { popup: 'rounded-3xl border-none shadow-2xl' }
+        });
+    } else {
+        alert(message);
+    }
+};
+
+/**
  * APP INITIALIZATION
  */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -79,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             setupUserUI(user);
             
-            // --- URL ROUTER INITIALIZATION ---
+            // URL ROUTER INITIALIZATION
             const initialSection = window.location.hash.replace('#', '') || 'dashboard';
             window.showSection(initialSection);
             
@@ -97,12 +236,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const email = document.getElementById('login-email')?.value;
         const pass = document.getElementById('login-password')?.value;
 
-        if (!email || !pass) return window.showAlert?.("Please enter email and password");
+        if (!email || !pass) return window.showAlert("Please enter email and password");
 
         const { data, error } = await authHandler.signIn(email, pass);
         if (error) {
             logAction('LOGIN_FAILED', `Attempted email: ${email}`);
-            window.showAlert?.(error.message);
+            window.showAlert(error.message);
         } else {
             await logAction('LOGIN_SUCCESS', `User ${email} logged in.`);
             window.location.reload();
@@ -155,32 +294,39 @@ window.showSection = function(sectionId) {
 
     // 3. Show target container
     const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
-    if (target) {
-        target.classList.remove('hidden');
-        requestAnimationFrame(() => {
-            target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
-        });
+    
+    // FIX #5: Handle unknown/invalid section IDs gracefully instead of
+    // silently doing nothing.
+    if (!target) {
+        console.warn(`showSection: no element found for section "${sectionId}". Falling back to dashboard.`);
+        if (sectionId !== 'dashboard') window.showSection('dashboard');
+        return;
+    }
 
-        logAction('NAVIGATE', `Viewed ${sectionId} section`);
+    target.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        target.classList.add('animate-in', 'fade-in', 'slide-in-from-bottom-2', 'duration-500');
+    });
 
-        // 4. Initialize Module-Specific Logic
-        switch(sectionId) {
-            case 'dashboard':
-                dashboardModule.init();
-                break;
-            case 'students':
-                studentModule.init();
-                break;
-            case 'events':
-                eventsModule.render(); 
-                break;
-            case 'attendance':
-                attendanceModule.render(); 
-                break;
-            case 'finance':
-                financeModule.render();
-                break;
-        }
+    logAction('NAVIGATE', `Viewed ${sectionId} section`);
+
+    // 4. Initialize Module-Specific Logic
+    switch(sectionId) {
+        case 'dashboard':
+            dashboardModule.init();
+            break;
+        case 'students':
+            studentModule.init();
+            break;
+        case 'events':
+            eventsModule.render(); 
+            break;
+        case 'attendance':
+            attendanceModule.render(); 
+            break;
+        case 'finance':
+            financeModule.render();
+            break;
     }
 
     // Update Header Title
@@ -197,131 +343,15 @@ window.addEventListener('popstate', () => {
 });
 
 /**
- * UPDATED NAV UI: Handles both onclick and href triggers to keep blue indicator working
+ * NAV UI: Handles both onclick and href triggers to keep blue indicator working
  */
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
         const clickAttr = btn.getAttribute('onclick') || "";
         const hrefAttr = btn.getAttribute('href') || "";
         
-        // Active if either the onclick or the href contains the section ID
         const isActive = clickAttr.includes(`'${sectionId}'`) || hrefAttr === `#${sectionId}`;
         
         btn.classList.toggle('active', isActive);
     });
 }
-
-/**
- * THE STORYTELLER BRAIN: Global Activity Monitor
- */
-const brainInterceptor = {
-    notifications: [],
-
-    init() {
-        this.setupUI();
-        this.interceptFetch();
-    },
-
-    setupUI() {
-        const btn = document.getElementById('btn-notifications');
-        const dropdown = document.getElementById('noti-dropdown');
-        
-        btn?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown?.classList.toggle('hidden');
-            document.getElementById('noti-badge')?.classList.add('hidden');
-        });
-
-        document.addEventListener('click', () => dropdown?.classList.add('hidden'));
-    },
-
-    interceptFetch() {
-        const originalFetch = window.fetch;
-        window.fetch = async (...args) => {
-            const url = args[0].toString();
-            const method = args[1]?.method?.toUpperCase() || 'GET';
-
-            // 1. THE RECURSION SHIELD
-            // Completely ignore logs, internal RPC calls, and Supabase auth refreshes
-            const isInternal = url.includes('audit_logs') || 
-                               url.includes('rpc') || 
-                               url.includes('/auth/v1/user');
-            
-            if (isInternal) {
-                return originalFetch(...args);
-            }
-
-            // 2. RUN THE ACTUAL REQUEST
-            const response = await originalFetch(...args);
-
-            // 3. STORYTELLER LOGIC (Only for successful data changes)
-            if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(method)) {
-                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const userName = document.getElementById('user-full-name')?.innerText || "An officer";
-                
-                let sentence = "";
-                let category = "Activity";
-
-                // Identification logic
-                if (url.includes('finance')) {
-                    sentence = `${userName} added a new payment record at ${time}`;
-                    category = "Finance";
-                } 
-                else if (url.includes('attendance')) {
-                    sentence = `${userName} updated attendance at ${time}`;
-                    category = "Attendance";
-                }
-                else if (url.includes('students')) {
-                    const action = method === 'DELETE' ? 'removed a student' : 'registered a new student';
-                    sentence = `${userName} ${action} at ${time}`;
-                    category = "Registry";
-                }
-
-                // Push only if a sentence was built
-                if (sentence) {
-                    // Use requestAnimationFrame to ensure UI doesn't freeze
-                    requestAnimationFrame(() => this.push(sentence, category));
-                }
-            }
-
-            return response;
-        };
-    },
-    push(message, title) {
-        const entry = { id: Date.now(), title, message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-        this.notifications.unshift(entry);
-        if (this.notifications.length > 25) this.notifications.pop();
-        
-        this.render();
-        this.toast(title, message);
-        
-        const badge = document.getElementById('noti-badge');
-        if (badge) badge.classList.remove('hidden');
-    },
-
-    render() {
-        const list = document.getElementById('noti-list');
-        if (!list) return;
-        list.innerHTML = this.notifications.map(n => `
-            <div class="px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-in slide-in-from-right-2">
-                <p class="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">${n.title}</p>
-                <p class="text-[11px] text-slate-700 font-medium leading-relaxed">${n.message}</p>
-                <p class="text-[9px] text-slate-300 mt-2 font-bold uppercase tracking-widest">${n.time}</p>
-            </div>
-        `).join('');
-    },
-
-    toast(title, msg) {
-        if (!window.Swal) return;
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 4000,
-            icon: 'info',
-            title: `<span class="text-xs font-black uppercase tracking-tight">${title}</span>`,
-            html: `<span class="text-[11px] text-slate-500 leading-snug">${msg}</span>`,
-            customClass: { popup: 'rounded-3xl border-none shadow-2xl' }
-        });
-    }
-};
