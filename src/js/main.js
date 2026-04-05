@@ -53,8 +53,6 @@ const sidebarController = {
 
 /**
  * THE STORYTELLER BRAIN: Global Activity Monitor
- * FIX #1: Moved ABOVE the DOMContentLoaded block so brainInterceptor.init()
- * can safely reference it without a ReferenceError.
  */
 const brainInterceptor = {
     notifications: [],
@@ -79,16 +77,12 @@ const brainInterceptor = {
 
     interceptFetch() {
         const originalFetch = window.fetch;
-        // FIX #3: Added a re-entry flag to prevent cascading notifications
-        // from any intercepted fetch triggered inside the storyteller logic itself.
         let _intercepting = false;
 
         window.fetch = async (...args) => {
             const url = args[0].toString();
             const method = args[1]?.method?.toUpperCase() || 'GET';
 
-            // RECURSION SHIELD: Ignore audit logs, RPC calls, and auth refreshes.
-            // Also skip if we're already inside the interceptor (re-entry guard).
             const isInternal = url.includes('audit_logs') || 
                                url.includes('rpc') || 
                                url.includes('/auth/v1/user');
@@ -98,31 +92,36 @@ const brainInterceptor = {
             }
 
             _intercepting = true;
-            // FIX #4: Clone the response so both the interceptor and the
-            // original caller can each consume the body independently.
             const response = await originalFetch(...args);
             _intercepting = false;
 
-            // STORYTELLER LOGIC: Only for successful data changes.
-            if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+            // Handle Successful Data Changes & Logins
+            if (response.ok) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const userName = document.getElementById('user-full-name')?.innerText || "An officer";
-                
                 let sentence = "";
                 let category = "Activity";
 
-                if (url.includes('finance')) {
-                    sentence = `${userName} added a new payment record at ${time}`;
-                    category = "Finance";
-                } 
-                else if (url.includes('attendance')) {
-                    sentence = `${userName} updated attendance at ${time}`;
-                    category = "Attendance";
+                // LOGIN DETECTION
+                if (url.includes('/auth/v1/token') && method === 'POST') {
+                    sentence = `${userName} authenticated into the portal at ${time}`;
+                    category = "System";
                 }
-                else if (url.includes('students')) {
-                    const action = method === 'DELETE' ? 'removed a student' : 'registered a new student';
-                    sentence = `${userName} ${action} at ${time}`;
-                    category = "Registry";
+                // DATA CHANGES
+                else if (['POST', 'PATCH', 'DELETE'].includes(method)) {
+                    if (url.includes('finance')) {
+                        sentence = `${userName} added a new payment record at ${time}`;
+                        category = "Finance";
+                    } 
+                    else if (url.includes('attendance')) {
+                        sentence = `${userName} updated attendance at ${time}`;
+                        category = "Attendance";
+                    }
+                    else if (url.includes('students')) {
+                        const action = method === 'DELETE' ? 'removed a student' : 'registered a new student';
+                        sentence = `${userName} ${action} at ${time}`;
+                        category = "Registry";
+                    }
                 }
 
                 if (sentence) {
@@ -135,7 +134,12 @@ const brainInterceptor = {
     },
 
     push(message, title) {
-        const entry = { id: Date.now(), title, message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        const entry = { 
+            id: Date.now(), 
+            title, 
+            message, 
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+        };
         this.notifications.unshift(entry);
         if (this.notifications.length > 25) this.notifications.pop();
         
@@ -147,15 +151,28 @@ const brainInterceptor = {
     },
 
     render() {
-        const list = document.getElementById('noti-list');
-        if (!list) return;
-        list.innerHTML = this.notifications.map(n => `
-            <div class="px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-in slide-in-from-right-2">
-                <p class="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">${n.title}</p>
-                <p class="text-[11px] text-slate-700 font-medium leading-relaxed">${n.message}</p>
-                <p class="text-[9px] text-slate-300 mt-2 font-bold uppercase tracking-widest">${n.time}</p>
+        const listHTML = this.notifications.map(n => `
+            <div class="flex gap-3 px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-in slide-in-from-right-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-600/10 flex items-center justify-center flex-shrink-0 text-blue-600 font-black text-[10px]">
+                    ${n.title.substring(0,2).toUpperCase()}
+                </div>
+                <div class="flex-1">
+                    <p class="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">${n.title}</p>
+                    <p class="text-[11px] text-slate-700 font-medium leading-tight">${n.message}</p>
+                    <p class="text-[9px] text-slate-300 mt-2 font-bold uppercase tracking-widest">${n.time}</p>
+                </div>
             </div>
         `).join('');
+
+        // Update Header Dropdown
+        const list = document.getElementById('noti-list');
+        if (list) list.innerHTML = listHTML;
+
+        // Update Dashboard Live Monitor (audit-log-list)
+        const dashboardFeed = document.getElementById('audit-log-list');
+        if (dashboardFeed && this.notifications.length > 0) {
+            dashboardFeed.innerHTML = listHTML;
+        }
     },
 
     toast(title, msg) {
@@ -174,8 +191,7 @@ const brainInterceptor = {
 };
 
 /**
- * FIX #2: Defined window.showAlert so the calls in the login handler
- * actually do something instead of silently failing.
+ * UTILITY: ALERT SYSTEM
  */
 window.showAlert = function(message) {
     if (window.Swal) {
@@ -199,8 +215,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     sidebarController.init();
-    
-    // Initialize Notification Brain
     brainInterceptor.init();
 
     const authScreen = document.getElementById('auth-screen');
@@ -212,13 +226,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (user) {
             authScreen?.classList.add('hidden');
             appScreen?.classList.remove('hidden');
-            
             const role = user.user_metadata?.role || 'staff'; 
             localStorage.setItem('user_role', role);
-            
             setupUserUI(user);
             
-            // URL ROUTER INITIALIZATION
             const initialSection = window.location.hash.replace('#', '') || 'dashboard';
             window.showSection(initialSection);
             
@@ -231,11 +242,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Auth Connection Failed:", err.message);
     }
 
-    // Login Action
     document.getElementById('btn-login-exec')?.addEventListener('click', async () => {
         const email = document.getElementById('login-email')?.value;
         const pass = document.getElementById('login-password')?.value;
-
         if (!email || !pass) return window.showAlert("Please enter email and password");
 
         const { data, error } = await authHandler.signIn(email, pass);
@@ -248,7 +257,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Logout Action
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
         await logAction('LOGOUT', 'User initiated logout.');
         await authHandler.logout();
@@ -281,24 +289,19 @@ function setupUserUI(user) {
  * ROUTER / SECTION SWITCHER
  */
 window.showSection = function(sectionId) {
-    // 1. Update URL Hash without refreshing
     if (window.location.hash !== `#${sectionId}`) {
         window.history.pushState(null, null, `#${sectionId}`);
     }
 
-    // 2. Hide all containers and reset animations
     document.querySelectorAll('.module-container, section').forEach(el => {
         el.classList.add('hidden');
         el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-2');
     });
 
-    // 3. Show target container
     const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
     
-    // FIX #5: Handle unknown/invalid section IDs gracefully instead of
-    // silently doing nothing.
     if (!target) {
-        console.warn(`showSection: no element found for section "${sectionId}". Falling back to dashboard.`);
+        console.warn(`showSection fallback: ${sectionId}`);
         if (sectionId !== 'dashboard') window.showSection('dashboard');
         return;
     }
@@ -310,48 +313,30 @@ window.showSection = function(sectionId) {
 
     logAction('NAVIGATE', `Viewed ${sectionId} section`);
 
-    // 4. Initialize Module-Specific Logic
     switch(sectionId) {
-        case 'dashboard':
-            dashboardModule.init();
-            break;
-        case 'students':
-            studentModule.init();
-            break;
-        case 'events':
-            eventsModule.render(); 
-            break;
-        case 'attendance':
-            attendanceModule.render(); 
-            break;
-        case 'finance':
-            financeModule.render();
-            break;
+        case 'dashboard': dashboardModule.init(); break;
+        case 'students': studentModule.init(); break;
+        case 'events': eventsModule.render(); break;
+        case 'attendance': attendanceModule.render(); break;
+        case 'finance': financeModule.render(); break;
     }
 
-    // Update Header Title
     const title = document.getElementById('current-page-title');
     if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
     
     updateNavUI(sectionId);
 };
 
-// Listen for Browser Back/Forward buttons
 window.addEventListener('popstate', () => {
     const sectionId = window.location.hash.replace('#', '') || 'dashboard';
     window.showSection(sectionId);
 });
 
-/**
- * NAV UI: Handles both onclick and href triggers to keep blue indicator working
- */
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
         const clickAttr = btn.getAttribute('onclick') || "";
         const hrefAttr = btn.getAttribute('href') || "";
-        
         const isActive = clickAttr.includes(`'${sectionId}'`) || hrefAttr === `#${sectionId}`;
-        
         btn.classList.toggle('active', isActive);
     });
 }
