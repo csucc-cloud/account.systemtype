@@ -76,8 +76,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             setupUserUI(user);
             
-            // Start at Dashboard by default
-            window.showSection('dashboard');
+            // --- URL ROUTER INITIALIZATION ---
+            // Check if there is already a hash in the URL (e.g., #finance)
+            const initialSection = window.location.hash.replace('#', '') || 'dashboard';
+            window.showSection(initialSection);
             
             logAction('SESSION_RESTORED', `User ${user.email} reconnected.`);
         } else {
@@ -138,13 +140,18 @@ function setupUserUI(user) {
  * ROUTER / SECTION SWITCHER
  */
 window.showSection = function(sectionId) {
-    // 1. Hide all containers and reset animations
+    // 1. Update URL Hash without refreshing (This fixes your URL issue)
+    if (window.location.hash !== `#${sectionId}`) {
+        window.history.pushState(null, null, `#${sectionId}`);
+    }
+
+    // 2. Hide all containers and reset animations
     document.querySelectorAll('.module-container, section').forEach(el => {
         el.classList.add('hidden');
         el.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-2');
     });
 
-    // 2. Show target container
+    // 3. Show target container
     const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
     if (target) {
         target.classList.remove('hidden');
@@ -154,8 +161,7 @@ window.showSection = function(sectionId) {
 
         logAction('NAVIGATE', `Viewed ${sectionId} section`);
 
-        // 3. Initialize Module-Specific Logic
-        // Each module is now responsible for its own data fetching and rendering
+        // 4. Initialize Module-Specific Logic
         switch(sectionId) {
             case 'dashboard':
                 dashboardModule.init();
@@ -167,7 +173,6 @@ window.showSection = function(sectionId) {
                 eventsModule.render(); 
                 break;
             case 'attendance':
-                // Removed the guard. Attendance module now handles its own event selection.
                 attendanceModule.render(); 
                 break;
             case 'finance':
@@ -182,6 +187,12 @@ window.showSection = function(sectionId) {
     
     updateNavUI(sectionId);
 };
+
+// Listen for Browser Back/Forward buttons
+window.addEventListener('popstate', () => {
+    const sectionId = window.location.hash.replace('#', '') || 'dashboard';
+    window.showSection(sectionId);
+});
 
 function updateNavUI(sectionId) {
     document.querySelectorAll('.nav-item').forEach(btn => {
