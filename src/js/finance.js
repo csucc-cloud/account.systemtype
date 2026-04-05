@@ -207,7 +207,7 @@ export const financeModule = {
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">${student.student_id}</p>
                     
                     <div class="mt-10 space-y-4">
-                        <button onclick="financeModule.showAddPaymentForm('${student.id}')" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">New Payment</button>
+                        <button onclick="financeModule.showAddPaymentForm('${student.student_id}')" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">New Payment</button>
                         <div class="p-4 bg-white rounded-2xl border border-slate-100">
                             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email Status</p>
                             <p class="text-xs font-bold text-slate-700 mt-1">${student.email || 'NO EMAIL PROVIDED'}</p>
@@ -226,7 +226,7 @@ export const financeModule = {
                             <div class="p-6 bg-white border border-slate-100 rounded-[2rem] flex justify-between items-center shadow-sm">
                                 <div>
                                     <p class="text-xs font-black text-slate-800">₱ ${p.amount_paid.toLocaleString()}</p>
-                                    <p class="text-[9px] font-bold text-slate-400 mt-1">${p.receipt_number} | ${new Date(p.created_at).toLocaleDateString()}</p>
+                                    <p class="text-[9px] font-bold text-slate-400 mt-1">${p.receit_number} | ${new Date(p.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <div class="flex gap-2">
                                     <button onclick="financeModule.sendEmailReceipt('${p.id}')" title="Send Email" class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><i data-lucide="mail" class="w-4 h-4"></i></button>
@@ -241,8 +241,8 @@ export const financeModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
-    showAddPaymentForm(studentUUID) {
-        const student = this.state.students.find(s => s.id === studentUUID);
+    showAddPaymentForm(studentIDString) {
+        const student = this.state.students.find(s => s.student_id === studentIDString);
         const historyList = document.getElementById('payment-history-list');
         
         historyList.innerHTML = `
@@ -258,7 +258,7 @@ export const financeModule = {
                         <input type="text" id="new-pay-remarks" placeholder="Optional notes..." class="w-full mt-1 p-4 rounded-xl border-none ring-1 ring-slate-200">
                     </div>
                     <div class="flex gap-3 pt-4">
-                        <button onclick="financeModule.submitPayment('${studentUUID}')" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest">Confirm Payment</button>
+                        <button onclick="financeModule.submitPayment('${studentIDString}')" class="flex-1 py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest">Confirm Payment</button>
                         <button onclick="financeModule.viewStudentFinance('${student.student_id}')" class="px-6 py-4 bg-slate-200 text-slate-600 rounded-xl font-black uppercase text-[10px]">Cancel</button>
                     </div>
                 </div>
@@ -266,20 +266,20 @@ export const financeModule = {
         `;
     },
 
-    async submitPayment(studentUUID) {
+    async submitPayment(studentIDString) {
         const amount = document.getElementById('new-pay-amount').value;
         const remarks = document.getElementById('new-pay-remarks').value;
         const receiptNo = `OR-${Date.now().toString().slice(-8)}`;
 
         const { data, error } = await supabase.from('payments').insert([{
-            student_id: studentUUID,
+            student_id: studentIDString,
             amount_paid: parseFloat(amount),
-            receipt_number: receiptNo,
+            receit_number: receiptNo,
             academic_period_id: this.state.activePeriod.id,
             remarks: remarks
         }]).select().single();
 
-        if (error) return alert(error.message);
+        if (error) return alert("Submission Failed: " + error.message);
         
         alert("Payment Recorded Successfully");
         await this.fetchStudents(); 
@@ -297,7 +297,7 @@ export const financeModule = {
 
     // --- PRINTING & QR LOGIC ---
     generateQRReceipt(payment) {
-        const student = this.state.students.find(s => s.id === payment.student_id);
+        const student = this.state.students.find(s => s.student_id === payment.student_id);
         const printArea = document.getElementById('print-area');
         
         printArea.innerHTML = `
@@ -310,12 +310,12 @@ export const financeModule = {
                 </div>
                 <p class="text-2xl font-black italic">₱${payment.amount_paid.toLocaleString()}</p>
                 <div id="receipt-qr-code" class="flex justify-center my-6"></div>
-                <p class="text-[8px] font-mono uppercase">${payment.receipt_number}</p>
+                <p class="text-[8px] font-mono uppercase">${payment.receit_number}</p>
             </div>
         `;
 
         new QRCode(document.getElementById("receipt-qr-code"), {
-            text: `VERIFY:${payment.receipt_number}:${student.student_id}:${payment.amount_paid}`,
+            text: `VERIFY:${payment.receit_number}:${student.student_id}:${payment.amount_paid}`,
             width: 128,
             height: 128
         });
@@ -342,7 +342,7 @@ export const financeModule = {
                     <div class="border-2 border-dashed border-slate-300 p-8 flex flex-col justify-between text-center bg-white">
                         <div>
                             <h2 class="text-sm font-black uppercase">Audit Copy - ${activeOrg}</h2>
-                            <p class="text-[8px] text-slate-400">${p.receipt_number}</p>
+                            <p class="text-[8px] text-slate-400">${p.receit_number}</p>
                         </div>
                         <div class="py-4">
                             <p class="text-xs font-bold">${p.students?.full_name}</p>
@@ -357,7 +357,7 @@ export const financeModule = {
 
         payments.forEach(p => {
             new QRCode(document.getElementById(`audit-qr-${p.id}`), {
-                text: p.receipt_number,
+                text: p.receit_number,
                 width: 70,
                 height: 70
             });
