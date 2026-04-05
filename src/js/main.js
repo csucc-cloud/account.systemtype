@@ -60,6 +60,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     sidebarController.init();
+    
+    // Initialize Notification Brain
+    brainInterceptor.init();
 
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app');
@@ -207,3 +210,113 @@ function updateNavUI(sectionId) {
         btn.classList.toggle('active', isActive);
     });
 }
+
+/**
+ * THE STORYTELLER BRAIN: Global Activity Monitor
+ */
+const brainInterceptor = {
+    notifications: [],
+
+    init() {
+        this.setupUI();
+        this.interceptFetch();
+    },
+
+    setupUI() {
+        const btn = document.getElementById('btn-notifications');
+        const dropdown = document.getElementById('noti-dropdown');
+        
+        btn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown?.classList.toggle('hidden');
+            document.getElementById('noti-badge')?.classList.add('hidden');
+        });
+
+        document.addEventListener('click', () => dropdown?.classList.add('hidden'));
+    },
+
+    interceptFetch() {
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            const url = args[0].toString();
+            const method = args[1]?.method?.toUpperCase() || 'GET';
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const userName = document.getElementById('user-full-name')?.innerText || "An officer";
+
+            // 1. LOGIN / LOGOUT SENTENCES
+            if (url.includes('/auth/v1/token') && response.ok && method === 'POST') {
+                setTimeout(() => {
+                    const freshName = document.getElementById('user-full-name')?.innerText || "Officer";
+                    this.push(`${freshName} logged into the system at ${time}`, "System Access");
+                }, 1000);
+            }
+
+            // 2. DATA ACTIVITY SENTENCES
+            if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(method)) {
+                if (url.includes('/auth/v1/')) return response; // Ignore internal auth traffic
+
+                let sentence = "";
+                let category = "Activity";
+
+                if (url.includes('finance')) {
+                    sentence = `${userName} added a new payment record at ${time}`;
+                    category = "Finance";
+                } 
+                else if (url.includes('attendance')) {
+                    sentence = `${userName} started tracking attendance at ${time}`;
+                    category = "Attendance";
+                }
+                else if (url.includes('students')) {
+                    const action = method === 'DELETE' ? 'removed a student' : 'registered a new student';
+                    sentence = `${userName} ${action} at ${time}`;
+                    category = "Registry";
+                }
+                else if (url.includes('events')) {
+                    sentence = `${userName} updated the event details at ${time}`;
+                    category = "Events";
+                }
+
+                if (sentence) this.push(sentence, category);
+            }
+
+            return response;
+        };
+    },
+
+    push(message, title) {
+        const entry = { id: Date.now(), title, message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        this.notifications.unshift(entry);
+        if (this.notifications.length > 25) this.notifications.pop();
+        
+        this.render();
+        this.toast(title, message);
+        document.getElementById('noti-badge')?.classList.remove('hidden');
+    },
+
+    render() {
+        const list = document.getElementById('noti-list');
+        if (!list) return;
+        list.innerHTML = this.notifications.map(n => `
+            <div class="px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors animate-in slide-in-from-right-2">
+                <p class="text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">${n.title}</p>
+                <p class="text-[11px] text-slate-700 font-medium leading-relaxed">${n.message}</p>
+                <p class="text-[9px] text-slate-300 mt-2 font-bold uppercase tracking-widest">${n.time}</p>
+            </div>
+        `).join('');
+    },
+
+    toast(title, msg) {
+        if (!window.Swal) return;
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            icon: 'info',
+            title: `<span class="text-xs font-black uppercase tracking-tight">${title}</span>`,
+            html: `<span class="text-[11px] text-slate-500 leading-snug">${msg}</span>`,
+            customClass: { popup: 'rounded-3xl border-none shadow-2xl' }
+        });
+    }
+};
