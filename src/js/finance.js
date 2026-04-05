@@ -70,8 +70,8 @@ export const financeModule = {
                         </div>
                     </div>
 
-                    <div class="lg:col-span-4">
-                        <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-10 rounded-[3rem] text-white shadow-2xl sticky top-10">
+                    <div class="lg:col-span-4 space-y-6">
+                        <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-10 rounded-[3rem] text-white shadow-2xl">
                             <p class="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">System Collection</p>
                             <h2 class="text-4xl font-black mt-4 italic tracking-tighter">₱ <span id="total-val">0.00</span></h2>
                             <div class="mt-10 space-y-3">
@@ -79,6 +79,18 @@ export const financeModule = {
                                     Print A4 Audit (4-per-sheet)
                                 </button>
                                 <p class="text-center text-[9px] text-slate-500 font-bold uppercase">Super Admin Access Verified</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                                    <i data-lucide="users" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Students</p>
+                                    <h3 id="student-count-val" class="text-2xl font-black text-slate-900">0</h3>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -125,7 +137,7 @@ export const financeModule = {
             query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%,course.ilike.%${searchTerm}%`);
         }
 
-        const { data, error } = await query.limit(50);
+        const { data, error } = await query.limit(100);
         if (error) {
             console.error("Fetch error:", error);
             return;
@@ -133,16 +145,21 @@ export const financeModule = {
 
         this.state.students = data || [];
         this.renderStudentRows();
-        this.updateCollectionTotal();
+        this.updateStats();
     },
 
     // --- UI UPDATES ---
-    updateCollectionTotal() {
+    updateStats() {
+        // Total Collection
         const total = this.state.students.reduce((acc, s) => {
             return acc + (s.payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0);
         }, 0);
         const el = document.getElementById('total-val');
         if (el) el.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+        // Total Students Count
+        const countEl = document.getElementById('student-count-val');
+        if (countEl) countEl.innerText = this.state.students.length;
     },
 
     renderStudentRows() {
@@ -227,7 +244,6 @@ export const financeModule = {
     },
 
     showAddPaymentForm(studentUUID) {
-        // Find student by the UUID (id) passed from the Manage button
         const student = this.state.students.find(s => s.id === studentUUID);
         const historyList = document.getElementById('payment-history-list');
         
@@ -275,12 +291,10 @@ export const financeModule = {
 
     async sendEmailReceipt(paymentId) {
         alert("Preparing digital receipt. Redirecting to Mailer...");
-        // This is where you would call an Edge Function or Email API
     },
 
     initScanner() {
         alert("Accessing Camera for Verification...");
-        // Integration for QR Library (e.g., Html5QrcodeScanner) goes here
     },
 
     // --- PRINTING & QR LOGIC ---
@@ -354,7 +368,6 @@ export const financeModule = {
         setTimeout(() => { window.print(); }, 1000);
     },
 
-    // --- SEMESTER LOGIC ---
     async handleRollover() {
         if(!confirm("DANGER: This will deactivate the current semester and set up a new collection period. Continue?")) return;
 
@@ -381,5 +394,4 @@ export const financeModule = {
     }
 };
 
-// EXPOSE TO WINDOW FOR ONCLICK EVENTS
 window.financeModule = financeModule;
