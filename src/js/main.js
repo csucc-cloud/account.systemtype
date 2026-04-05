@@ -241,37 +241,34 @@ const brainInterceptor = {
             const url = args[0].toString();
             const method = args[1]?.method?.toUpperCase() || 'GET';
 
-            // CRITICAL GUARD: Prevent recursion crash
-            // We exit immediately if the request is related to the logger itself
-            if (url.includes('audit_logs') || url.includes('rpc')) {
+            // 1. THE RECURSION SHIELD
+            // Completely ignore logs, internal RPC calls, and Supabase auth refreshes
+            const isInternal = url.includes('audit_logs') || 
+                               url.includes('rpc') || 
+                               url.includes('/auth/v1/user');
+            
+            if (isInternal) {
                 return originalFetch(...args);
             }
 
+            // 2. RUN THE ACTUAL REQUEST
             const response = await originalFetch(...args);
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const userName = document.getElementById('user-full-name')?.innerText || "An officer";
 
-            // 1. LOGIN SENTENCES
-            if (url.includes('/auth/v1/token') && response.ok && method === 'POST') {
-                setTimeout(() => {
-                    const freshName = document.getElementById('user-full-name')?.innerText || "Officer";
-                    this.push(`${freshName} logged into the system at ${time}`, "System Access");
-                }, 1000);
-            }
-
-            // 2. DATA ACTIVITY SENTENCES
+            // 3. STORYTELLER LOGIC (Only for successful data changes)
             if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(method)) {
-                if (url.includes('/auth/v1/')) return response; 
-
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const userName = document.getElementById('user-full-name')?.innerText || "An officer";
+                
                 let sentence = "";
                 let category = "Activity";
 
+                // Identification logic
                 if (url.includes('finance')) {
                     sentence = `${userName} added a new payment record at ${time}`;
                     category = "Finance";
                 } 
                 else if (url.includes('attendance')) {
-                    sentence = `${userName} started tracking attendance at ${time}`;
+                    sentence = `${userName} updated attendance at ${time}`;
                     category = "Attendance";
                 }
                 else if (url.includes('students')) {
@@ -279,18 +276,17 @@ const brainInterceptor = {
                     sentence = `${userName} ${action} at ${time}`;
                     category = "Registry";
                 }
-                else if (url.includes('events')) {
-                    sentence = `${userName} updated the event details at ${time}`;
-                    category = "Events";
-                }
 
-                if (sentence) this.push(sentence, category);
+                // Push only if a sentence was built
+                if (sentence) {
+                    // Use requestAnimationFrame to ensure UI doesn't freeze
+                    requestAnimationFrame(() => this.push(sentence, category));
+                }
             }
 
             return response;
         };
     },
-
     push(message, title) {
         const entry = { id: Date.now(), title, message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
         this.notifications.unshift(entry);
