@@ -42,7 +42,7 @@ export const financeModule = {
                         <button onclick="financeModule.handleRollover()" class="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
                             Roll-over Semester
                         </button>
-                        <button id="btn-scan-receipt" class="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                        <button id="btn-scan-receipt" onclick="financeModule.initScanner()" class="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
                             Verify Receipt
                         </button>
                     </div>
@@ -51,7 +51,7 @@ export const financeModule = {
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl mx-auto">
                     <div class="lg:col-span-8 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                         <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-                            <input type="text" id="search-finance" placeholder="Search Name or ID..." class="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <input type="text" id="search-finance" placeholder="Search Name, ID, or Course..." class="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none">
                             <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Live Ledger</div>
                         </div>
                         <div class="overflow-x-auto">
@@ -92,6 +92,10 @@ export const financeModule = {
             </div>
 
             <div id="print-area" class="hidden print:block"></div>
+            <div id="scanner-container" class="hidden fixed inset-0 z-[200] bg-black flex items-center justify-center">
+                 <div id="reader" class="w-full max-w-md bg-white rounded-3xl overflow-hidden"></div>
+                 <button onclick="financeModule.closeScanner()" class="absolute top-10 right-10 text-white font-black">CLOSE</button>
+            </div>
         `;
 
         document.getElementById('search-finance')?.addEventListener('input', (e) => this.fetchStudents(e.target.value));
@@ -118,7 +122,7 @@ export const financeModule = {
             .contains('organization_owner', [activeOrg.trim()]);
 
         if (searchTerm) {
-            query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
+            query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%,course.ilike.%${searchTerm}%`);
         }
 
         const { data, error } = await query.limit(50);
@@ -154,7 +158,8 @@ export const financeModule = {
                 <tr class="group hover:bg-blue-50/30 transition-all">
                     <td class="px-8 py-5">
                         <div class="font-black text-slate-800 text-sm">${s.full_name}</div>
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
+                        <div class="text-[10px] font-bold text-blue-600 uppercase tracking-widest">${s.course || 'GENERAL'} | YEAR ${s.year_level || 'N/A'}</div>
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
                     </td>
                     <td class="px-8 py-5 text-right">
                         <span class="text-sm font-black text-rose-500 italic">₱ ${balance.toLocaleString()}</span>
@@ -183,7 +188,8 @@ export const financeModule = {
                         ${student.full_name.charAt(0)}
                     </div>
                     <h2 class="text-2xl font-black text-slate-900 leading-tight">${student.full_name}</h2>
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">${student.student_id}</p>
+                    <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">${student.course} - Year ${student.year_level}</p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">${student.student_id}</p>
                     
                     <div class="mt-10 space-y-4">
                         <button onclick="financeModule.showAddPaymentForm('${student.id}')" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">New Payment</button>
@@ -208,7 +214,8 @@ export const financeModule = {
                                     <p class="text-[9px] font-bold text-slate-400 mt-1">${p.receipt_number} | ${new Date(p.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <div class="flex gap-2">
-                                    <button onclick="financeModule.reprintReceipt('${p.id}')" class="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                                    <button onclick="financeModule.sendEmailReceipt('${p.id}')" title="Send Email" class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><i data-lucide="mail" class="w-4 h-4"></i></button>
+                                    <button onclick="financeModule.reprintReceipt('${p.id}')" title="Print" class="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all"><i data-lucide="printer" class="w-4 h-4"></i></button>
                                 </div>
                             </div>
                         `).join('') : '<div class="text-center py-20 text-slate-300 italic font-bold">No payments found for this semester.</div>'}
@@ -220,6 +227,7 @@ export const financeModule = {
     },
 
     showAddPaymentForm(studentUUID) {
+        // Find student by the UUID (id) passed from the Manage button
         const student = this.state.students.find(s => s.id === studentUUID);
         const historyList = document.getElementById('payment-history-list');
         
@@ -263,6 +271,16 @@ export const financeModule = {
         await this.fetchStudents(); 
         this.generateQRReceipt(data); 
         document.getElementById('finance-modal').classList.add('hidden');
+    },
+
+    async sendEmailReceipt(paymentId) {
+        alert("Preparing digital receipt. Redirecting to Mailer...");
+        // This is where you would call an Edge Function or Email API
+    },
+
+    initScanner() {
+        alert("Accessing Camera for Verification...");
+        // Integration for QR Library (e.g., Html5QrcodeScanner) goes here
     },
 
     // --- PRINTING & QR LOGIC ---
