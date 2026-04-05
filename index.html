@@ -133,12 +133,34 @@
                     <h2 id="current-page-title" class="text-2xl font-black text-[#000080]">Dashboard</h2>
                 </div>
                 
-                <div class="flex items-center gap-4">
-                    <div class="text-right">
-                        <p id="user-full-name" class="text-sm font-bold">Admin User</p>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase">Officer</p>
+                <div class="flex items-center gap-2 md:gap-4">
+                    <div class="relative">
+                        <button id="btn-notifications" class="relative p-2.5 text-slate-400 hover:text-[#000080] hover:bg-blue-50 rounded-xl transition-all group">
+                            <i data-lucide="bell" class="w-5 h-5 group-hover:rotate-12 transition-transform"></i>
+                            <span id="noti-badge" class="absolute top-2.5 right-2.5 w-2 h-2 bg-red-600 rounded-full border-2 border-white hidden animate-pulse"></span>
+                        </button>
+
+                        <div id="noti-dropdown" class="absolute right-0 mt-3 w-80 bg-white border border-slate-200 rounded-[28px] shadow-2xl py-5 z-50 hidden animate-in fade-in slide-in-from-top-2">
+                            <div class="px-6 pb-4 border-b border-slate-100 flex justify-between items-center">
+                                <h3 class="font-black text-sm text-slate-800 tracking-tight">Activity Feed</h3>
+                                <span class="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter">Live Monitor</span>
+                            </div>
+                            <div id="noti-list" class="max-h-[380px] overflow-y-auto custom-scrollbar">
+                                <div class="p-10 text-center space-y-3">
+                                    <i data-lucide="activity" class="w-8 h-8 text-slate-200 mx-auto"></i>
+                                    <p class="text-xs text-slate-400 font-medium">Monitoring system activity...</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <img id="user-avatar" src="https://ui-avatars.com/api/?name=Admin&background=000080&color=fff" class="w-10 h-10 rounded-full border-2 border-white shadow-sm">
+
+                    <div class="flex items-center gap-4 border-l pl-4 border-slate-100">
+                        <div class="text-right hidden sm:block">
+                            <p id="user-full-name" class="text-sm font-bold">Admin User</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Officer</p>
+                        </div>
+                        <img id="user-avatar" src="https://ui-avatars.com/api/?name=Admin&background=000080&color=fff" class="w-10 h-10 rounded-full border-2 border-white shadow-sm">
+                    </div>
                 </div>
             </header>
 
