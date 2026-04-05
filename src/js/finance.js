@@ -59,7 +59,7 @@ export const financeModule = {
                                 <thead>
                                     <tr class="bg-slate-50/50">
                                         <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-400">Student Detail</th>
-                                        <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-400 text-right">Balance</th>
+                                        <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-400 text-right">Amount Paid</th>
                                         <th class="px-8 py-5 text-[10px] font-black uppercase text-slate-400 text-right">Action</th>
                                     </tr>
                                 </thead>
