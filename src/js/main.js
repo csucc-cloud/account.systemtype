@@ -1,4 +1,4 @@
-import { authHandler } from './auth.js';
+import { authHandler, supabase } from './auth.js';
 import { dashboardModule } from './dashboard.js'; 
 import { studentModule } from './students.js';
 import { eventsModule } from './events.js'; 
@@ -60,6 +60,7 @@ const brainInterceptor = {
     init() {
         this.setupUI();
         this.interceptFetch();
+        this.loadFromDB(); // Load saved notifications on startup
     },
 
     setupUI() {
@@ -75,6 +76,38 @@ const brainInterceptor = {
         document.addEventListener('click', () => dropdown?.classList.add('hidden'));
     },
 
+    async loadFromDB() {
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(25);
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                this.notifications = data.map(n => ({
+                    id: n.id,
+                    title: n.title,
+                    message: n.message,
+                    time: new Date(n.created_at).toLocaleTimeString([], { 
+                        hour: '2-digit', minute: '2-digit' 
+                    })
+                }));
+                this.render();
+
+                // Show badge if there are unread notifications
+                const hasUnread = data.some(n => !n.is_read);
+                if (hasUnread) {
+                    document.getElementById('noti-badge')?.classList.remove('hidden');
+                }
+            }
+        } catch (err) {
+            console.error('Failed to load notifications:', err);
+        }
+    },
+
     interceptFetch() {
         const originalFetch = window.fetch;
         let _intercepting = false;
@@ -85,7 +118,8 @@ const brainInterceptor = {
 
             const isInternal = url.includes('audit_logs') || 
                                url.includes('rpc') || 
-                               url.includes('/auth/v1/user');
+                               url.includes('/auth/v1/user') ||
+                               url.includes('notifications'); // Prevent recursion
             
             if (isInternal || _intercepting) {
                 return originalFetch(...args);
@@ -133,13 +167,25 @@ const brainInterceptor = {
         };
     },
 
-    push(message, title) {
-        const entry = { 
-            id: Date.now(), 
-            title, 
-            message, 
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-        };
+    async push(message, title) {
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const entry = { id: Date.now(), title, message, time };
+
+        // Save to Supabase
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('notifications').insert({
+                    user_id: user.id,
+                    title,
+                    message
+                });
+            }
+        } catch (err) {
+            console.error('Failed to save notification:', err);
+        }
+
+        // Update in-memory list
         this.notifications.unshift(entry);
         if (this.notifications.length > 25) this.notifications.pop();
         
