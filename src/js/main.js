@@ -60,7 +60,7 @@ const brainInterceptor = {
     init() {
         this.setupUI();
         this.interceptFetch();
-        this.loadFromDB(); // Load saved notifications on startup
+        // loadFromDB() is called after user is confirmed logged in
     },
 
     setupUI() {
@@ -275,6 +275,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const role = user.user_metadata?.role || 'staff'; 
             localStorage.setItem('user_role', role);
             setupUserUI(user);
+
+            // Load notifications only after user is confirmed logged in
+            await brainInterceptor.loadFromDB();
             
             const initialSection = window.location.hash.replace('#', '') || 'dashboard';
             window.showSection(initialSection);
