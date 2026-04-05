@@ -1,6 +1,7 @@
 import { supabase } from './auth.js';
 
 export const financeModule = {
+    // --- STATE MANAGEMENT ---
     state: {
         activePeriod: null,
         allPeriods: [],
@@ -9,6 +10,7 @@ export const financeModule = {
         isScannerActive: false
     },
 
+    // --- MAIN RENDERER ---
     async render() {
         const container = document.getElementById('mod-finance');
         if (!container) return;
@@ -97,6 +99,7 @@ export const financeModule = {
         if (window.lucide) window.lucide.createIcons();
     },
 
+    // --- DATA FETCHING ---
     async fetchMetadata() {
         try {
             const { data } = await supabase.from('academic_periods').select('*').order('created_at', { ascending: false });
@@ -106,12 +109,10 @@ export const financeModule = {
     },
 
     async fetchStudents(searchTerm = '') {
-        // Dynamic Org Detection based on your sidebar labels
         const activeOrg = document.querySelector('.organization-name-label')?.innerText || 
                           document.querySelector('.organization-info p')?.innerText || 
                           'CITTE LSG';
 
-        // Filter by organization_owner array
         let query = supabase.from('students')
             .select('*, payments(*)')
             .contains('organization_owner', [activeOrg.trim()]);
@@ -131,6 +132,7 @@ export const financeModule = {
         this.updateCollectionTotal();
     },
 
+    // --- UI UPDATES ---
     updateCollectionTotal() {
         const total = this.state.students.reduce((acc, s) => {
             return acc + (s.payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0);
@@ -167,6 +169,7 @@ export const financeModule = {
         }).join('');
     },
 
+    // --- STUDENT MODAL & PAYMENT ---
     async viewStudentFinance(studentId) {
         const student = this.state.students.find(s => s.student_id === studentId);
         const modal = document.getElementById('finance-modal');
@@ -262,6 +265,7 @@ export const financeModule = {
         document.getElementById('finance-modal').classList.add('hidden');
     },
 
+    // --- PRINTING & QR LOGIC ---
     generateQRReceipt(payment) {
         const student = this.state.students.find(s => s.id === payment.student_id);
         const printArea = document.getElementById('print-area');
@@ -332,6 +336,7 @@ export const financeModule = {
         setTimeout(() => { window.print(); }, 1000);
     },
 
+    // --- SEMESTER LOGIC ---
     async handleRollover() {
         if(!confirm("DANGER: This will deactivate the current semester and set up a new collection period. Continue?")) return;
 
@@ -358,4 +363,5 @@ export const financeModule = {
     }
 };
 
+// EXPOSE TO WINDOW FOR ONCLICK EVENTS
 window.financeModule = financeModule;
