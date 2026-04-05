@@ -150,14 +150,12 @@ export const financeModule = {
 
     // --- UI UPDATES ---
     updateStats() {
-        // Total Collection
         const total = this.state.students.reduce((acc, s) => {
             return acc + (s.payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0);
         }, 0);
         const el = document.getElementById('total-val');
         if (el) el.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-        // Total Students Count
         const countEl = document.getElementById('student-count-val');
         if (countEl) countEl.innerText = this.state.students.length;
     },
