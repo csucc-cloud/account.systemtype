@@ -63,6 +63,7 @@ export const financeModule = {
                 .status-pill { padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 900; text-transform: uppercase; }
                 .status-paid { background: #dcfce7; color: #166534; }
                 .status-partial { background: #fef9c3; color: #854d0e; }
+                .text-archived { color: #94a3b8; font-style: italic; }
             </style>
 
             <div class="p-6 md:p-10 bg-[#F8FAFC] min-h-screen">
@@ -98,7 +99,7 @@ export const financeModule = {
 
                     <div class="lg:col-span-4">
                         <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-10 rounded-[3rem] text-white shadow-2xl text-center">
-                            <p class="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Total Collection</p>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Total Collection (Current Sem)</p>
                             <h2 class="text-4xl font-black mt-4 italic tracking-tighter">₱ <span id="total-val">0.00</span></h2>
                             <button id="btn-print-audit" class="w-full mt-10 py-4 bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest">Print Audit</button>
                         </div>
@@ -150,8 +151,7 @@ export const financeModule = {
             </div>
 
             <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] items-center justify-center p-4">
-                <div id="finance-modal-content" class="w-full max-w-6xl flex flex-col md:flex-row gap-6 h-[85vh]">
-                    </div>
+                <div id="finance-modal-content" class="w-full max-w-6xl flex flex-col md:flex-row gap-6 h-[85vh]"></div>
             </div>
 
             <div id="print-area" class="hidden print:block"></div>
@@ -184,10 +184,13 @@ export const financeModule = {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
 
-        // Payment History from 'payments' table
-        const totalPaid = student.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+        // FIXED: Filter total to ONLY show current semester amount
+        const currentPeriodId = this.state.activePeriod?.id;
+        const totalPaidCurrent = student.payments?.filter(p => p.academic_period_id === currentPeriodId)
+                                         .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+        
         const targetAmount = this.state.activePeriod?.target_amount || 0;
-        const globalStatus = totalPaid >= targetAmount ? 'Paid' : 'Partial';
+        const globalStatus = totalPaidCurrent >= targetAmount ? 'Paid' : 'Partial';
 
         const modal = document.getElementById('finance-modal');
         modal.classList.remove('hidden');
@@ -208,27 +211,28 @@ export const financeModule = {
                         <thead class="sticky top-0 bg-slate-50/80 backdrop-blur text-[10px] font-black uppercase text-slate-400 tracking-tighter">
                             <tr>
                                 <th class="p-6">OR No.</th>
-                                <th class="p-6">Academic Period</th>
-                                <th class="p-6">Year Lvl</th>
+                                <th class="p-6">Period Status</th>
                                 <th class="p-6">Amount Paid</th>
                                 <th class="p-6 text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">
-                            ${student.payments?.length ? student.payments.map(p => `
-                                <tr class="hover:bg-slate-50/50 transition-colors">
+                            ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => {
+                                const isCurrent = p.academic_period_id === currentPeriodId;
+                                return `
+                                <tr class="hover:bg-slate-50/50 transition-colors ${!isCurrent ? 'opacity-60 grayscale' : ''}">
                                     <td class="p-6 font-bold text-slate-600">${p.receipt_number || '---'}</td>
                                     <td class="p-6">
-                                        <div class="font-bold text-slate-800 text-[11px]">${this.state.activePeriod?.year_range || 'N/A'}</div>
-                                        <div class="text-[9px] text-slate-400 font-bold uppercase italic">${this.state.activePeriod?.semester || ''} Sem</div>
+                                        <div class="font-bold ${isCurrent ? 'text-blue-600' : 'text-slate-400'} text-[11px]">
+                                            ${isCurrent ? 'CURRENT SEMESTER' : 'PREVIOUS RECORD'}
+                                        </div>
                                     </td>
-                                    <td class="p-6 font-bold text-slate-800 text-[11px]">${student.year_level || 'N/A'}</td>
                                     <td class="p-6 font-black text-blue-600 text-[11px]">₱ ${p.amount_paid.toLocaleString()}</td>
                                     <td class="p-6 text-center">
-                                        <span class="status-pill status-paid">Cleared</span>
+                                        <span class="status-pill status-paid">${isCurrent ? 'Active' : 'Archived'}</span>
                                     </td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="5" class="p-20 text-center italic text-slate-300 font-bold">No payment history found.</td></tr>'}
+                                </tr>`;
+                            }).join('') : '<tr><td colspan="4" class="p-20 text-center italic text-slate-300 font-bold">No payment history found.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -253,21 +257,18 @@ export const financeModule = {
 
                 <div class="space-y-3 flex-1">
                     <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Department</p>
-                        <p class="text-xs font-black text-slate-800 uppercase">${student.department || 'GENERAL'}</p>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Paid (Active Sem)</p>
+                        <p class="text-xs font-black text-blue-600">₱ ${totalPaidCurrent.toLocaleString()}</p>
                     </div>
                     <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Year Level</p>
-                        <p class="text-xs font-black text-slate-800 uppercase">${student.year_level || 'N/A'}</p>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fee Required</p>
+                        <p class="text-xs font-black text-slate-800">₱ ${targetAmount.toLocaleString()}</p>
                     </div>
                 </div>
 
                 <div class="mt-8 space-y-3">
-                    <button class="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="mail" class="w-4 h-4"></i> Send via Email
-                    </button>
                     <button onclick="window.print()" class="w-full py-5 bg-white border-2 border-slate-100 text-slate-900 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:border-blue-600 transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="printer" class="w-4 h-4"></i> Print
+                        <i data-lucide="printer" class="w-4 h-4"></i> Print Record
                     </button>
                     <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-black text-[9px] uppercase tracking-[0.2em]">Close Preview</button>
                 </div>
@@ -282,13 +283,11 @@ export const financeModule = {
         const amt = document.getElementById('pay-amount').value;
         if (!amt || amt <= 0) return this.notify("Valid amount required", "error");
 
-        // Unique OR No format: OR-XXXX(Last 4 ID)XXXX(ms)
         const lastFour = String(studentId).slice(-4);
         const ms = Date.now().toString();
         const generatedOR = `OR-${lastFour}${ms}`;
 
         try {
-            // Reverted to 'payments' table using 'receipt_number'
             const { error } = await supabase.from('payments').insert([{
                 student_id: studentId, 
                 amount_paid: parseFloat(amt), 
@@ -329,7 +328,7 @@ export const financeModule = {
 
         const result = await Swal.fire({
             title: 'Confirm Transition?',
-            text: `Starting ${sem} Sem ${year}. This archives current records.`,
+            text: `Starting ${sem} Sem ${year}. This resets current collection counts to 0.`,
             icon: 'warning', showCancelButton: true, confirmButtonText: 'Execute'
         });
 
@@ -344,13 +343,15 @@ export const financeModule = {
     },
 
     printAuditSheet() {
+        const activeId = this.state.activePeriod?.id;
         const rows = this.state.students.map(s => {
-            const total = s.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-            return `<tr><td>${s.full_name}</td><td>${s.student_id}</td><td>₱ ${total.toLocaleString()}</td></tr>`;
+            const currentTotal = s.payments?.filter(p => p.academic_period_id === activeId)
+                                           .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+            return `<tr><td>${s.full_name}</td><td>${s.student_id}</td><td>₱ ${currentTotal.toLocaleString()}</td></tr>`;
         }).join('');
         document.getElementById('print-area').innerHTML = `
             <div style="padding:40px; font-family:sans-serif;">
-                <h2>Finance Audit: ${this.state.userOrgName}</h2>
+                <h2>Finance Audit: ${this.state.userOrgName} (${this.state.activePeriod?.semester} Sem)</h2>
                 <table style="width:100%; border-collapse:collapse; margin-top:20px;">
                     <thead><tr style="text-align:left; border-bottom:2px solid #000;"><th>Name</th><th>ID</th><th>Paid</th></tr></thead>
                     <tbody>${rows}</tbody>
@@ -360,7 +361,6 @@ export const financeModule = {
     },
 
     async fetchStudents(searchTerm = '') {
-        // Fetching from 'payments' relation
         let query = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
         if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
         const { data } = await query.limit(50);
@@ -372,15 +372,20 @@ export const financeModule = {
     renderStudentRows() {
         const body = document.getElementById('finance-list-body');
         if (!body) return;
+        const activeId = this.state.activePeriod?.id;
+
         body.innerHTML = this.state.students.map(s => {
-            const total = s.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+            // FIXED: Only sum payments belonging to activePeriod
+            const currentTotal = s.payments?.filter(p => p.academic_period_id === activeId)
+                                            .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+            
             return `
                 <tr class="group hover:bg-blue-50/30 transition-all" data-student-id="${s.student_id}">
                     <td class="px-8 py-5">
                         <div class="font-black text-slate-800 text-sm">${this._escapeHtml(s.full_name)}</div>
                         <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
                     </td>
-                    <td class="px-8 py-5 text-right font-black ${total > 0 ? 'text-blue-600' : 'text-rose-500'} italic">₱ ${total.toLocaleString()}</td>
+                    <td class="px-8 py-5 text-right font-black ${currentTotal > 0 ? 'text-blue-600' : 'text-rose-500'} italic">₱ ${currentTotal.toLocaleString()}</td>
                     <td class="px-8 py-5 text-right">
                         <button class="btn-manage-student px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest group-hover:bg-blue-600 group-hover:text-white transition-all">Manage</button>
                     </td>
@@ -389,7 +394,14 @@ export const financeModule = {
     },
 
     updateStats() {
-        const total = this.state.students.reduce((acc, s) => acc + (s.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0), 0);
+        const activeId = this.state.activePeriod?.id;
+        // FIXED: Grand total now only sums payments from the active semester
+        const total = this.state.students.reduce((acc, s) => {
+            const currentSum = s.payments?.filter(p => p.academic_period_id === activeId)
+                                         .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+            return acc + currentSum;
+        }, 0);
+
         const el = document.getElementById('total-val');
         if (el) el.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
