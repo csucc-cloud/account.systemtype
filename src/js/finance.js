@@ -50,7 +50,6 @@ export const financeModule = {
 
         container.innerHTML = `
             <style>
-                /* Scanner Focus Animation */
                 @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
                 .scanner-laser {
                     position: absolute; width: 100%; height: 2px;
@@ -61,6 +60,9 @@ export const financeModule = {
                     position: absolute; inset: 0; border: 2px solid rgba(255,255,255,0.1);
                     background: linear-gradient(rgba(0,0,0,0.5), transparent 20%, transparent 80%, rgba(0,0,0,0.5));
                 }
+                .status-pill { padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+                .status-paid { background: #dcfce7; color: #166534; }
+                .status-partial { background: #fef9c3; color: #854d0e; }
             </style>
 
             <div class="p-6 md:p-10 bg-[#F8FAFC] min-h-screen">
@@ -147,11 +149,11 @@ export const financeModule = {
                  <button id="btn-close-scanner" class="mt-12 px-12 py-5 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-transform">Terminate Scan</button>
             </div>
 
-            <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] items-center justify-center p-4">
-                <div class="bg-white w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl overflow-hidden flex flex-col">
-                    <div id="finance-modal-content" class="flex-1 overflow-y-auto"></div>
-                </div>
+            <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] items-center justify-center p-4">
+                <div id="finance-modal-content" class="w-full max-w-6xl flex flex-col md:flex-row gap-6 h-[85vh]">
+                    </div>
             </div>
+
             <div id="print-area" class="hidden print:block"></div>
         `;
 
@@ -176,6 +178,123 @@ export const financeModule = {
                 if (sid) this.viewStudentFinance(sid);
             }
         });
+    },
+
+    async viewStudentFinance(studentId) {
+        const student = this.state.students.find(s => String(s.student_id) === String(studentId));
+        if (!student) return;
+
+        const totalPaid = student.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+        const targetAmount = this.state.activePeriod?.target_amount || 0;
+        const globalStatus = totalPaid >= targetAmount ? 'Paid' : 'Partial';
+
+        const modal = document.getElementById('finance-modal');
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+
+        document.getElementById('finance-modal-content').innerHTML = `
+            <div class="flex-[2.5] bg-white rounded-[3rem] shadow-2xl flex flex-col overflow-hidden">
+                <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
+                    <div>
+                        <h3 class="font-black text-slate-900 uppercase tracking-widest text-xs italic">Transaction History</h3>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Payment Ledger Record</p>
+                    </div>
+                    <span class="status-pill ${globalStatus === 'Paid' ? 'status-paid' : 'status-partial'}">${globalStatus}</span>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="sticky top-0 bg-slate-50/80 backdrop-blur text-[10px] font-black uppercase text-slate-400 tracking-tighter">
+                            <tr>
+                                <th class="p-6">Receipt No.</th>
+                                <th class="p-6">Academic Period</th>
+                                <th class="p-6">Year Lvl</th>
+                                <th class="p-6">Amount Paid</th>
+                                <th class="p-6 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            ${student.payments?.length ? student.payments.map(p => `
+                                <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <td class="p-6 font-bold text-slate-600">${p.receit_number || '---'}</td>
+                                    <td class="p-6">
+                                        <div class="font-bold text-slate-800 text-[11px]">${this.state.activePeriod?.year_range || 'N/A'}</div>
+                                        <div class="text-[9px] text-slate-400 font-bold uppercase italic">${this.state.activePeriod?.semester || ''} Sem</div>
+                                    </td>
+                                    <td class="p-6 font-bold text-slate-800 text-[11px]">${student.year_level || 'N/A'}</td>
+                                    <td class="p-6 font-black text-blue-600 text-[11px]">₱ ${p.amount_paid.toLocaleString()}</td>
+                                    <td class="p-6 text-center">
+                                        <span class="status-pill status-paid">Cleared</span>
+                                    </td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="5" class="p-20 text-center italic text-slate-300 font-bold">No payment history found.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+
+                ${this.can('finance') ? `
+                <div class="p-8 bg-slate-50 border-t border-slate-100">
+                    <div class="flex gap-4">
+                        <input type="number" id="pay-amount" placeholder="Amount" class="flex-1 p-4 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold shadow-sm">
+                        <input type="text" id="pay-ref" placeholder="Receipt No." class="flex-1 p-4 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold shadow-sm">
+                        <button id="btn-add-payment" class="px-8 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-200">Record</button>
+                    </div>
+                </div>` : ''}
+            </div>
+
+            <div class="flex-1 bg-white rounded-[3rem] shadow-2xl p-10 flex flex-col overflow-hidden">
+                <div class="flex flex-col items-center text-center mb-8">
+                    <div class="w-24 h-24 bg-slate-900 rounded-[2.5rem] mb-6 flex items-center justify-center text-white text-3xl font-black shadow-xl">
+                        ${student.full_name.charAt(0)}
+                    </div>
+                    <h2 class="text-xl font-black text-slate-900 leading-tight">${this._escapeHtml(student.full_name)}</h2>
+                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-2">${student.student_id}</p>
+                </div>
+
+                <div class="space-y-3 flex-1">
+                    <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                        <p class="text-xs font-black text-slate-800 uppercase">${student.department || 'GENERAL'}</p>
+                    </div>
+                    <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Year Level</p>
+                        <p class="text-xs font-black text-slate-800 uppercase">${student.year_level || 'N/A'}</p>
+                    </div>
+                    <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Student ID</p>
+                        <p class="text-xs font-black text-slate-800 uppercase">${student.student_id}</p>
+                    </div>
+                </div>
+
+                <div class="mt-8 space-y-3">
+                    <button class="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="mail" class="w-4 h-4"></i> Send via Email
+                    </button>
+                    <button onclick="window.print()" class="w-full py-5 bg-white border-2 border-slate-100 text-slate-900 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:border-blue-600 transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Print
+                    </button>
+                    <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-black text-[9px] uppercase tracking-[0.2em]">Close Preview</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.id, student.student_id));
+        if (window.lucide) window.lucide.createIcons();
+    },
+
+    async submitPayment(tableId, studentId) {
+        const amt = document.getElementById('pay-amount').value;
+        const ref = document.getElementById('pay-ref').value;
+        if (!amt) return this.notify("Amount required", "error");
+        try {
+            const { error } = await supabase.from('payments').insert([{
+                student_id: studentId, amount_paid: parseFloat(amt), receit_number: ref, academic_period_id: this.state.activePeriod?.id
+            }]);
+            if (error) throw error;
+            this.notify("Success", "success");
+            await this.fetchStudents();
+            this.viewStudentFinance(studentId);
+        } catch (e) { this.notify(e.message, "error"); }
     },
 
     initScanner() {
@@ -232,57 +351,6 @@ export const financeModule = {
                 </table>
             </div>`;
         window.print();
-    },
-
-    async viewStudentFinance(studentId) {
-        const student = this.state.students.find(s => String(s.student_id) === String(studentId));
-        if (!student) return;
-        const modal = document.getElementById('finance-modal');
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-        document.getElementById('finance-modal-content').innerHTML = `
-            <div class="flex h-full">
-                <div class="w-1/3 bg-slate-50 p-12 border-r border-slate-100">
-                    <div class="w-20 h-20 bg-blue-600 rounded-3xl mb-6 flex items-center justify-center text-white text-2xl font-black">${student.full_name.charAt(0)}</div>
-                    <h2 class="text-2xl font-black text-slate-900">${this._escapeHtml(student.full_name)}</h2>
-                    <p class="text-xs font-bold text-slate-400 mt-2">${student.student_id}</p>
-                    <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="mt-10 w-full py-4 bg-slate-200 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest">Close</button>
-                </div>
-                <div class="flex-1 p-12">
-                    ${this.can('finance') ? `
-                        <div class="mb-10 p-8 bg-white border-2 border-dashed border-slate-100 rounded-[2rem]">
-                            <div class="grid grid-cols-2 gap-4">
-                                <input type="number" id="pay-amount" placeholder="Amount" class="p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
-                                <input type="text" id="pay-ref" placeholder="OR Number" class="p-4 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
-                                <button id="btn-add-payment" class="col-span-2 py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest">Record Payment</button>
-                            </div>
-                        </div>` : ''}
-                    <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">History</h3>
-                    <div class="space-y-4">
-                        ${student.payments?.length ? student.payments.map(p => `
-                            <div class="p-5 bg-white border border-slate-100 rounded-2xl flex justify-between items-center shadow-sm">
-                                <div><p class="font-black text-slate-800">₱ ${p.amount_paid.toLocaleString()}</p></div>
-                                <p class="text-[10px] font-bold text-slate-400">${p.receit_number || 'Cash'}</p>
-                            </div>`).join('') : '<p class="italic text-slate-300">No records found.</p>'}
-                    </div>
-                </div>
-            </div>`;
-        document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.id, student.student_id));
-    },
-
-    async submitPayment(tableId, studentId) {
-        const amt = document.getElementById('pay-amount').value;
-        const ref = document.getElementById('pay-ref').value;
-        if (!amt) return this.notify("Amount required", "error");
-        try {
-            const { error } = await supabase.from('payments').insert([{
-                student_id: studentId, amount_paid: parseFloat(amt), receit_number: ref, academic_period_id: this.state.activePeriod?.id
-            }]);
-            if (error) throw error;
-            this.notify("Success", "success");
-            await this.fetchStudents();
-            this.viewStudentFinance(studentId);
-        } catch (e) { this.notify(e.message, "error"); }
     },
 
     async fetchStudents(searchTerm = '') {
