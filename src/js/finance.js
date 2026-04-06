@@ -184,7 +184,6 @@ export const financeModule = {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
 
-        // FIXED: Filter total to ONLY show current semester amount
         const currentPeriodId = this.state.activePeriod?.id;
         const totalPaidCurrent = student.payments?.filter(p => p.academic_period_id === currentPeriodId)
                                          .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
@@ -255,10 +254,27 @@ export const financeModule = {
                     <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-2">${student.student_id}</p>
                 </div>
 
-                <div class="space-y-3 flex-1">
-                    <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Paid (Active Sem)</p>
-                        <p class="text-xs font-black text-blue-600">₱ ${totalPaidCurrent.toLocaleString()}</p>
+                <div class="space-y-4 flex-1">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Course</p>
+                            <p class="text-[10px] font-bold text-slate-800 truncate">${student.course || 'N/A'}</p>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                            <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Year Level</p>
+                            <p class="text-[10px] font-bold text-slate-800">${student.year_level || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Email Address</p>
+                        <p class="text-[10px] font-bold text-slate-800 truncate">${student.email || 'No email provided'}</p>
+                    </div>
+
+                    <hr class="border-slate-50 my-2">
+
+                    <div class="p-5 bg-blue-50/50 rounded-[2rem] border border-blue-100">
+                        <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Paid (Active Sem)</p>
+                        <p class="text-lg font-black text-blue-600">₱ ${totalPaidCurrent.toLocaleString()}</p>
                     </div>
                     <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fee Required</p>
@@ -267,6 +283,9 @@ export const financeModule = {
                 </div>
 
                 <div class="mt-8 space-y-3">
+                    <button class="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
+                        <i data-lucide="mail" class="w-4 h-4"></i> Send via Email
+                    </button>
                     <button onclick="window.print()" class="w-full py-5 bg-white border-2 border-slate-100 text-slate-900 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:border-blue-600 transition-all flex items-center justify-center gap-2">
                         <i data-lucide="printer" class="w-4 h-4"></i> Print Record
                     </button>
@@ -375,9 +394,8 @@ export const financeModule = {
         const activeId = this.state.activePeriod?.id;
 
         body.innerHTML = this.state.students.map(s => {
-            // FIXED: Only sum payments belonging to activePeriod
             const currentTotal = s.payments?.filter(p => p.academic_period_id === activeId)
-                                            .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+                                             .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
             
             return `
                 <tr class="group hover:bg-blue-50/30 transition-all" data-student-id="${s.student_id}">
@@ -395,7 +413,6 @@ export const financeModule = {
 
     updateStats() {
         const activeId = this.state.activePeriod?.id;
-        // FIXED: Grand total now only sums payments from the active semester
         const total = this.state.students.reduce((acc, s) => {
             const currentSum = s.payments?.filter(p => p.academic_period_id === activeId)
                                          .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
