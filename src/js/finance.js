@@ -118,21 +118,21 @@ export const financeModule = {
                     <div class="p-10 space-y-5">
                         <div class="space-y-1">
                             <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Academic Year</label>
-                            <input type="text" id="roll-year" placeholder="e.g. 2025-2026" class="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold">
+                            <input type="text" id="roll-year" placeholder="e.g. 2025-2026" class="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold">
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Active Semester</label>
-                            <select id="roll-sem" class="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold">
-                                <option value="1st">1st Semester (Fall)</option>
-                                <option value="2nd">2nd Semester (Spring)</option>
+                            <select id="roll-sem" class="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold">
+                                <option value="1st">1st Semester</option>
+                                <option value="2nd">2nd Semester</option>
                             </select>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Base Contribution Fee (₱)</label>
-                            <input type="number" id="roll-fee" placeholder="0.00" class="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold text-blue-600 text-lg">
+                            <label class="text-[10px] font-black text-slate-400 uppercase ml-2">Base Fee (₱)</label>
+                            <input type="number" id="roll-fee" placeholder="0.00" class="w-full p-5 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none font-bold text-blue-600">
                         </div>
                         <div class="flex gap-4 pt-6">
-                            <button id="btn-confirm-roll" class="flex-[2] py-5 bg-blue-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-blue-200">Initialize New Period</button>
+                            <button id="btn-confirm-roll" class="flex-[2] py-5 bg-blue-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg">Initialize New Period</button>
                             <button onclick="document.getElementById('rollover-modal').classList.add('hidden')" class="flex-1 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black text-[11px] uppercase tracking-widest">Cancel</button>
                         </div>
                     </div>
@@ -140,18 +140,16 @@ export const financeModule = {
             </div>
 
             <div id="scanner-container" class="hidden fixed inset-0 z-[500] bg-slate-900/90 backdrop-blur-2xl flex items-center justify-center flex-col">
-                 <div class="relative w-80 h-80 rounded-[3rem] overflow-hidden border-4 border-blue-600 shadow-2xl shadow-blue-500/20">
+                 <div class="relative w-80 h-80 rounded-[3rem] overflow-hidden border-4 border-blue-600 shadow-2xl">
                      <div id="reader" class="w-full h-full scale-150"></div>
                      <div class="scanner-laser"></div>
                      <div class="qr-overlay"></div>
                  </div>
-                 <p class="text-white mt-8 font-black text-xs uppercase tracking-[0.4em] animate-pulse">Align Receipt QR Code</p>
-                 <button id="btn-close-scanner" class="mt-12 px-12 py-5 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-transform">Terminate Scan</button>
+                 <button id="btn-close-scanner" class="mt-12 px-12 py-5 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest">Terminate Scan</button>
             </div>
 
             <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] items-center justify-center p-4">
-                <div id="finance-modal-content" class="w-full max-w-6xl flex flex-col md:flex-row gap-6 h-[85vh]">
-                    </div>
+                <div id="finance-modal-content" class="w-full max-w-6xl flex flex-col md:flex-row gap-6 h-[85vh]"></div>
             </div>
 
             <div id="print-area" class="hidden print:block"></div>
@@ -180,14 +178,54 @@ export const financeModule = {
         });
     },
 
+    // --- CORE LOGIC ---
+    async fetchStudents(searchTerm = '') {
+        const currentId = this.state.activePeriod?.id;
+        let query = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
+        if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
+        
+        const { data } = await query.limit(100);
+        
+        // Process data: Segregate Current vs All History
+        this.state.students = (data || []).map(s => ({
+            ...s,
+            // Filter current sem payments for the dashboard total
+            current_payments: s.payments?.filter(p => p.academic_period_id === currentId) || [],
+            // Keep all payments for this specific student for the history modal
+            all_history: s.payments || []
+        }));
+
+        this.renderStudentRows();
+        this.updateStats();
+    },
+
+    renderStudentRows() {
+        const body = document.getElementById('finance-list-body');
+        if (!body) return;
+        body.innerHTML = this.state.students.map(s => {
+            const total = s.current_payments.reduce((sum, p) => sum + (p.amount_paid || 0), 0);
+            return `
+                <tr class="group hover:bg-blue-50/30 transition-all" data-student-id="${s.student_id}">
+                    <td class="px-8 py-5">
+                        <div class="font-black text-slate-800 text-sm">${this._escapeHtml(s.full_name)}</div>
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
+                    </td>
+                    <td class="px-8 py-5 text-right font-black ${total > 0 ? 'text-blue-600' : 'text-slate-300'} italic">₱ ${total.toLocaleString()}</td>
+                    <td class="px-8 py-5 text-right">
+                        <button class="btn-manage-student px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest group-hover:bg-blue-600 group-hover:text-white transition-all">Manage</button>
+                    </td>
+                </tr>`;
+        }).join('');
+    },
+
     async viewStudentFinance(studentId) {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
 
-        // Payment History from 'payments' table
-        const totalPaid = student.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-        const targetAmount = this.state.activePeriod?.target_amount || 0;
-        const globalStatus = totalPaid >= targetAmount ? 'Paid' : 'Partial';
+        const currentPeriodId = this.state.activePeriod?.id;
+        const totalThisSem = student.current_payments.reduce((sum, p) => sum + p.amount_paid, 0);
+        const target = this.state.activePeriod?.target_amount || 0;
+        const status = totalThisSem >= target ? 'Paid' : 'Partial';
 
         const modal = document.getElementById('finance-modal');
         modal.classList.remove('hidden');
@@ -197,38 +235,35 @@ export const financeModule = {
             <div class="flex-[2.5] bg-white rounded-[3rem] shadow-2xl flex flex-col overflow-hidden">
                 <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
                     <div>
-                        <h3 class="font-black text-slate-900 uppercase tracking-widest text-xs italic">Transaction History</h3>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Payment Ledger Record</p>
+                        <h3 class="font-black text-slate-900 uppercase tracking-widest text-xs italic">Personal Ledger</h3>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Student History: ${student.student_id}</p>
                     </div>
-                    <span class="status-pill ${globalStatus === 'Paid' ? 'status-paid' : 'status-partial'}">${globalStatus}</span>
+                    <span class="status-pill ${status === 'Paid' ? 'status-paid' : 'status-partial'}">${status}</span>
                 </div>
                 
                 <div class="flex-1 overflow-y-auto">
-                    <table class="w-full text-left border-collapse">
+                    <table class="w-full text-left">
                         <thead class="sticky top-0 bg-slate-50/80 backdrop-blur text-[10px] font-black uppercase text-slate-400 tracking-tighter">
                             <tr>
                                 <th class="p-6">OR No.</th>
-                                <th class="p-6">Academic Period</th>
-                                <th class="p-6">Year Lvl</th>
-                                <th class="p-6">Amount Paid</th>
+                                <th class="p-6">Period Status</th>
+                                <th class="p-6">Amount</th>
                                 <th class="p-6 text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">
-                            ${student.payments?.length ? student.payments.map(p => `
-                                <tr class="hover:bg-slate-50/50 transition-colors">
+                            ${student.all_history.length ? student.all_history.sort((a,b) => b.id - a.id).map(p => `
+                                <tr class="${p.academic_period_id === currentPeriodId ? 'bg-blue-50/20' : 'opacity-60'}">
                                     <td class="p-6 font-bold text-slate-600">${p.receipt_number || '---'}</td>
-                                    <td class="p-6">
-                                        <div class="font-bold text-slate-800 text-[11px]">${this.state.activePeriod?.year_range || 'N/A'}</div>
-                                        <div class="text-[9px] text-slate-400 font-bold uppercase italic">${this.state.activePeriod?.semester || ''} Sem</div>
+                                    <td class="p-6 text-[10px] font-black uppercase">
+                                        ${p.academic_period_id === currentPeriodId ? '<span class="text-blue-600">Current Semester</span>' : 'Archive'}
                                     </td>
-                                    <td class="p-6 font-bold text-slate-800 text-[11px]">${student.year_level || 'N/A'}</td>
-                                    <td class="p-6 font-black text-blue-600 text-[11px]">₱ ${p.amount_paid.toLocaleString()}</td>
+                                    <td class="p-6 font-black text-blue-600">₱ ${p.amount_paid.toLocaleString()}</td>
                                     <td class="p-6 text-center">
-                                        <span class="status-pill status-paid">Cleared</span>
+                                        <span class="status-pill status-paid">Recorded</span>
                                     </td>
                                 </tr>
-                            `).join('') : '<tr><td colspan="5" class="p-20 text-center italic text-slate-300 font-bold">No payment history found.</td></tr>'}
+                            `).join('') : '<tr><td colspan="4" class="p-20 text-center italic text-slate-300 font-bold">No history available for this student.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -236,40 +271,30 @@ export const financeModule = {
                 ${this.can('finance') ? `
                 <div class="p-8 bg-slate-50 border-t border-slate-100">
                     <div class="flex gap-4">
-                        <input type="number" id="pay-amount" placeholder="Amount" class="flex-1 p-4 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold shadow-sm">
-                        <button id="btn-add-payment" class="flex-1 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-200">Record Payment</button>
+                        <input type="number" id="pay-amount" placeholder="Input Amount" class="flex-1 p-4 bg-white rounded-2xl outline-none font-bold shadow-sm">
+                        <button id="btn-add-payment" class="px-10 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest">Record Payment</button>
                     </div>
                 </div>` : ''}
             </div>
 
-            <div class="flex-1 bg-white rounded-[3rem] shadow-2xl p-10 flex flex-col overflow-hidden">
-                <div class="flex flex-col items-center text-center mb-8">
-                    <div class="w-24 h-24 bg-slate-900 rounded-[2.5rem] mb-6 flex items-center justify-center text-white text-3xl font-black shadow-xl">
-                        ${student.full_name.charAt(0)}
-                    </div>
-                    <h2 class="text-xl font-black text-slate-900 leading-tight">${this._escapeHtml(student.full_name)}</h2>
-                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-2">${student.student_id}</p>
+            <div class="flex-1 bg-white rounded-[3rem] shadow-2xl p-10 flex flex-col text-center">
+                <div class="w-24 h-24 bg-slate-900 rounded-[2.5rem] mx-auto mb-6 flex items-center justify-center text-white text-3xl font-black shadow-xl">
+                    ${student.full_name.charAt(0)}
                 </div>
-
-                <div class="space-y-3 flex-1">
+                <h2 class="text-xl font-black text-slate-900 leading-tight">${this._escapeHtml(student.full_name)}</h2>
+                <div class="mt-8 space-y-3 flex-1 text-left">
                     <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Department</p>
-                        <p class="text-xs font-black text-slate-800 uppercase">${student.department || 'GENERAL'}</p>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Paid (Current Sem)</p>
+                        <p class="text-sm font-black text-blue-600">₱ ${totalThisSem.toLocaleString()}</p>
                     </div>
                     <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Year Level</p>
-                        <p class="text-xs font-black text-slate-800 uppercase">${student.year_level || 'N/A'}</p>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Balance</p>
+                        <p class="text-sm font-black text-slate-800">₱ ${target.toLocaleString()}</p>
                     </div>
                 </div>
-
-                <div class="mt-8 space-y-3">
-                    <button class="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="mail" class="w-4 h-4"></i> Send via Email
-                    </button>
-                    <button onclick="window.print()" class="w-full py-5 bg-white border-2 border-slate-100 text-slate-900 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:border-blue-600 transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="printer" class="w-4 h-4"></i> Print
-                    </button>
-                    <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-black text-[9px] uppercase tracking-[0.2em]">Close Preview</button>
+                <div class="mt-8 space-y-2">
+                    <button onclick="window.print()" class="w-full py-4 border-2 border-slate-100 rounded-2xl font-black text-[10px] uppercase tracking-widest">Print Receipt</button>
+                    <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-black text-[9px] uppercase tracking-[0.2em]">Close Ledger</button>
                 </div>
             </div>
         `;
@@ -282,13 +307,10 @@ export const financeModule = {
         const amt = document.getElementById('pay-amount').value;
         if (!amt || amt <= 0) return this.notify("Valid amount required", "error");
 
-        // Unique OR No format: OR-XXXX(Last 4 ID)XXXX(ms)
         const lastFour = String(studentId).slice(-4);
-        const ms = Date.now().toString();
-        const generatedOR = `OR-${lastFour}${ms}`;
+        const generatedOR = `OR-${lastFour}${Date.now()}`;
 
         try {
-            // Reverted to 'payments' table using 'receipt_number'
             const { error } = await supabase.from('payments').insert([{
                 student_id: studentId, 
                 amount_paid: parseFloat(amt), 
@@ -297,7 +319,7 @@ export const financeModule = {
             }]);
 
             if (error) throw error;
-            this.notify(`Payment Recorded: ${generatedOR}`, "success");
+            this.notify(`Success: ${generatedOR}`, "success");
             await this.fetchStudents();
             this.viewStudentFinance(studentId);
         } catch (e) { this.notify(e.message, "error"); }
@@ -307,17 +329,15 @@ export const financeModule = {
         const container = document.getElementById('scanner-container');
         container.classList.remove('hidden');
         container.style.display = 'flex';
-        this.state.scanner = new Html5QrcodeScanner("reader", { 
-            fps: 20, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0
-        });
+        this.state.scanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 250 });
         this.state.scanner.render((text) => {
-            this.notify("Receipt Verified: " + text, "success");
+            this.notify("Verified: " + text, "success");
             this.closeScanner();
         }, () => {});
     },
 
     closeScanner() {
-        if (this.state.scanner) this.state.scanner.clear().catch(e => console.error(e));
+        if (this.state.scanner) this.state.scanner.clear().catch(() => {});
         document.getElementById('scanner-container').classList.add('hidden');
     },
 
@@ -328,68 +348,40 @@ export const financeModule = {
         if (!year || !fee) return this.notify("Complete all fields", "warning");
 
         const result = await Swal.fire({
-            title: 'Confirm Transition?',
-            text: `Starting ${sem} Sem ${year}. This archives current records.`,
-            icon: 'warning', showCancelButton: true, confirmButtonText: 'Execute'
+            title: 'Proceed with Rollover?',
+            text: `This starts ${sem} Sem ${year} and resets all active balances.`,
+            icon: 'warning', showCancelButton: true
         });
 
         if (result.isConfirmed) {
             try {
                 await supabase.from('academic_periods').update({ is_active: false }).eq('is_active', true);
                 await supabase.from('academic_periods').insert([{ year_range: year, semester: sem, target_amount: parseFloat(fee), is_active: true }]);
-                this.notify("System Re-Initialized", "success");
-                setTimeout(() => location.reload(), 1500);
+                this.notify("System Reset Success", "success");
+                setTimeout(() => location.reload(), 1200);
             } catch (err) { this.notify(err.message, "error"); }
         }
     },
 
     printAuditSheet() {
         const rows = this.state.students.map(s => {
-            const total = s.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+            const total = s.current_payments.reduce((sum, p) => sum + p.amount_paid, 0);
             return `<tr><td>${s.full_name}</td><td>${s.student_id}</td><td>₱ ${total.toLocaleString()}</td></tr>`;
         }).join('');
         document.getElementById('print-area').innerHTML = `
-            <div style="padding:40px; font-family:sans-serif;">
+            <div style="padding:40px;">
                 <h2>Finance Audit: ${this.state.userOrgName}</h2>
-                <table style="width:100%; border-collapse:collapse; margin-top:20px;">
-                    <thead><tr style="text-align:left; border-bottom:2px solid #000;"><th>Name</th><th>ID</th><th>Paid</th></tr></thead>
+                <p>${this.state.activePeriod?.year_range} | ${this.state.activePeriod?.semester} Semester</p>
+                <table border="1" style="width:100%; border-collapse:collapse; margin-top:20px;">
+                    <thead><tr><th>Name</th><th>ID</th><th>Amount Paid</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>`;
         window.print();
     },
 
-    async fetchStudents(searchTerm = '') {
-        // Fetching from 'payments' relation
-        let query = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
-        if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
-        const { data } = await query.limit(50);
-        this.state.students = data || [];
-        this.renderStudentRows();
-        this.updateStats();
-    },
-
-    renderStudentRows() {
-        const body = document.getElementById('finance-list-body');
-        if (!body) return;
-        body.innerHTML = this.state.students.map(s => {
-            const total = s.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-            return `
-                <tr class="group hover:bg-blue-50/30 transition-all" data-student-id="${s.student_id}">
-                    <td class="px-8 py-5">
-                        <div class="font-black text-slate-800 text-sm">${this._escapeHtml(s.full_name)}</div>
-                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
-                    </td>
-                    <td class="px-8 py-5 text-right font-black ${total > 0 ? 'text-blue-600' : 'text-rose-500'} italic">₱ ${total.toLocaleString()}</td>
-                    <td class="px-8 py-5 text-right">
-                        <button class="btn-manage-student px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest group-hover:bg-blue-600 group-hover:text-white transition-all">Manage</button>
-                    </td>
-                </tr>`;
-        }).join('');
-    },
-
     updateStats() {
-        const total = this.state.students.reduce((acc, s) => acc + (s.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0), 0);
+        const total = this.state.students.reduce((acc, s) => acc + s.current_payments.reduce((sum, p) => sum + p.amount_paid, 0), 0);
         const el = document.getElementById('total-val');
         if (el) el.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
