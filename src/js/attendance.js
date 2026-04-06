@@ -14,9 +14,17 @@ export const attendanceModule = {
         rowsPerPage: 20
     },
 
+    // FIX #1: single shared AudioContext reused across all playSound calls
+    _getAudioCtx() {
+        if (!this._audioCtx || this._audioCtx.state === 'closed') {
+            this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return this._audioCtx;
+    },
+
     // --- AUDIO SYSTEM ---
     playSound(type) {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = this._getAudioCtx();  // FIX #1: reuse instead of new each time
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         
@@ -47,6 +55,31 @@ export const attendanceModule = {
         }
     },
 
+    // FIX #2: HTML escape helper — prevents XSS from raw student data in innerHTML
+    _escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    },
+
+    // FIX #9: unified toast notification — replaces all alert() calls
+    notify(message, type = 'info') {
+        if (typeof Swal !== 'undefined') {
+            Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+            }).fire({ icon: type, title: message });
+        } else {
+            // fallback if Swal not loaded
+            console.warn(`[${type.toUpperCase()}]`, message);
+        }
+    },
+
     async render() {
         const container = document.getElementById('mod-attendance');
         if (!container) return;
@@ -74,7 +107,7 @@ export const attendanceModule = {
                             <select id="event-selector" class="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-[11px] font-black uppercase tracking-wider text-slate-700 outline-none cursor-pointer min-w-[240px]">
                                 <option value="">-- Select Active Event --</option>
                                 ${this.state.allEvents.map(ev => `
-                                    <option value="${ev.id}" ${this.state.activeEventId === ev.id ? 'selected' : ''}>${ev.event_name}</option>
+                                    <option value="${ev.id}" ${this.state.activeEventId === ev.id ? 'selected' : ''}>${this._escapeHtml(ev.event_name)}</option>
                                 `).join('')}
                             </select>
 
@@ -193,7 +226,10 @@ export const attendanceModule = {
         const toggleBtn = document.getElementById('btn-toggle-scanner');
         if (toggleBtn) {
             toggleBtn.onclick = async () => {
-                if (!this.state.activeEventId) return alert("CRITICAL: Select an active event first!");
+                if (!this.state.activeEventId) {
+                    // FIX #9: replaced alert() with notify()
+                    return this.notify('Select an active event first!', 'warning');
+                }
                 if (this.state.isScannerActive) {
                     await this.stopScanner();
                     this.state.isScannerActive = false;
@@ -226,14 +262,27 @@ export const attendanceModule = {
             this.setupRealtimeListener();
         };
 
-        document.getElementById('btn-manual-submit').onclick = () => {
-            const idInput = document.getElementById('manual-student-id');
-            const idVal = idInput.value.trim();
+        const manualInput = document.getElementById('manual-student-id');
+        const manualSubmit = document.getElementById('btn-manual-submit');
+
+        manualSubmit.onclick = () => {
+            const idVal = manualInput.value.trim();
             if (idVal) {
                 this.markAttendance(idVal);
-                idInput.value = '';
+                manualInput.value = '';
             }
         };
+
+        // FIX #7: Enter key submits the manual ID input
+        manualInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const idVal = manualInput.value.trim();
+                if (idVal) {
+                    this.markAttendance(idVal);
+                    manualInput.value = '';
+                }
+            }
+        });
 
         document.getElementById('prev-page').onclick = () => {
             if (this.state.currentPage > 1) {
@@ -255,8 +304,9 @@ export const attendanceModule = {
         if (this.state.attendanceSubscription) supabase.removeChannel(this.state.attendanceSubscription);
         if (!this.state.activeEventId) return;
 
+        // FIX #13: unique channel name per event + timestamp prevents cross-tab conflicts
         this.state.attendanceSubscription = supabase
-            .channel('attendance_sync')
+            .channel(`attendance_sync_${this.state.activeEventId}_${Date.now()}`)
             .on('postgres_changes', { 
                 event: '*', 
                 schema: 'public', 
@@ -269,81 +319,122 @@ export const attendanceModule = {
     },
 
     handleRealtimeUpdate(payload) {
-        const { new: newRecord } = payload;
+        const { new: newRecord, eventType } = payload;
         const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === newRecord.student_id.toString());
         
         if (studentIndex !== -1) {
+            // UPDATE existing local record
             this.state.attendees[studentIndex].time_in = newRecord.time_in;
             this.state.attendees[studentIndex].time_out = newRecord.time_out;
             this.state.attendees[studentIndex].is_present = true;
             this.renderFeed();
+        } else {
+            // FIX #3: INSERT event for a student not yet in local state — re-fetch to stay in sync
+            this.fetchAttendance();
         }
     },
 
     async fetchEventsForDropdown() {
-        const { data } = await supabase.from('events').select('id, event_name').order('created_at', { ascending: false });
-        this.state.allEvents = data || [];
+        // FIX #11: fetch only the current org's events, matching events.js role-aware behaviour
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: profile } = await supabase
+                .from('profiles').select('role, organization_id')
+                .eq('id', user?.id).single();
+
+            let query = supabase.from('events').select('id, event_name').order('created_at', { ascending: false });
+            if (profile?.role !== 'super_admin') {
+                query = query.eq('organization_id', profile?.organization_id);
+            }
+
+            const { data } = await query;
+            this.state.allEvents = data || [];
+        } catch (e) {
+            console.error('fetchEventsForDropdown failed', e);
+            this.state.allEvents = [];
+        }
     },
 
     async fetchAttendance() {
         if (!this.state.activeEventId) return;
 
-        // 1. Get the Event details
-        const { data: event } = await supabase
-            .from('events')
-            .select('*')
-            .eq('id', this.state.activeEventId)
-            .single();
-        
-        // 2. Build the Student Query
-        let query = supabase.from('students').select('*').order('full_name', { ascending: true });
-
-        // Check Department Filter: Only apply if it's NOT 'All', 'NULL', or empty
-        if (event?.target_dept && !['All', 'all', 'NULL', 'All Dept', ''].includes(event.target_dept)) {
-            query = query.ilike('department', `%${event.target_dept}%`);
+        // FIX #10: show loading skeleton in the table while fetching
+        const feed = document.getElementById('attendance-feed');
+        if (feed) {
+            feed.innerHTML = `<tr><td colspan="6" class="p-16 text-center text-slate-300 uppercase font-black italic text-[11px] tracking-widest">
+                <span class="animate-pulse">Loading Records...</span>
+            </td></tr>`;
         }
 
-        // Check Year Filter: Only apply if it's NOT 'All', 'All Year', etc.
-        if (event?.target_year && !['All', 'All Year', 'NULL', '0', ''].includes(event.target_year.toString())) {
-            query = query.eq('year_level', parseInt(event.target_year));
-        }
-
-        const students = await this.fetchAllStudents(query);
-        
-        // 3. Fetch Attendance Logs for this event
-        let allLogs = [];
-        let logStart = 0;
-        let moreLogs = true;
-        while (moreLogs) {
-            const { data: logs } = await supabase
-                .from('attendance')
+        // FIX #14: wrap all fetches in try/catch with user-facing error feedback
+        try {
+            // 1. Get the Event details
+            const { data: event, error: eventError } = await supabase
+                .from('events')
                 .select('*')
-                .eq('event_id', this.state.activeEventId)
-                .range(logStart, logStart + 999);
+                .eq('id', this.state.activeEventId)
+                .single();
+
+            if (eventError) throw eventError;
             
-            if (!logs || logs.length === 0) break;
-            allLogs = [...allLogs, ...logs];
-            if (logs.length < 1000) moreLogs = false;
-            else logStart += 1000;
+            // 2. Build the Student Query
+            let query = supabase.from('students').select('*').order('full_name', { ascending: true });
+
+            // Check Department Filter: Only apply if it's NOT 'All', 'NULL', or empty
+            if (event?.target_dept && !['All', 'all', 'NULL', 'All Dept', ''].includes(event.target_dept)) {
+                query = query.ilike('department', `%${event.target_dept}%`);
+            }
+
+            // Check Year Filter: Only apply if it's NOT 'All', 'All Year', etc.
+            if (event?.target_year && !['All', 'All Year', 'NULL', '0', ''].includes(event.target_year.toString())) {
+                query = query.eq('year_level', parseInt(event.target_year));
+            }
+
+            const students = await this.fetchAllStudents(query);
+            
+            // 3. Fetch Attendance Logs for this event
+            let allLogs = [];
+            let logStart = 0;
+            let moreLogs = true;
+            while (moreLogs) {
+                const { data: logs, error: logError } = await supabase
+                    .from('attendance')
+                    .select('*')
+                    .eq('event_id', this.state.activeEventId)
+                    .range(logStart, logStart + 999);
+
+                if (logError) throw logError;
+                if (!logs || logs.length === 0) break;
+                allLogs = [...allLogs, ...logs];
+                if (logs.length < 1000) moreLogs = false;
+                else logStart += 1000;
+            }
+
+            // 4. Map logs to students
+            this.state.attendees = (students || []).map(s => {
+                const log = allLogs.find(l => l.student_id.toString() === s.student_id.toString());
+                return { 
+                    ...s, 
+                    time_in: log?.time_in, 
+                    time_out: log?.time_out, 
+                    is_present: !!log 
+                };
+            });
+
+            const statusEl = document.getElementById('fetch-status');
+            if (statusEl && !this.state.isScannerActive) {
+                statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
+            }
+
+            this.renderFeed();
+
+        } catch (error) {
+            console.error('fetchAttendance error:', error);
+            this.notify('Failed to load attendance records.', 'error');
+            if (feed) {
+                feed.innerHTML = `<tr><td colspan="6" class="p-16 text-center text-red-300 uppercase font-black italic text-[11px] tracking-widest">Failed to Load Records</td></tr>`;
+            }
         }
-
-        // 4. Map logs to students
-        this.state.attendees = (students || []).map(s => {
-            const log = allLogs.find(l => l.student_id.toString() === s.student_id.toString());
-            return { 
-                ...s, 
-                time_in: log?.time_in, 
-                time_out: log?.time_out, 
-                is_present: !!log 
-            };
-        });
-
-        const statusEl = document.getElementById('fetch-status');
-        if (statusEl && !this.state.isScannerActive) {
-            statusEl.innerText = `Verified ${this.state.attendees.length} Records`;
-        }
-
-        this.renderFeed();
     },
 
     async fetchAllStudents(query) {
@@ -398,11 +489,12 @@ export const attendanceModule = {
                 statusHTML = `<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-widest ring-1 ring-slate-200">Pending</span>`;
             }
 
+            // FIX #2: all student fields escaped to prevent XSS
             return `
                 <tr class="hover:bg-slate-50 transition-all ${!row.time_in ? 'opacity-60' : ''}">
-                    <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${row.student_id}</td>
-                    <td class="px-8 py-6 font-black text-slate-800">${row.full_name}</td>
-                    <td class="px-8 py-6 text-[10px] font-bold text-slate-700">${row.course || row.department}<br><span class="text-slate-400">Year ${row.year_level}</span></td>
+                    <td class="px-8 py-6 font-black text-slate-500 text-[11px]">${this._escapeHtml(String(row.student_id))}</td>
+                    <td class="px-8 py-6 font-black text-slate-800">${this._escapeHtml(row.full_name)}</td>
+                    <td class="px-8 py-6 text-[10px] font-bold text-slate-700">${this._escapeHtml(row.course || row.department)}<br><span class="text-slate-400">Year ${this._escapeHtml(String(row.year_level))}</span></td>
                     <td class="px-8 py-6 text-[11px] font-black text-slate-400">${row.time_in ? new Date(row.time_in).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
                     <td class="px-8 py-6 text-[11px] font-black text-slate-400">${row.time_out ? new Date(row.time_out).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--'}</td>
                     <td class="px-8 py-6 text-right">${statusHTML}</td>
@@ -415,11 +507,17 @@ export const attendanceModule = {
     async markAttendance(studentId) {
         if (!this.state.activeEventId) return;
 
+        // FIX #8: scan lock — prevents duplicate upserts from rapid/repeated scans
+        if (this._markLock) return;
+        this._markLock = true;
+        setTimeout(() => { this._markLock = false; }, 1500);
+
         const studentIndex = this.state.attendees.findIndex(a => a.student_id.toString() === studentId.toString());
         
         if (studentIndex === -1) {
             this.playSound('error');
-            alert(`Access Denied: ID ${studentId} not in target list.`);
+            // FIX #9: replaced alert() with notify()
+            this.notify(`Access Denied: ID ${studentId} not in target list.`, 'error');
             return;
         }
 
@@ -434,7 +532,8 @@ export const attendanceModule = {
             this.playSound('out');
         } else {
             this.playSound('error');
-            alert("Protocol: Student already completed attendance.");
+            // FIX #9: replaced alert() with notify()
+            this.notify('Student already completed attendance.', 'warning');
             return;
         }
 
@@ -442,6 +541,7 @@ export const attendanceModule = {
 
         if (error) {
             console.error("DB Error:", error);
+            this.notify('Failed to record attendance. Please try again.', 'error');
         } else {
             const pageOfStudent = Math.floor(studentIndex / this.state.rowsPerPage) + 1;
             this.state.currentPage = pageOfStudent;
@@ -471,12 +571,18 @@ export const attendanceModule = {
     async stopScanner() {
         if (this.state.html5QrCode) {
             try { await this.state.html5QrCode.stop(); } catch (e) { console.warn(e); }
+            // FIX #5: null out after stop so startScanner() creates a fresh instance next time
+            this.state.html5QrCode = null;
         }
     },
 
     exportToExcel() {
-        if (this.state.attendees.length === 0) return alert("No data to export.");
-        const eventName = this.state.allEvents.find(e => e.id == this.state.activeEventId)?.event_name || "Event";
+        if (this.state.attendees.length === 0) {
+            // FIX #9: replaced alert() with notify()
+            return this.notify('No data to export.', 'warning');
+        }
+        // FIX #6: use === (strict equality) for ID comparison
+        const eventName = this.state.allEvents.find(e => e.id === this.state.activeEventId)?.event_name || "Event";
         const data = this.state.attendees.map(a => ({
             "Student ID": a.student_id,
             "Full Name": a.full_name,
