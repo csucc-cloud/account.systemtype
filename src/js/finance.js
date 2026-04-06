@@ -184,6 +184,7 @@ export const financeModule = {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
 
+        // Payment History from 'payments' table
         const totalPaid = student.payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
         const targetAmount = this.state.activePeriod?.target_amount || 0;
         const globalStatus = totalPaid >= targetAmount ? 'Paid' : 'Partial';
@@ -206,7 +207,7 @@ export const financeModule = {
                     <table class="w-full text-left border-collapse">
                         <thead class="sticky top-0 bg-slate-50/80 backdrop-blur text-[10px] font-black uppercase text-slate-400 tracking-tighter">
                             <tr>
-                                <th class="p-6">Receipt No.</th>
+                                <th class="p-6">OR No.</th>
                                 <th class="p-6">Academic Period</th>
                                 <th class="p-6">Year Lvl</th>
                                 <th class="p-6">Amount Paid</th>
@@ -216,7 +217,7 @@ export const financeModule = {
                         <tbody class="divide-y divide-slate-50">
                             ${student.payments?.length ? student.payments.map(p => `
                                 <tr class="hover:bg-slate-50/50 transition-colors">
-                                    <td class="p-6 font-bold text-slate-600">${p.receit_number || '---'}</td>
+                                    <td class="p-6 font-bold text-slate-600">${p.receipt_number || '---'}</td>
                                     <td class="p-6">
                                         <div class="font-bold text-slate-800 text-[11px]">${this.state.activePeriod?.year_range || 'N/A'}</div>
                                         <div class="text-[9px] text-slate-400 font-bold uppercase italic">${this.state.activePeriod?.semester || ''} Sem</div>
@@ -236,8 +237,7 @@ export const financeModule = {
                 <div class="p-8 bg-slate-50 border-t border-slate-100">
                     <div class="flex gap-4">
                         <input type="number" id="pay-amount" placeholder="Amount" class="flex-1 p-4 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold shadow-sm">
-                        <input type="text" id="pay-ref" placeholder="Receipt No." class="flex-1 p-4 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold shadow-sm">
-                        <button id="btn-add-payment" class="px-8 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-200">Record</button>
+                        <button id="btn-add-payment" class="flex-1 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-200">Record Payment</button>
                     </div>
                 </div>` : ''}
             </div>
@@ -260,10 +260,6 @@ export const financeModule = {
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Year Level</p>
                         <p class="text-xs font-black text-slate-800 uppercase">${student.year_level || 'N/A'}</p>
                     </div>
-                    <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Student ID</p>
-                        <p class="text-xs font-black text-slate-800 uppercase">${student.student_id}</p>
-                    </div>
                 </div>
 
                 <div class="mt-8 space-y-3">
@@ -278,20 +274,30 @@ export const financeModule = {
             </div>
         `;
 
-        document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.id, student.student_id));
+        document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.student_id));
         if (window.lucide) window.lucide.createIcons();
     },
 
-    async submitPayment(tableId, studentId) {
+    async submitPayment(studentId) {
         const amt = document.getElementById('pay-amount').value;
-        const ref = document.getElementById('pay-ref').value;
-        if (!amt) return this.notify("Amount required", "error");
+        if (!amt || amt <= 0) return this.notify("Valid amount required", "error");
+
+        // Unique OR No format: OR-XXXX(Last 4 ID)XXXX(ms)
+        const lastFour = String(studentId).slice(-4);
+        const ms = Date.now().toString();
+        const generatedOR = `OR-${lastFour}${ms}`;
+
         try {
+            // Reverted to 'payments' table using 'receipt_number'
             const { error } = await supabase.from('payments').insert([{
-                student_id: studentId, amount_paid: parseFloat(amt), receit_number: ref, academic_period_id: this.state.activePeriod?.id
+                student_id: studentId, 
+                amount_paid: parseFloat(amt), 
+                receipt_number: generatedOR, 
+                academic_period_id: this.state.activePeriod?.id
             }]);
+
             if (error) throw error;
-            this.notify("Success", "success");
+            this.notify(`Payment Recorded: ${generatedOR}`, "success");
             await this.fetchStudents();
             this.viewStudentFinance(studentId);
         } catch (e) { this.notify(e.message, "error"); }
@@ -354,6 +360,7 @@ export const financeModule = {
     },
 
     async fetchStudents(searchTerm = '') {
+        // Fetching from 'payments' relation
         let query = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
         if (searchTerm) query = query.or(`full_name.ilike.%${searchTerm}%,student_id.ilike.%${searchTerm}%`);
         const { data } = await query.limit(50);
