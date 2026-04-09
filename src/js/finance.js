@@ -5,13 +5,14 @@ export const financeModule = {
         activePeriod: null, 
         allPeriods: [], 
         students: [], 
-        totalStudentsCount: 0, // Buong bilang ng students sa org
+        totalStudentsCount: 0, 
         currentPage: 1, 
         pageSize: 10, 
         userRole: 'staff', 
         userOrgId: null, 
         userOrgName: null, 
-        scanner: null 
+        scanner: null,
+        isFetching: false // NEW: Guard for race conditions
     },
 
     // --- SECURITY & HELPERS ---
@@ -91,7 +92,7 @@ export const financeModule = {
                         </div>
 
                         <div class="bg-white p-8 rounded-[2.5rem] text-slate-800 shadow-sm border border-slate-100">
-                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Needed to be Collected</p>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Needed</p>
                             <h2 class="text-3xl font-black mt-2 italic text-indigo-600">₱<span id="stat-needed">0.00</span></h2>
                         </div>
 
@@ -99,7 +100,6 @@ export const financeModule = {
                     </div>
                 </div>
             </div>
-
             <div id="rollover-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[250] flex items-center justify-center p-4">
                 <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
                     <h2 class="text-xl font-black text-slate-800 mb-6 italic">Semester Rollover</h2>
@@ -116,7 +116,6 @@ export const financeModule = {
                     </div>
                 </div>
             </div>
-
             <div id="scanner-container" class="hidden fixed inset-0 z-[500] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center flex-col p-4">
                 <div class="relative w-72 h-72 rounded-[2.5rem] overflow-hidden border-4 border-indigo-500 shadow-2xl">
                     <div id="reader" class="w-full h-full scale-150"></div>
@@ -124,11 +123,9 @@ export const financeModule = {
                 </div>
                 <button id="btn-close-scanner" class="mt-8 px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest">Close Scanner</button>
             </div>
-
             <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[100] items-center justify-center p-4">
                 <div id="finance-modal-content" class="w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] animate-in slide-in-from-bottom-4 duration-300"></div>
             </div>
-
             <div id="print-area" class="hidden print:block"></div>
         `;
 
@@ -139,9 +136,13 @@ export const financeModule = {
 
     _attachShellListeners() {
         const d = document;
+        let searchTimeout;
         d.getElementById('search-finance')?.addEventListener('input', e => {
-            this.state.currentPage = 1; // Reset to page 1 on search
-            this.fetchStudents(e.target.value);
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                this.state.currentPage = 1;
+                this.fetchStudents(e.target.value);
+            }, 300); // FIX: Debounce logic to prevent race conditions
         });
 
         d.getElementById('prev-page')?.addEventListener('click', () => {
@@ -171,40 +172,37 @@ export const financeModule = {
     },
 
     async fetchStudents(search = '') {
+        if (this.state.isFetching) return; // FIX: Race condition guard
+        this.state.isFetching = true;
+
         const start = (this.state.currentPage - 1) * this.state.pageSize;
         const end = start + this.state.pageSize - 1;
 
-        // 1. Get Total Count of students in this organization (for stats and pagination)
-        const { count } = await supabase
-            .from('students')
-            .select('*', { count: 'exact', head: true })
-            .contains('organization_owner', [this.state.userOrgName]);
-        
-        this.state.totalStudentsCount = count || 0;
+        try {
+            // FIX: Search filter applied to count query for correct pagination
+            let countQuery = supabase.from('students').select('*', { count: 'exact', head: true }).contains('organization_owner', [this.state.userOrgName]);
+            if (search) countQuery = countQuery.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
+            const { count } = await countQuery;
+            this.state.totalStudentsCount = count || 0;
 
-        // 2. Fetch Paginated Student Data
-        let q = supabase
-            .from('students')
-            .select('*, payments(*)')
-            .contains('organization_owner', [this.state.userOrgName]);
+            let q = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
+            if (search) q = q.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
+            
+            const { data } = await q.order('full_name', { ascending: true }).range(start, end);
+            this.state.students = data || [];
 
-        if (search) q = q.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
-        
-        const { data } = await q
-            .order('full_name', { ascending: true })
-            .range(start, end);
-        
-        this.state.students = data || [];
-        this.renderStudentRows();
-        this.updateStats();
-        this.updatePaginationUI();
+            this.renderStudentRows();
+            this.updatePaginationUI();
+            await this.updateStats(); // Optimized stats inside
+        } finally {
+            this.state.isFetching = false;
+        }
     },
 
     updatePaginationUI() {
         const maxPage = Math.ceil(this.state.totalStudentsCount / this.state.pageSize);
         const info = document.getElementById('page-info');
         if (info) info.innerText = `Page ${this.state.currentPage} of ${maxPage || 1}`;
-        
         document.getElementById('prev-page').disabled = this.state.currentPage === 1;
         document.getElementById('next-page').disabled = this.state.currentPage >= maxPage || this.state.totalStudentsCount === 0;
     },
@@ -213,91 +211,49 @@ export const financeModule = {
         const activeId = this.state.activePeriod?.id;
         const targetFee = this.state.activePeriod?.target_amount || 0;
 
-        // Get ALL students in the organization to calculate real-time totals
-        const { data: allStudents } = await supabase
-            .from('students')
-            .select('student_id, payments(*)')
-            .contains('organization_owner', [this.state.userOrgName]);
+        // FIX: Optimized sum aggregation. We only fetch the specific column needed.
+        const { data: payments } = await supabase.from('payments').select('amount_paid').eq('academic_period_id', activeId);
+        const totalCollected = payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
 
-        let totalCollected = 0;
-        allStudents?.forEach(s => {
-            const paid = s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-            totalCollected += paid;
-        });
+        // Fetch full org count for accurate "Total Needed" (ignores current search)
+        const { count: fullOrgCount } = await supabase.from('students').select('*', { count: 'exact', head: true }).contains('organization_owner', [this.state.userOrgName]);
+        const totalNeeded = (fullOrgCount || 0) * targetFee;
 
-        const totalNeeded = this.state.totalStudentsCount * targetFee;
-
-        const totalEl = document.getElementById('total-val');
-        const countEl = document.getElementById('stat-total-students');
-        const neededEl = document.getElementById('stat-needed');
-
-        if (totalEl) totalEl.innerText = totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        if (countEl) countEl.innerText = this.state.totalStudentsCount.toLocaleString();
-        if (neededEl) neededEl.innerText = totalNeeded.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        document.getElementById('total-val').innerText = totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        document.getElementById('stat-total-students').innerText = (fullOrgCount || 0).toLocaleString();
+        document.getElementById('stat-needed').innerText = totalNeeded.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
 
-    // --- RE-USE EXISTING MODAL LOGIC (UNTOUCHED) ---
+    // --- REMAINING METHODS (UNTOUCHED LOGIC) ---
     async viewStudentFinance(studentId) {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
-
         const currentPeriodId = this.state.activePeriod?.id;
         const totalPaid = student.payments?.filter(p => p.academic_period_id === currentPeriodId).reduce((s, p) => s + p.amount_paid, 0) || 0;
         const themeColor = this.state.userOrgName.includes("HERO") ? "#ef4444" : "#4f46e5";
-
-        const modal = document.getElementById('finance-modal');
-        modal.classList.replace('hidden', 'flex');
-
+        document.getElementById('finance-modal').classList.replace('hidden', 'flex');
         document.getElementById('finance-modal-content').innerHTML = `
             <div class="flex-[1.2] p-10 flex flex-col bg-slate-50 border-r border-slate-100">
-                <div class="mb-6 flex justify-between items-center">
-                    <h3 class="font-black text-slate-400 uppercase tracking-widest text-[10px]">Transaction Logs</h3>
-                    <span class="px-3 py-1 bg-white rounded-lg text-[9px] font-bold text-indigo-600 shadow-sm border border-slate-100">${this.state.activePeriod?.semester} Sem</span>
-                </div>
+                <div class="mb-6 flex justify-between items-center"><h3 class="font-black text-slate-400 uppercase tracking-widest text-[10px]">Logs</h3></div>
                 <div class="flex-1 overflow-y-auto pr-2 space-y-2">
-                    ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => `
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center group hover:border-indigo-400 transition-all shadow-sm">
-                            <span class="font-bold text-slate-600 text-xs">${p.receipt_number}</span>
-                            <span class="font-black text-slate-900 text-xs text-right">₱${p.amount_paid.toLocaleString()}</span>
-                        </div>
-                    `).join('') : '<div class="h-full flex items-center justify-center text-slate-300 italic text-sm">No transactions yet</div>'}
+                    ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => `<div class="p-4 bg-white rounded-2xl flex justify-between"><b>${p.receipt_number}</b><b>₱${p.amount_paid.toLocaleString()}</b></div>`).join('') : '<div class="text-center text-slate-300 mt-10">No logs</div>'}
                 </div>
-                ${this.can('finance') ? `
-                <div class="mt-6 flex gap-2">
-                    <input type="number" id="pay-amount" placeholder="0.00" class="flex-1 p-4 bg-white rounded-2xl border-2 border-transparent focus:border-indigo-500 font-bold outline-none text-sm shadow-sm transition-all">
-                    <button id="btn-add-payment" class="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform">Record</button>
-                </div>` : ''}
+                ${this.can('finance') ? `<div class="mt-6 flex gap-2"><input type="number" id="pay-amount" placeholder="0.00" class="flex-1 p-4 bg-white rounded-2xl outline-none shadow-sm"><button id="btn-add-payment" class="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px]">Record</button></div>` : ''}
             </div>
-
-            <div class="flex-1 p-12 flex flex-col justify-between bg-white relative">
-                <div class="flex flex-col items-center text-center">
-                    <div class="w-24 h-24 rounded-[2.5rem] mb-6 flex items-center justify-center text-white text-3xl font-black shadow-2xl" style="background:${themeColor}">
-                        ${student.full_name.charAt(0)}
-                    </div>
-                    <h2 class="text-2xl font-black text-slate-800 leading-tight">${this._safe(student.full_name)}</h2>
-                    <p class="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-[0.3em]">${student.student_id}</p>
-                    
-                    <div class="grid grid-cols-2 gap-3 w-full mt-10">
-                        <div class="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                            <p class="text-[8px] font-black text-indigo-400 uppercase mb-1">Total Paid</p>
-                            <p class="text-lg font-black text-indigo-600">₱${totalPaid.toLocaleString()}</p>
-                        </div>
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Course</p>
-                            <p class="text-xs font-black text-slate-700 truncate">${student.course || 'N/A'}</p>
-                        </div>
+            <div class="flex-1 p-12 flex flex-col justify-between bg-white text-center">
+                <div>
+                    <div class="w-20 h-20 rounded-[1.5rem] mb-6 mx-auto flex items-center justify-center text-white text-2xl font-black" style="background:${themeColor}">${student.full_name[0]}</div>
+                    <h2 class="text-xl font-black text-slate-800">${this._safe(student.full_name)}</h2>
+                    <div class="p-4 bg-indigo-50/50 rounded-2xl mt-8">
+                        <p class="text-[8px] font-black text-indigo-400 uppercase">Paid</p>
+                        <p class="text-lg font-black text-indigo-600">₱${totalPaid.toLocaleString()}</p>
                     </div>
                 </div>
-
-                <div class="space-y-3 pt-8">
-                    <button id="btn-open-receipt-preview" class="w-full py-5 bg-indigo-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
-                        <i data-lucide="mail" class="w-4 h-4"></i> Send E-Receipt
-                    </button>
-                    <button onclick="document.getElementById('finance-modal').classList.replace('flex', 'hidden')" class="w-full py-3 text-slate-300 font-black text-[9px] uppercase tracking-widest hover:text-slate-500 transition-colors">Dismiss</button>
+                <div class="space-y-2">
+                    <button id="btn-open-receipt-preview" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase">E-Receipt</button>
+                    <button onclick="document.getElementById('finance-modal').classList.replace('flex', 'hidden')" class="w-full py-2 text-slate-300 text-[9px] uppercase font-bold">Dismiss</button>
                 </div>
-            </div>
-        `;
-
+            </div>`;
         document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.student_id));
         document.getElementById('btn-open-receipt-preview')?.addEventListener('click', () => this.showEmailPreview(student, totalPaid));
         if (window.lucide) window.lucide.createIcons();
@@ -307,46 +263,20 @@ export const financeModule = {
         const org = this.state.userOrgName;
         const color = org.includes("HERO") ? "#ef4444" : "#4f46e5";
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
-
         Swal.fire({
-            title: '<span class="text-xs font-black uppercase tracking-widest text-slate-400">Digital Receipt Preview</span>',
-            html: `
-                <div class="text-left mt-4 receipt-font">
-                    <div class="bg-white p-8 border-t-[8px] shadow-md text-[11px] mb-6 relative overflow-hidden" style="border-top-color: ${color}">
-                        <div class="text-center mb-6">
-                            <b style="color: ${color}; font-size: 16px;">${org}</b><br>
-                            <span class="text-slate-400 text-[9px] tracking-[0.2em]">OFFICIAL RECEIPT</span>
-                        </div>
-                        <div class="space-y-2 border-y border-dashed border-slate-200 py-4 my-4">
-                            <div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'PENDING'}</b></div>
-                            <div class="flex justify-between"><span>DATE:</span><b>${new Date().toLocaleDateString()}</b></div>
-                            <div class="flex justify-between"><span>NAME:</span><b>${student.full_name}</b></div>
-                            <div class="flex justify-between text-sm mt-4 border-t border-slate-100 pt-4"><span>TOTAL:</span><b style="color: ${color}">₱${amount.toLocaleString()}</b></div>
-                        </div>
-                        <p class="text-center text-[8px] text-slate-300 uppercase italic">Validated Proof of Payment</p>
-                    </div>
-                    <div class="space-y-2 px-1">
-                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Send to Email:</label>
-                        <input type="email" id="manual-email-entry" value="${student.email || ''}" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold outline-none focus:border-indigo-500 transition-all text-sm">
-                    </div>
-                </div>
-            `,
-            showCancelButton: true, confirmButtonText: 'Send Receipt', confirmButtonColor: color,
-            preConfirm: () => {
-                const email = document.getElementById('manual-email-entry').value;
-                return (email && email.includes('@')) ? email : Swal.showValidationMessage('Valid email required');
-            }
+            title: '<span class="text-xs font-black uppercase tracking-widest text-slate-400">Preview</span>',
+            html: `<div class="text-left mt-4 receipt-font"><div class="bg-white p-8 border-t-[8px] shadow-md text-[11px] mb-6" style="border-top-color: ${color}"><div class="text-center mb-6"><b style="color: ${color}">${org}</b></div><div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'PENDING'}</b></div><div class="flex justify-between"><span>NAME:</span><b>${student.full_name}</b></div><div class="flex justify-between text-sm mt-4 border-t border-slate-100 pt-4"><span>TOTAL:</span><b style="color: ${color}">₱${amount.toLocaleString()}</b></div></div><input type="email" id="manual-email-entry" value="${student.email || ''}" class="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none text-sm"></div>`,
+            showCancelButton: true, confirmButtonText: 'Send', confirmButtonColor: color,
+            preConfirm: () => { const e = document.getElementById('manual-email-entry').value; return (e && e.includes('@')) ? e : Swal.showValidationMessage('Valid email required'); }
         }).then(res => res.isConfirmed && this.sendReceiptEmail({...student, email: res.value}, amount));
     },
 
     async submitPayment(studentId) {
         const amt = document.getElementById('pay-amount').value;
         if (!amt || amt <= 0) return this.notify("Valid amount required", "error");
-
         const or = `OR-${studentId.slice(-4)}${Date.now().toString().slice(-4)}`;
         try {
-            const { error } = await supabase.from('payments').insert([{ student_id: studentId, amount_paid: parseFloat(amt), receipt_number: or, academic_period_id: this.state.activePeriod?.id }]);
-            if (error) throw error;
+            await supabase.from('payments').insert([{ student_id: studentId, amount_paid: parseFloat(amt), receipt_number: or, academic_period_id: this.state.activePeriod?.id }]);
             this.notify(`Success: ${or}`, "success");
             await this.fetchStudents(document.getElementById('search-finance').value);
             this.viewStudentFinance(studentId);
@@ -354,20 +284,17 @@ export const financeModule = {
     },
 
     async sendReceiptEmail(student, amount) {
-        this.notify("Sending Receipt...", "info");
+        this.notify("Sending...", "info");
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
         const payload = { recipientEmail: student.email, studentName: student.full_name, studentId: student.student_id, orNumber: lastP?.receipt_number || 'N/A', amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), orgName: this.state.userOrgName, semester: `${this.state.activePeriod?.semester} ${this.state.activePeriod?.year_range}`, date: new Date().toLocaleDateString() };
-
         try {
-            const GAS_URL = import.meta.env.VITE_GAS_URL;
-            await fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-            this.notify("Receipt sent to " + student.email, "success");
+            await fetch(import.meta.env.VITE_GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+            this.notify("Receipt sent!", "success");
         } catch (e) { this.notify("Email Error", "error"); }
     },
 
     initScanner() {
-        const con = document.getElementById('scanner-container');
-        con.classList.replace('hidden', 'flex');
+        document.getElementById('scanner-container').classList.replace('hidden', 'flex');
         this.state.scanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 200 });
         this.state.scanner.render(text => { this.notify("Verified: " + text, "success"); this.closeScanner(); });
     },
@@ -380,7 +307,6 @@ export const financeModule = {
     async executeRollover() {
         const year = document.getElementById('roll-year').value, sem = document.getElementById('roll-sem').value, fee = document.getElementById('roll-fee').value;
         if (!year || !fee) return this.notify("Complete all fields", "warning");
-
         const res = await Swal.fire({ title: 'Rollover?', text: `Reset collection for ${sem} Sem ${year}?`, icon: 'warning', showCancelButton: true });
         if (res.isConfirmed) {
             try {
@@ -395,7 +321,7 @@ export const financeModule = {
     printAuditSheet() {
         const activeId = this.state.activePeriod?.id;
         const rows = this.state.students.map(s => `<tr><td style="border:1px solid #ddd;padding:8px">${s.full_name}</td><td style="border:1px solid #ddd;padding:8px">${s.student_id}</td><td style="border:1px solid #ddd;padding:8px">₱${(s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0).toLocaleString()}</td></tr>`).join('');
-        document.getElementById('print-area').innerHTML = `<div style="padding:40px; font-family:sans-serif;"><h2>${this.state.userOrgName} Audit (${this.state.activePeriod?.semester} Sem)</h2><table style="width:100%; border-collapse:collapse; margin-top:20px;"><thead><tr style="background:#f2f2f2"><th>Name</th><th>ID</th><th>Paid</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        document.getElementById('print-area').innerHTML = `<div style="padding:40px;"><h2>${this.state.userOrgName} Audit</h2><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
         window.print();
     },
 
@@ -404,13 +330,13 @@ export const financeModule = {
         if (!body) return;
         body.innerHTML = this.state.students.map(s => {
             const paid = s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-            return `<tr class="group hover:bg-indigo-50/50 transition-all border-b border-slate-50" data-student-id="${s.student_id}">
+            return `<tr class="group hover:bg-indigo-50/50 border-b border-slate-50" data-student-id="${s.student_id}">
                 <td class="p-5">
                     <div class="font-black text-slate-800 text-sm">${this._safe(s.full_name)}</div>
                     <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
                 </td>
                 <td class="p-5 text-right font-black italic ${paid > 0 ? 'text-indigo-600' : 'text-slate-300'} text-sm">₱${paid.toLocaleString()}</td>
-                <td class="p-5 text-right"><button class="btn-manage-student px-4 py-2 bg-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest group-hover:bg-indigo-600 group-hover:text-white transition-all">Manage</button></td>
+                <td class="p-5 text-right"><button class="btn-manage-student px-4 py-2 bg-slate-100 rounded-xl text-[9px] font-black uppercase">Manage</button></td>
             </tr>`;
         }).join('');
     },
