@@ -1,7 +1,18 @@
 import { supabase } from './auth.js';
 
 export const financeModule = {
-    state: { activePeriod: null, allPeriods: [], students: [], selectedStudent: null, userRole: 'staff', userOrgId: null, userOrgName: null, scanner: null },
+    state: { 
+        activePeriod: null, 
+        allPeriods: [], 
+        students: [], 
+        totalStudentsCount: 0, // Buong bilang ng students sa org
+        currentPage: 1, 
+        pageSize: 10, 
+        userRole: 'staff', 
+        userOrgId: null, 
+        userOrgName: null, 
+        scanner: null 
+    },
 
     // --- SECURITY & HELPERS ---
     _safe(str) { return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])); },
@@ -50,18 +61,41 @@ export const financeModule = {
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-                    <div class="lg:col-span-2 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl mx-auto">
+                    <div class="lg:col-span-8 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                         <div class="p-5 border-b border-slate-50 bg-slate-50/50 flex gap-4">
                             <i data-lucide="search" class="w-4 text-slate-400"></i>
                             <input type="text" id="search-finance" placeholder="Search Student..." class="bg-transparent text-sm w-full outline-none font-medium">
                         </div>
-                        <div class="overflow-x-auto"><table class="w-full text-left"><tbody id="finance-list-body"></tbody></table></div>
+                        <div class="flex-1 overflow-x-auto">
+                            <table class="w-full text-left">
+                                <tbody id="finance-list-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-slate-50 flex justify-between items-center bg-slate-50/30">
+                            <button id="prev-page" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase disabled:opacity-30 hover:bg-slate-50 transition-all">Prev</button>
+                            <span id="page-info" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Page 1</span>
+                            <button id="next-page" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase disabled:opacity-30 hover:bg-slate-50 transition-all">Next</button>
+                        </div>
                     </div>
-                    <div class="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-xl flex flex-col justify-between items-center text-center">
-                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Collection Balance</p>
-                        <h2 class="text-4xl font-black my-4 italic">₱<span id="total-val">0.00</span></h2>
-                        <button id="btn-print-audit" class="w-full py-4 bg-white/20 hover:bg-white/30 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Export Audit</button>
+
+                    <div class="lg:col-span-4 space-y-4">
+                        <div class="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Total Collected</p>
+                            <h2 class="text-3xl font-black mt-2 italic">₱<span id="total-val">0.00</span></h2>
+                        </div>
+
+                        <div class="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-xl">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Student</p>
+                            <h2 class="text-3xl font-black mt-2 italic" id="stat-total-students">0</h2>
+                        </div>
+
+                        <div class="bg-white p-8 rounded-[2.5rem] text-slate-800 shadow-sm border border-slate-100">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Needed to be Collected</p>
+                            <h2 class="text-3xl font-black mt-2 italic text-indigo-600">₱<span id="stat-needed">0.00</span></h2>
+                        </div>
+
+                        <button id="btn-print-audit" class="w-full py-5 bg-white border border-slate-200 hover:bg-slate-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">Export Audit Sheet</button>
                     </div>
                 </div>
             </div>
@@ -105,7 +139,26 @@ export const financeModule = {
 
     _attachShellListeners() {
         const d = document;
-        d.getElementById('search-finance')?.addEventListener('input', e => this.fetchStudents(e.target.value));
+        d.getElementById('search-finance')?.addEventListener('input', e => {
+            this.state.currentPage = 1; // Reset to page 1 on search
+            this.fetchStudents(e.target.value);
+        });
+
+        d.getElementById('prev-page')?.addEventListener('click', () => {
+            if (this.state.currentPage > 1) {
+                this.state.currentPage--;
+                this.fetchStudents(d.getElementById('search-finance').value);
+            }
+        });
+
+        d.getElementById('next-page')?.addEventListener('click', () => {
+            const maxPage = Math.ceil(this.state.totalStudentsCount / this.state.pageSize);
+            if (this.state.currentPage < maxPage) {
+                this.state.currentPage++;
+                this.fetchStudents(d.getElementById('search-finance').value);
+            }
+        });
+
         d.getElementById('btn-scan-receipt')?.addEventListener('click', () => this.initScanner());
         d.getElementById('btn-close-scanner')?.addEventListener('click', () => this.closeScanner());
         d.getElementById('btn-print-audit')?.addEventListener('click', () => this.printAuditSheet());
@@ -117,6 +170,73 @@ export const financeModule = {
         });
     },
 
+    async fetchStudents(search = '') {
+        const start = (this.state.currentPage - 1) * this.state.pageSize;
+        const end = start + this.state.pageSize - 1;
+
+        // 1. Get Total Count of students in this organization (for stats and pagination)
+        const { count } = await supabase
+            .from('students')
+            .select('*', { count: 'exact', head: true })
+            .contains('organization_owner', [this.state.userOrgName]);
+        
+        this.state.totalStudentsCount = count || 0;
+
+        // 2. Fetch Paginated Student Data
+        let q = supabase
+            .from('students')
+            .select('*, payments(*)')
+            .contains('organization_owner', [this.state.userOrgName]);
+
+        if (search) q = q.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
+        
+        const { data } = await q
+            .order('full_name', { ascending: true })
+            .range(start, end);
+        
+        this.state.students = data || [];
+        this.renderStudentRows();
+        this.updateStats();
+        this.updatePaginationUI();
+    },
+
+    updatePaginationUI() {
+        const maxPage = Math.ceil(this.state.totalStudentsCount / this.state.pageSize);
+        const info = document.getElementById('page-info');
+        if (info) info.innerText = `Page ${this.state.currentPage} of ${maxPage || 1}`;
+        
+        document.getElementById('prev-page').disabled = this.state.currentPage === 1;
+        document.getElementById('next-page').disabled = this.state.currentPage >= maxPage || this.state.totalStudentsCount === 0;
+    },
+
+    async updateStats() {
+        const activeId = this.state.activePeriod?.id;
+        const targetFee = this.state.activePeriod?.target_amount || 0;
+
+        // Get ALL students in the organization to calculate real-time totals
+        const { data: allStudents } = await supabase
+            .from('students')
+            .select('student_id, payments(*)')
+            .contains('organization_owner', [this.state.userOrgName]);
+
+        let totalCollected = 0;
+        allStudents?.forEach(s => {
+            const paid = s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0;
+            totalCollected += paid;
+        });
+
+        const totalNeeded = this.state.totalStudentsCount * targetFee;
+
+        const totalEl = document.getElementById('total-val');
+        const countEl = document.getElementById('stat-total-students');
+        const neededEl = document.getElementById('stat-needed');
+
+        if (totalEl) totalEl.innerText = totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        if (countEl) countEl.innerText = this.state.totalStudentsCount.toLocaleString();
+        if (neededEl) neededEl.innerText = totalNeeded.toLocaleString(undefined, { minimumFractionDigits: 2 });
+    },
+
+    // --- RE-USE EXISTING MODAL LOGIC (UNTOUCHED) ---
     async viewStudentFinance(studentId) {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
@@ -228,7 +348,7 @@ export const financeModule = {
             const { error } = await supabase.from('payments').insert([{ student_id: studentId, amount_paid: parseFloat(amt), receipt_number: or, academic_period_id: this.state.activePeriod?.id }]);
             if (error) throw error;
             this.notify(`Success: ${or}`, "success");
-            await this.fetchStudents();
+            await this.fetchStudents(document.getElementById('search-finance').value);
             this.viewStudentFinance(studentId);
         } catch (e) { this.notify(e.message, "error"); }
     },
@@ -279,15 +399,6 @@ export const financeModule = {
         window.print();
     },
 
-    async fetchStudents(search = '') {
-        let q = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
-        if (search) q = q.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
-        const { data } = await q.limit(50);
-        this.state.students = data || [];
-        this.renderStudentRows();
-        this.updateStats();
-    },
-
     renderStudentRows() {
         const body = document.getElementById('finance-list-body'), activeId = this.state.activePeriod?.id;
         if (!body) return;
@@ -302,13 +413,6 @@ export const financeModule = {
                 <td class="p-5 text-right"><button class="btn-manage-student px-4 py-2 bg-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest group-hover:bg-indigo-600 group-hover:text-white transition-all">Manage</button></td>
             </tr>`;
         }).join('');
-    },
-
-    updateStats() {
-        const activeId = this.state.activePeriod?.id;
-        const total = this.state.students.reduce((acc, s) => acc + (s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0), 0);
-        const el = document.getElementById('total-val');
-        if (el) el.innerText = total.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
 
     async fetchMetadata() {
