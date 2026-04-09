@@ -379,9 +379,82 @@ export const financeModule = {
 
     printAuditSheet() {
         const activeId = this.state.activePeriod?.id;
-        const rows = this.state.students.map(s => `<tr><td style="border:1px solid #ddd;padding:8px">${s.full_name}</td><td style="border:1px solid #ddd;padding:8px">${s.student_id}</td><td style="border:1px solid #ddd;padding:8px">₱${(s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0).toLocaleString()}</td></tr>`).join('');
-        document.getElementById('print-area').innerHTML = `<div style="padding:40px;"><h2>${this.state.userOrgName} Audit</h2><table style="width:100%; border-collapse:collapse;">${rows}</table></div>`;
-        window.print();
+        const org = this.state.userOrgName;
+        const color = org.includes("HERO") ? "#ef4444" : "#4f46e5";
+        const semester = `${this.state.activePeriod?.semester} Sem ${this.state.activePeriod?.year_range}`;
+
+        // Kunin lang ang mga students na may bayad sa current period
+        const paidStudents = this.state.students.filter(s => 
+            s.payments?.some(p => p.academic_period_id === activeId)
+        );
+
+        if (paidStudents.length === 0) return this.notify("Walang records na may bayad sa period na ito.", "warning");
+
+        const receiptHTML = paidStudents.map(s => {
+            const lastP = s.payments.filter(p => p.academic_period_id === activeId).sort((a,b) => b.id - a.id)[0];
+            const totalPaid = s.payments.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0);
+            
+            // Dito natin ginamit ang template design mo
+            return `
+                <div class="receipt-wrapper">
+                    <div class="receipt-font bg-white p-6 border-t-[8px] shadow-sm text-[11px] h-full flex flex-col justify-between" style="border-top-color: ${color}; border-left: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee;">
+                        <div>
+                            <div class="text-center mb-4">
+                                <b style="color: ${color}; font-size: 14px;">${org}</b>
+                                <div style="font-size: 9px; color: #666; margin-top: 2px;">OFFICIAL RECEIPT</div>
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'N/A'}</b></div>
+                                <div class="flex justify-between"><span>DATE:</span><b>${new Date(lastP?.created_at || Date.now()).toLocaleDateString()}</b></div>
+                                <div class="flex justify-between"><span>ID NO:</span><b>${s.student_id}</b></div>
+                                <div class="flex justify-between"><span>NAME:</span><b style="text-transform: uppercase;">${s.full_name}</b></div>
+                                <div class="flex justify-between"><span>PERIOD:</span><b>${semester}</b></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <div class="flex justify-between text-sm border-t border-slate-100 pt-4">
+                                <span>TOTAL PAID:</span>
+                                <b style="color: ${color}; font-size: 16px;">₱${totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</b>
+                            </div>
+                            <div class="text-center mt-4" style="font-size: 8px; color: #999; font-style: italic;">
+                                This serves as an official proof of payment.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('print-area').innerHTML = `
+            <style>
+                @media print {
+                    @page { size: A4; margin: 5mm; }
+                    body { background: white !important; }
+                    #print-area { 
+                        display: grid !important; 
+                        grid-template-columns: 1fr 1fr; 
+                        grid-template-rows: 1fr 1fr;
+                        gap: 10mm;
+                        padding: 5mm;
+                        background: white;
+                    }
+                    .receipt-wrapper { 
+                        height: 130mm; /* Saktong hati para sa 4 sa isang A4 */
+                        page-break-inside: avoid;
+                        display: block;
+                    }
+                    .receipt-font { font-family: 'Courier New', Courier, monospace; }
+                }
+            </style>
+            ${receiptHTML}
+        `;
+        
+        // Sandaling delay para masiguradong na-render ang HTML bago i-print
+        setTimeout(() => {
+            window.print();
+        }, 500);
     },
 
     renderStudentRows() {
