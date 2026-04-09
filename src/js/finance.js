@@ -423,53 +423,7 @@ printAuditSheet() {
     }).join('');
 
     document.getElementById('print-area').innerHTML = `
-        <style>
-            /* Reset para sa lahat ng browser */
-            @media print {
-                /* Itago ang system UI */
-                body * { visibility: hidden !important; }
-                #print-area, #print-area * { visibility: visible !important; }
-                
-                /* I-position ang print area sa pinaka-top-left */
-                #print-area { 
-                    position: absolute; 
-                    left: 0; 
-                    top: 0; 
-                    width: 100%; 
-                    display: grid !important; 
-                    grid-template-columns: 1fr 1fr; 
-                    gap: 5mm; 
-                    padding: 5mm;
-                    background: white !important;
-                }
-
-                @page { size: A4; margin: 0; }
-                
-                .receipt-wrapper { 
-                    height: 138mm; /* Saktong hati para sa apat sa A4 */
-                    page-break-inside: avoid;
-                    border: 1px dashed #eee; /* Cut guide */
-                    display: block;
-                }
-
-                .receipt-card {
-                    height: 100%;
-                    padding: 20px;
-                    background: white;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-between;
-                    font-family: 'Courier New', Courier, monospace;
-                }
-
-                .receipt-header { text-align: center; margin-bottom: 15px; }
-                .receipt-label { font-size: 9px; color: #666; letter-spacing: 2px; }
-                .receipt-body { flex-grow: 1; font-size: 11px; }
-                .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dotted #ccc; }
-                .total-line { display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #eee; padding-top: 10px; margin-top: 15px; }
-                .legal-text { text-align: center; font-size: 8px; color: #999; margin-top: 10px; font-style: italic; }
-            }
-        </style>
+        
         ${receiptHTML}
     `;
 
