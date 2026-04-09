@@ -284,13 +284,39 @@ export const financeModule = {
     },
 
     async sendReceiptEmail(student, amount) {
-        this.notify("Sending...", "info");
+        this.notify("Sending Receipt...", "info");
+        
+        // Kunin ang pinakabagong payment record para sa active period
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
-        const payload = { recipientEmail: student.email, studentName: student.full_name, studentId: student.student_id, orNumber: lastP?.receipt_number || 'N/A', amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), orgName: this.state.userOrgName, semester: `${this.state.activePeriod?.semester} ${this.state.activePeriod?.year_range}`, date: new Date().toLocaleDateString() };
+        
+        // Ihanda ang data na ipapadala sa Google Apps Script
+        const payload = { 
+            recipientEmail: student.email, 
+            studentName: student.full_name, 
+            studentId: student.student_id, 
+            orNumber: lastP?.receipt_number || 'N/A', 
+            amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), 
+            orgName: this.state.userOrgName, 
+            semester: `${this.state.activePeriod?.semester} ${this.state.activePeriod?.year_range}`, 
+            date: new Date().toLocaleDateString() 
+        };
+
         try {
-            await fetch(import.meta.env.VITE_GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-            this.notify("Receipt sent!", "success");
-        } catch (e) { this.notify("Email Error", "error"); }
+            // Direct Link na ang ginamit dito sa halip na environment variable
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbwg4qrxrd85O2WvfAQkvpu43iKcLpeyYDTlMzwWMpYg4ovBrRcjr4SyJTtY-QXf2p77MA/exec";
+            
+            await fetch(GAS_URL, { 
+                method: "POST", 
+                mode: "no-cors", // Standard ito para sa Google Apps Script redirects
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload) 
+            });
+
+            this.notify("Receipt sent to " + student.email, "success");
+        } catch (e) { 
+            console.error("Email Error:", e);
+            this.notify("Email Error", "error"); 
+        }
     },
 
     initScanner() {
