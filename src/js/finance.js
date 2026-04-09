@@ -63,7 +63,6 @@ export const financeModule = {
                 .status-pill { padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 900; text-transform: uppercase; }
                 .status-paid { background: #dcfce7; color: #166534; }
                 .status-partial { background: #fef9c3; color: #854d0e; }
-                .text-archived { color: #94a3b8; font-style: italic; }
             </style>
 
             <div class="p-6 md:p-10 bg-[#F8FAFC] min-h-screen">
@@ -188,106 +187,82 @@ export const financeModule = {
         const totalPaidCurrent = student.payments?.filter(p => p.academic_period_id === currentPeriodId)
                                          .reduce((sum, p) => sum + p.amount_paid, 0) || 0;
         
+        const lastPayment = student.payments
+            ?.filter(p => p.academic_period_id === currentPeriodId)
+            .sort((a, b) => b.id - a.id)[0];
+
         const targetAmount = this.state.activePeriod?.target_amount || 0;
         const globalStatus = totalPaidCurrent >= targetAmount ? 'Paid' : 'Partial';
+
+        // Dynamic Theme based on Org Name
+        const orgName = this.state.userOrgName || "Student Organization";
+        const themeColor = orgName.includes("HERO") ? "#dc2626" : (orgName.includes("PSTTS") ? "#16a34a" : "#2563eb");
 
         const modal = document.getElementById('finance-modal');
         modal.classList.remove('hidden');
         modal.style.display = 'flex';
 
         document.getElementById('finance-modal-content').innerHTML = `
-            <div class="flex-[2.5] bg-white rounded-[3rem] shadow-2xl flex flex-col overflow-hidden">
+            <div class="flex-[2.5] bg-white rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100">
                 <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
-                    <div>
-                        <h3 class="font-black text-slate-900 uppercase tracking-widest text-xs italic">Transaction History</h3>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Payment Ledger Record</p>
-                    </div>
+                    <h3 class="font-black text-slate-900 uppercase tracking-widest text-[10px]">Step 2: Receipt Preview</h3>
                     <span class="status-pill ${globalStatus === 'Paid' ? 'status-paid' : 'status-partial'}">${globalStatus}</span>
                 </div>
                 
-                <div class="flex-1 overflow-y-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="sticky top-0 bg-slate-50/80 backdrop-blur text-[10px] font-black uppercase text-slate-400 tracking-tighter">
-                            <tr>
-                                <th class="p-6">OR No.</th>
-                                <th class="p-6">Period Status</th>
-                                <th class="p-6">Amount Paid</th>
-                                <th class="p-6 text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50">
-                            ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => {
-                                const isCurrent = p.academic_period_id === currentPeriodId;
-                                return `
-                                <tr class="hover:bg-slate-50/50 transition-colors ${!isCurrent ? 'opacity-60 grayscale' : ''}">
-                                    <td class="p-6 font-bold text-slate-600">${p.receipt_number || '---'}</td>
-                                    <td class="p-6">
-                                        <div class="font-bold ${isCurrent ? 'text-blue-600' : 'text-slate-400'} text-[11px]">
-                                            ${isCurrent ? 'CURRENT SEMESTER' : 'PREVIOUS RECORD'}
-                                        </div>
-                                    </td>
-                                    <td class="p-6 font-black text-blue-600 text-[11px]">₱ ${p.amount_paid.toLocaleString()}</td>
-                                    <td class="p-6 text-center">
-                                        <span class="status-pill status-paid">${isCurrent ? 'Active' : 'Archived'}</span>
-                                    </td>
-                                </tr>`;
-                            }).join('') : '<tr><td colspan="4" class="p-20 text-center italic text-slate-300 font-bold">No payment history found.</td></tr>'}
-                        </tbody>
-                    </table>
+                <div class="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+                    <div id="receipt-preview-box" class="bg-white p-12 shadow-xl rounded-sm border-t-[6px] max-w-md mx-auto font-mono text-[11px]" style="border-top-color: ${themeColor}">
+                        <div class="text-center mb-8">
+                            <h2 class="text-lg font-black uppercase tracking-tighter" style="color: ${themeColor}">${orgName}</h2>
+                            <p class="text-[9px] text-slate-500 tracking-[0.3em] uppercase mt-1">Official Electronic Receipt</p>
+                        </div>
+                        
+                        <div class="space-y-4 border-y border-slate-100 py-6 my-6">
+                            <div class="flex justify-between"><span>DATE:</span><span class="font-bold">${new Date().toLocaleDateString()}</span></div>
+                            <div class="flex justify-between"><span>OR NUMBER:</span><span class="font-bold" style="color: ${themeColor}">${lastPayment?.receipt_number || '--------'}</span></div>
+                            <div class="flex justify-between"><span>STUDENT:</span><span class="font-bold uppercase">${student.full_name}</span></div>
+                            <div class="flex justify-between"><span>STUDENT ID:</span><span class="font-bold">${student.student_id}</span></div>
+                        </div>
+
+                        <div class="flex justify-between items-center bg-slate-50 p-4 rounded-lg">
+                            <span class="font-black text-slate-400">TOTAL PAID</span>
+                            <span class="text-xl font-black" style="color: ${themeColor}">₱ ${totalPaidCurrent.toLocaleString()}</span>
+                        </div>
+
+                        <div class="mt-8 text-[8px] text-center text-slate-400 leading-relaxed uppercase tracking-widest">
+                            This is a computer-generated receipt.<br>Verified via Finance Command System.
+                        </div>
+                    </div>
                 </div>
 
                 ${this.can('finance') ? `
-                <div class="p-8 bg-slate-50 border-t border-slate-100">
-                    <div class="flex gap-4">
-                        <input type="number" id="pay-amount" placeholder="Amount" class="flex-1 p-4 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold shadow-sm">
-                        <button id="btn-add-payment" class="flex-1 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-200">Record Payment</button>
-                    </div>
+                <div class="p-8 bg-white border-t border-slate-100 flex gap-4">
+                    <input type="number" id="pay-amount" placeholder="Amount (₱)" class="flex-1 p-4 rounded-2xl border-2 border-slate-100 outline-none focus:border-blue-600 font-bold transition-all">
+                    <button id="btn-add-payment" class="px-10 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest">1. Record Payment</button>
                 </div>` : ''}
             </div>
 
-            <div class="flex-1 bg-white rounded-[3rem] shadow-2xl p-10 flex flex-col overflow-hidden">
-                <div class="flex flex-col items-center text-center mb-8">
-                    <div class="w-24 h-24 bg-slate-900 rounded-[2.5rem] mb-6 flex items-center justify-center text-white text-3xl font-black shadow-xl">
-                        ${student.full_name.charAt(0)}
+            <div class="flex-1 bg-white rounded-[3rem] shadow-2xl p-10 flex flex-col border border-slate-100 overflow-hidden">
+                <div class="mb-10">
+                    <h3 class="font-black text-slate-900 uppercase text-[10px] tracking-widest mb-6 border-l-4 border-blue-600 pl-3">Step 3: Recipient</h3>
+                    <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                        <label class="text-[8px] font-black text-slate-400 uppercase block mb-2">Send To Email Address:</label>
+                        <input type="email" id="recipient-email" 
+                               value="${student.email || ''}" 
+                               placeholder="manual-input@email.com" 
+                               class="w-full bg-transparent font-bold text-slate-900 outline-none border-b-2 border-slate-200 focus:border-blue-600 pb-1">
                     </div>
-                    <h2 class="text-xl font-black text-slate-900 leading-tight">${this._escapeHtml(student.full_name)}</h2>
-                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] mt-2">${student.student_id}</p>
                 </div>
 
                 <div class="space-y-4 flex-1">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Course</p>
-                            <p class="text-[10px] font-bold text-slate-800 truncate">${student.course || 'N/A'}</p>
-                        </div>
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Year Level</p>
-                            <p class="text-[10px] font-bold text-slate-800">${student.year_level || 'N/A'}</p>
-                        </div>
-                    </div>
-                    <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Email Address</p>
-                        <p class="text-[10px] font-bold text-slate-800 truncate">${student.email || 'No email provided'}</p>
-                    </div>
-
-                    <hr class="border-slate-50 my-2">
-
                     <div class="p-5 bg-blue-50/50 rounded-[2rem] border border-blue-100">
-                        <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Paid (Active Sem)</p>
-                        <p class="text-lg font-black text-blue-600">₱ ${totalPaidCurrent.toLocaleString()}</p>
-                    </div>
-                    <div class="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fee Required</p>
-                        <p class="text-xs font-black text-slate-800">₱ ${targetAmount.toLocaleString()}</p>
+                        <p class="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Target Fee</p>
+                        <p class="text-lg font-black text-blue-600">₱ ${targetAmount.toLocaleString()}</p>
                     </div>
                 </div>
 
-                <div class="mt-8 space-y-3">
-                    <button class="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="mail" class="w-4 h-4"></i> Send via Email
-                    </button>
-                    <button onclick="window.print()" class="w-full py-5 bg-white border-2 border-slate-100 text-slate-900 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest hover:border-blue-600 transition-all flex items-center justify-center gap-2">
-                        <i data-lucide="printer" class="w-4 h-4"></i> Print Record
+                <div class="mt-auto space-y-3">
+                    <button id="btn-send-gas" class="w-full py-6 bg-blue-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-blue-200 hover:scale-105 transition-all flex flex-col items-center gap-1">
+                        <span>4. Finalize & Send PDF</span>
                     </button>
                     <button onclick="document.getElementById('finance-modal').classList.add('hidden')" class="w-full py-4 text-slate-400 font-black text-[9px] uppercase tracking-[0.2em]">Close Preview</button>
                 </div>
@@ -295,6 +270,11 @@ export const financeModule = {
         `;
 
         document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.student_id));
+        document.getElementById('btn-send-gas')?.addEventListener('click', () => {
+            const email = document.getElementById('recipient-email').value;
+            this.sendReceiptEmail({...student, email}, totalPaidCurrent);
+        });
+        
         if (window.lucide) window.lucide.createIcons();
     },
 
@@ -303,7 +283,7 @@ export const financeModule = {
         if (!amt || amt <= 0) return this.notify("Valid amount required", "error");
 
         const lastFour = String(studentId).slice(-4);
-        const ms = Date.now().toString();
+        const ms = Date.now().toString().slice(-6);
         const generatedOR = `OR-${lastFour}${ms}`;
 
         try {
@@ -319,6 +299,43 @@ export const financeModule = {
             await this.fetchStudents();
             this.viewStudentFinance(studentId);
         } catch (e) { this.notify(e.message, "error"); }
+    },
+
+    async sendReceiptEmail(student, amount) {
+        if (!student.email) return this.notify("Email address required!", "warning");
+
+        const currentPeriodId = this.state.activePeriod?.id;
+        const lastPayment = student.payments
+            ?.filter(p => p.academic_period_id === currentPeriodId)
+            .sort((a, b) => b.id - a.id)[0];
+
+        const payload = {
+            recipientEmail: student.email,
+            studentName: student.full_name,
+            studentId: student.student_id,
+            orNumber: lastPayment?.receipt_number || 'N/A',
+            amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+            orgName: this.state.userOrgName,
+            semester: `${this.state.activePeriod?.semester} Sem ${this.state.activePeriod?.year_range}`,
+            date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        };
+
+        this.notify("Generating PDF & Sending...", "info");
+
+        try {
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbwg4qrxrd85O2WvfAQkvpu43iKcLpeyYDTlMzwWMpYg4ovBrRcjr4SyJTtY-QXf2p77MA/exec"; // REPLACE THIS
+            await fetch(GAS_URL, {
+                method: "POST",
+                mode: "no-cors",
+                cache: "no-cache",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            this.notify("Receipt sent to " + student.email, "success");
+        } catch (e) {
+            console.error(e);
+            this.notify("Email Service Error", "error");
+        }
     },
 
     initScanner() {
