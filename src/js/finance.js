@@ -433,7 +433,7 @@ printAuditSheet() {
         // Clear print area after printing to avoid ghosting in UI
         setTimeout(() => { document.getElementById('print-area').innerHTML = ''; }, 1000);
     }, 500);
-}
+},
 
     renderStudentRows() {
         const body = document.getElementById('finance-list-body'), activeId = this.state.activePeriod?.id;
