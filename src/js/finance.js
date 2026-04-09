@@ -27,7 +27,7 @@ export const financeModule = {
         return { 
             manage: ['super_admin', 'admin'].includes(r), 
             finance: ['super_admin', 'admin', 'finance_staff'].includes(r), 
-            rollover: ['super_admin', 'admin'].includes(r) // Updated: Admins can now rollover
+            rollover: ['super_admin', 'admin'].includes(r) 
         }[action] ?? false;
     },
 
@@ -53,6 +53,21 @@ export const financeModule = {
                 .scanner-laser { position: absolute; width: 100%; height: 2px; background: #2563eb; box-shadow: 0 0 15px #3b82f6; animation: scan 2s infinite linear; z-index: 10; }
                 .receipt-font { font-family: 'Courier New', Courier, monospace; }
                 .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
+                
+                /* Print Styles */
+                @media print {
+                    body * { visibility: hidden; }
+                    #print-area, #print-area * { visibility: visible; }
+                    #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+                    .receipt-wrapper { page-break-inside: avoid; margin-bottom: 20px; }
+                }
+                .receipt-card { background: white; padding: 20px; border: 1px solid #eee; font-family: 'Courier New', monospace; max-width: 400px; margin: 0 auto; }
+                .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+                .receipt-header { text-align: center; margin-bottom: 15px; }
+                .receipt-label { font-size: 10px; letter-spacing: 2px; font-weight: bold; color: #94a3b8; }
+                .receipt-footer { border-top: 1px dashed #ddd; margin-top: 15px; pt-15px; text-align: center; }
+                .total-line { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+                .legal-text { font-size: 8px; color: #cbd5e1; text-transform: uppercase; }
             </style>
 
             <div class="p-4 md:p-8 bg-[#F1F5F9] min-h-screen">
@@ -108,8 +123,9 @@ export const financeModule = {
                     </div>
                 </div>
             </div>
+
             <div id="rollover-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[250] flex items-center justify-center p-4">
-                <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
+                <div class="bg-white w-full max-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
                     <h2 class="text-xl font-black text-slate-800 mb-6 italic">Semester Rollover</h2>
                     <div class="space-y-4">
                         <input type="text" id="roll-year" placeholder="Year (e.g. 2025-2026)" class="w-full p-4 bg-slate-50 rounded-xl border-none font-bold text-sm">
@@ -124,6 +140,7 @@ export const financeModule = {
                     </div>
                 </div>
             </div>
+
             <div id="scanner-container" class="hidden fixed inset-0 z-[500] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center flex-col p-4">
                 <div class="relative w-72 h-72 rounded-[2.5rem] overflow-hidden border-4 border-indigo-500 shadow-2xl">
                     <div id="reader" class="w-full h-full scale-150"></div>
@@ -131,9 +148,11 @@ export const financeModule = {
                 </div>
                 <button id="btn-close-scanner" class="mt-8 px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest">Close Scanner</button>
             </div>
+
             <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[100] items-center justify-center p-4">
                 <div id="finance-modal-content" class="w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] animate-in slide-in-from-bottom-4 duration-300"></div>
             </div>
+
             <div id="print-area" class="hidden print:block"></div>
         `;
 
@@ -329,10 +348,7 @@ export const financeModule = {
     },
 
     async executeRollover() {
-        if (!this.can('rollover')) {
-            this.notify("Unauthorized: Admins only", "error");
-            return;
-        }
+        if (!this.can('rollover')) return this.notify("Unauthorized: Admins only", "error");
 
         const year = document.getElementById('roll-year').value;
         const sem = document.getElementById('roll-sem').value;
@@ -351,22 +367,10 @@ export const financeModule = {
 
         if (res.isConfirmed) {
             try {
-                await supabase
-                    .from('academic_periods')
-                    .update({ is_active: false })
-                    .eq('organization_owner', this.state.userOrgName)
-                    .eq('is_active', true);
-
-                const { error } = await supabase
-                    .from('academic_periods')
-                    .insert([{ 
-                        year_range: year, 
-                        semester: sem, 
-                        target_amount: parseFloat(fee), 
-                        is_active: true,
-                        organization_owner: this.state.userOrgName 
-                    }]);
-
+                await supabase.from('academic_periods').update({ is_active: false }).eq('organization_owner', this.state.userOrgName).eq('is_active', true);
+                const { error } = await supabase.from('academic_periods').insert([{ 
+                    year_range: year, semester: sem, target_amount: parseFloat(fee), is_active: true, organization_owner: this.state.userOrgName 
+                }]);
                 if (error) throw error;
                 this.notify("System Updated for " + this.state.userOrgName, "success");
                 setTimeout(() => location.reload(), 1500);
@@ -377,63 +381,46 @@ export const financeModule = {
         }
     },
 
-printAuditSheet() {
-    const activeId = this.state.activePeriod?.id;
-    const org = this.state.userOrgName;
-    const color = org.includes("HERO") ? "#ef4444" : "#4f46e5";
-    const semester = `${this.state.activePeriod?.semester} Sem ${this.state.activePeriod?.year_range}`;
+    printAuditSheet() {
+        const activeId = this.state.activePeriod?.id;
+        const org = this.state.userOrgName;
+        const color = org.includes("HERO") ? "#ef4444" : "#4f46e5";
+        const semester = `${this.state.activePeriod?.semester} Sem ${this.state.activePeriod?.year_range}`;
 
-    // Filter students na may bayad sa current academic period
-    const paidStudents = this.state.students.filter(s => 
-        s.payments?.some(p => p.academic_period_id === activeId)
-    );
+        const paidStudents = this.state.students.filter(s => s.payments?.some(p => p.academic_period_id === activeId));
+        if (paidStudents.length === 0) return this.notify("Walang records na may bayad.", "warning");
 
-    if (paidStudents.length === 0) return this.notify("Walang records na may bayad.", "warning");
-
-    const receiptHTML = paidStudents.map(s => {
-        const lastP = s.payments.filter(p => p.academic_period_id === activeId).sort((a,b) => b.id - a.id)[0];
-        const totalPaid = s.payments.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0);
-        
-        return `
-            <div class="receipt-wrapper">
-                <div class="receipt-card" style="border-top: 8px solid ${color};">
-                    <div class="receipt-header">
-                        <b style="color: ${color}; font-size: 14px;">${org}</b>
-                        <div class="receipt-label">OFFICIAL RECEIPT</div>
-                    </div>
-                    
-                    <div class="receipt-body">
-                        <div class="info-row"><span>OR NO:</span><b>${lastP?.receipt_number || 'N/A'}</b></div>
-                        <div class="info-row"><span>DATE:</span><b>${new Date(lastP?.created_at || Date.now()).toLocaleDateString()}</b></div>
-                        <div class="info-row"><span>ID NO:</span><b>${s.student_id}</b></div>
-                        <div class="info-row"><span>NAME:</span><b style="text-transform: uppercase;">${s.full_name}</b></div>
-                        <div class="info-row"><span>PERIOD:</span><b>${semester}</b></div>
-                    </div>
-
-                    <div class="receipt-footer">
-                        <div class="total-line">
-                            <span>TOTAL PAID:</span>
-                            <b style="color: ${color}; font-size: 16px;">₱${totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</b>
+        const receiptHTML = paidStudents.map(s => {
+            const lastP = s.payments.filter(p => p.academic_period_id === activeId).sort((a,b) => b.id - a.id)[0];
+            const totalPaid = s.payments.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0);
+            return `
+                <div class="receipt-wrapper">
+                    <div class="receipt-card" style="border-top: 8px solid ${color};">
+                        <div class="receipt-header">
+                            <b style="color: ${color}; font-size: 14px;">${org}</b>
+                            <div class="receipt-label">OFFICIAL RECEIPT</div>
                         </div>
-                        <div class="legal-text">This serves as an official proof of payment.</div>
+                        <div class="receipt-body">
+                            <div class="info-row"><span>OR NO:</span><b>${lastP?.receipt_number || 'N/A'}</b></div>
+                            <div class="info-row"><span>DATE:</span><b>${new Date(lastP?.created_at || Date.now()).toLocaleDateString()}</b></div>
+                            <div class="info-row"><span>ID NO:</span><b>${s.student_id}</b></div>
+                            <div class="info-row"><span>NAME:</span><b style="text-transform: uppercase;">${s.full_name}</b></div>
+                            <div class="info-row"><span>PERIOD:</span><b>${semester}</b></div>
+                        </div>
+                        <div class="receipt-footer">
+                            <div class="total-line"><span>TOTAL PAID:</span><b style="color: ${color}; font-size: 16px;">₱${totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</b></div>
+                            <div class="legal-text">This serves as an official proof of payment.</div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+                </div>`;
+        }).join('');
 
-    document.getElementById('print-area').innerHTML = `
-        
-        ${receiptHTML}
-    `;
-
-    // Delay para load lahat ng styles bago lumabas ang print dialog
-    setTimeout(() => {
-        window.print();
-        // Clear print area after printing to avoid ghosting in UI
-        setTimeout(() => { document.getElementById('print-area').innerHTML = ''; }, 1000);
-    }, 500);
-},
+        document.getElementById('print-area').innerHTML = receiptHTML;
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => { document.getElementById('print-area').innerHTML = ''; }, 1000);
+        }, 500);
+    },
 
     renderStudentRows() {
         const body = document.getElementById('finance-list-body'), activeId = this.state.activePeriod?.id;
@@ -452,12 +439,7 @@ printAuditSheet() {
     },
 
     async fetchMetadata() {
-        const { data } = await supabase
-            .from('academic_periods')
-            .select('*')
-            .eq('organization_owner', this.state.userOrgName)
-            .order('created_at', { ascending: false });
-            
+        const { data } = await supabase.from('academic_periods').select('*').eq('organization_owner', this.state.userOrgName).order('created_at', { ascending: false });
         this.state.allPeriods = data || [];
         this.state.activePeriod = data?.find(p => p.is_active) || data?.[0];
     }
