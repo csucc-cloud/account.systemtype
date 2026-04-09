@@ -12,7 +12,7 @@ export const financeModule = {
         userOrgId: null, 
         userOrgName: null, 
         scanner: null,
-        isFetching: false // NEW: Guard for race conditions
+        isFetching: false 
     },
 
     // --- SECURITY & HELPERS ---
@@ -24,7 +24,11 @@ export const financeModule = {
 
     can(action) {
         const r = this.state.userRole;
-        return { manage: ['super_admin', 'admin'].includes(r), finance: ['super_admin', 'admin', 'finance_staff'].includes(r), rollover: ['super_admin'].includes(r) }[action] ?? false;
+        return { 
+            manage: ['super_admin', 'admin'].includes(r), 
+            finance: ['super_admin', 'admin', 'finance_staff'].includes(r), 
+            rollover: ['super_admin', 'admin'].includes(r) // Updated: Admins can now rollover
+        }[action] ?? false;
     },
 
     // --- MAIN RENDERER ---
@@ -35,7 +39,11 @@ export const financeModule = {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data: prof } = await supabase.from('profiles').select('*').eq('id', user?.id).single();
-            Object.assign(this.state, { userRole: prof?.role || 'staff', userOrgId: prof?.organization_id, userOrgName: prof?.organization_name || 'CITTE LSG' });
+            Object.assign(this.state, { 
+                userRole: prof?.role || 'staff', 
+                userOrgId: prof?.organization_id, 
+                userOrgName: prof?.organization_name || 'CITTE LSG' 
+            });
             if (!this.state.allPeriods.length) await this.fetchMetadata();
         } catch (e) { console.error(e); }
 
@@ -142,7 +150,7 @@ export const financeModule = {
             searchTimeout = setTimeout(() => {
                 this.state.currentPage = 1;
                 this.fetchStudents(e.target.value);
-            }, 300); // FIX: Debounce logic to prevent race conditions
+            }, 300); 
         });
 
         d.getElementById('prev-page')?.addEventListener('click', () => {
@@ -172,14 +180,13 @@ export const financeModule = {
     },
 
     async fetchStudents(search = '') {
-        if (this.state.isFetching) return; // FIX: Race condition guard
+        if (this.state.isFetching) return; 
         this.state.isFetching = true;
 
         const start = (this.state.currentPage - 1) * this.state.pageSize;
         const end = start + this.state.pageSize - 1;
 
         try {
-            // FIX: Search filter applied to count query for correct pagination
             let countQuery = supabase.from('students').select('*', { count: 'exact', head: true }).contains('organization_owner', [this.state.userOrgName]);
             if (search) countQuery = countQuery.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
             const { count } = await countQuery;
@@ -193,7 +200,7 @@ export const financeModule = {
 
             this.renderStudentRows();
             this.updatePaginationUI();
-            await this.updateStats(); // Optimized stats inside
+            await this.updateStats(); 
         } finally {
             this.state.isFetching = false;
         }
@@ -211,11 +218,9 @@ export const financeModule = {
         const activeId = this.state.activePeriod?.id;
         const targetFee = this.state.activePeriod?.target_amount || 0;
 
-        // FIX: Optimized sum aggregation. We only fetch the specific column needed.
         const { data: payments } = await supabase.from('payments').select('amount_paid').eq('academic_period_id', activeId);
         const totalCollected = payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
 
-        // Fetch full org count for accurate "Total Needed" (ignores current search)
         const { count: fullOrgCount } = await supabase.from('students').select('*', { count: 'exact', head: true }).contains('organization_owner', [this.state.userOrgName]);
         const totalNeeded = (fullOrgCount || 0) * targetFee;
 
@@ -224,7 +229,6 @@ export const financeModule = {
         document.getElementById('stat-needed').innerText = totalNeeded.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
 
-    // --- REMAINING METHODS (UNTOUCHED LOGIC) ---
     async viewStudentFinance(studentId) {
         const student = this.state.students.find(s => String(s.student_id) === String(studentId));
         if (!student) return;
@@ -285,11 +289,8 @@ export const financeModule = {
 
     async sendReceiptEmail(student, amount) {
         this.notify("Sending Receipt...", "info");
-        
-        // Kunin ang pinakabagong payment record para sa active period
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
         
-        // Ihanda ang data na ipapadala sa Google Apps Script
         const payload = { 
             recipientEmail: student.email, 
             studentName: student.full_name, 
@@ -302,16 +303,13 @@ export const financeModule = {
         };
 
         try {
-            // Direct Link na ang ginamit dito sa halip na environment variable
             const GAS_URL = "https://script.google.com/macros/s/AKfycbwg4qrxrd85O2WvfAQkvpu43iKcLpeyYDTlMzwWMpYg4ovBrRcjr4SyJTtY-QXf2p77MA/exec";
-            
             await fetch(GAS_URL, { 
                 method: "POST", 
-                mode: "no-cors", // Standard ito para sa Google Apps Script redirects
+                mode: "no-cors", 
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload) 
             });
-
             this.notify("Receipt sent to " + student.email, "success");
         } catch (e) { 
             console.error("Email Error:", e);
@@ -331,16 +329,51 @@ export const financeModule = {
     },
 
     async executeRollover() {
-        const year = document.getElementById('roll-year').value, sem = document.getElementById('roll-sem').value, fee = document.getElementById('roll-fee').value;
+        if (!this.can('rollover')) {
+            this.notify("Unauthorized: Admins only", "error");
+            return;
+        }
+
+        const year = document.getElementById('roll-year').value;
+        const sem = document.getElementById('roll-sem').value;
+        const fee = document.getElementById('roll-fee').value;
+
         if (!year || !fee) return this.notify("Complete all fields", "warning");
-        const res = await Swal.fire({ title: 'Rollover?', text: `Reset collection for ${sem} Sem ${year}?`, icon: 'warning', showCancelButton: true });
+
+        const res = await Swal.fire({ 
+            title: `Rollover para sa ${this.state.userOrgName}?`, 
+            text: `Itatala nito ang ${sem} Sem SY ${year} bilang aktibong period ng inyong org.`, 
+            icon: 'warning', 
+            showCancelButton: true,
+            confirmButtonColor: '#4f46e5',
+            confirmButtonText: 'Yes, Proceed'
+        });
+
         if (res.isConfirmed) {
             try {
-                await supabase.from('academic_periods').update({ is_active: false }).eq('is_active', true);
-                await supabase.from('academic_periods').insert([{ year_range: year, semester: sem, target_amount: parseFloat(fee), is_active: true }]);
-                this.notify("System Updated", "success");
+                await supabase
+                    .from('academic_periods')
+                    .update({ is_active: false })
+                    .eq('organization_owner', this.state.userOrgName)
+                    .eq('is_active', true);
+
+                const { error } = await supabase
+                    .from('academic_periods')
+                    .insert([{ 
+                        year_range: year, 
+                        semester: sem, 
+                        target_amount: parseFloat(fee), 
+                        is_active: true,
+                        organization_owner: this.state.userOrgName 
+                    }]);
+
+                if (error) throw error;
+                this.notify("System Updated for " + this.state.userOrgName, "success");
                 setTimeout(() => location.reload(), 1500);
-            } catch (err) { this.notify(err.message, "error"); }
+            } catch (err) { 
+                console.error(err);
+                this.notify("Rollover Failed: " + err.message, "error"); 
+            }
         }
     },
 
@@ -368,7 +401,12 @@ export const financeModule = {
     },
 
     async fetchMetadata() {
-        const { data } = await supabase.from('academic_periods').select('*').order('created_at', { ascending: false });
+        const { data } = await supabase
+            .from('academic_periods')
+            .select('*')
+            .eq('organization_owner', this.state.userOrgName)
+            .order('created_at', { ascending: false });
+            
         this.state.allPeriods = data || [];
         this.state.activePeriod = data?.find(p => p.is_active) || data?.[0];
     }
