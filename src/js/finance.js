@@ -32,6 +32,7 @@ export const financeModule = {
                 @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
                 .scanner-laser { position: absolute; width: 100%; height: 2px; background: #2563eb; box-shadow: 0 0 15px #3b82f6; animation: scan 2s infinite linear; z-index: 10; }
                 .receipt-font { font-family: 'Courier New', Courier, monospace; }
+                .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
             </style>
 
             <div class="p-4 md:p-8 bg-[#F1F5F9] min-h-screen">
@@ -90,8 +91,8 @@ export const financeModule = {
                 <button id="btn-close-scanner" class="mt-8 px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest">Close Scanner</button>
             </div>
 
-            <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] items-center justify-center p-4">
-                <div id="finance-modal-content" class="w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[80vh] animate-in slide-in-from-bottom-4 duration-300"></div>
+            <div id="finance-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-md z-[100] items-center justify-center p-4">
+                <div id="finance-modal-content" class="w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] animate-in slide-in-from-bottom-4 duration-300"></div>
             </div>
 
             <div id="print-area" class="hidden print:block"></div>
@@ -128,23 +129,23 @@ export const financeModule = {
         modal.classList.replace('hidden', 'flex');
 
         document.getElementById('finance-modal-content').innerHTML = `
-            <div class="flex-1 p-10 flex flex-col bg-slate-50 border-r border-slate-100">
+            <div class="flex-[1.2] p-10 flex flex-col bg-slate-50 border-r border-slate-100">
                 <div class="mb-6 flex justify-between items-center">
-                    <h3 class="font-black text-slate-400 uppercase tracking-widest text-[10px]">Payment History</h3>
+                    <h3 class="font-black text-slate-400 uppercase tracking-widest text-[10px]">Transaction Logs</h3>
                     <span class="px-3 py-1 bg-white rounded-lg text-[9px] font-bold text-indigo-600 shadow-sm border border-slate-100">${this.state.activePeriod?.semester} Sem</span>
                 </div>
                 <div class="flex-1 overflow-y-auto pr-2 space-y-2">
                     ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => `
-                        <div class="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center group hover:border-indigo-300 transition-all">
+                        <div class="p-4 bg-white rounded-2xl border border-slate-200 flex justify-between items-center group hover:border-indigo-400 transition-all shadow-sm">
                             <span class="font-bold text-slate-600 text-xs">${p.receipt_number}</span>
                             <span class="font-black text-slate-900 text-xs text-right">₱${p.amount_paid.toLocaleString()}</span>
                         </div>
-                    `).join('') : '<div class="text-center py-20 text-slate-300 italic text-sm">No transactions yet</div>'}
+                    `).join('') : '<div class="h-full flex items-center justify-center text-slate-300 italic text-sm">No transactions yet</div>'}
                 </div>
                 ${this.can('finance') ? `
                 <div class="mt-6 flex gap-2">
                     <input type="number" id="pay-amount" placeholder="0.00" class="flex-1 p-4 bg-white rounded-2xl border-2 border-transparent focus:border-indigo-500 font-bold outline-none text-sm shadow-sm transition-all">
-                    <button id="btn-add-payment" class="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest">Add</button>
+                    <button id="btn-add-payment" class="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform">Record</button>
                 </div>` : ''}
             </div>
 
@@ -157,20 +158,20 @@ export const financeModule = {
                     <p class="text-[10px] font-black text-slate-400 uppercase mt-2 tracking-[0.3em]">${student.student_id}</p>
                     
                     <div class="grid grid-cols-2 gap-3 w-full mt-10">
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Total Paid</p>
+                        <div class="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+                            <p class="text-[8px] font-black text-indigo-400 uppercase mb-1">Total Paid</p>
                             <p class="text-lg font-black text-indigo-600">₱${totalPaid.toLocaleString()}</p>
                         </div>
                         <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                             <p class="text-[8px] font-black text-slate-400 uppercase mb-1">Course</p>
-                            <p class="text-xs font-black text-slate-700">${student.course || 'N/A'}</p>
+                            <p class="text-xs font-black text-slate-700 truncate">${student.course || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="space-y-3">
+                <div class="space-y-3 pt-8">
                     <button id="btn-open-receipt-preview" class="w-full py-5 bg-indigo-600 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-3">
-                        <i data-lucide="send" class="w-4 h-4"></i> Send Official Receipt
+                        <i data-lucide="mail" class="w-4 h-4"></i> Send E-Receipt
                     </button>
                     <button onclick="document.getElementById('finance-modal').classList.replace('flex', 'hidden')" class="w-full py-3 text-slate-300 font-black text-[9px] uppercase tracking-widest hover:text-slate-500 transition-colors">Dismiss</button>
                 </div>
@@ -188,29 +189,29 @@ export const financeModule = {
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
 
         Swal.fire({
-            title: '<span class="text-xs font-black uppercase tracking-widest text-slate-400">Receipt Preview</span>',
+            title: '<span class="text-xs font-black uppercase tracking-widest text-slate-400">Digital Receipt Preview</span>',
             html: `
                 <div class="text-left mt-4 receipt-font">
-                    <div class="bg-white p-8 border-t-[6px] shadow-sm text-[11px] mb-6 relative overflow-hidden" style="border-top-color: ${color}">
+                    <div class="bg-white p-8 border-t-[8px] shadow-md text-[11px] mb-6 relative overflow-hidden" style="border-top-color: ${color}">
                         <div class="text-center mb-6">
                             <b style="color: ${color}; font-size: 16px;">${org}</b><br>
-                            <span class="text-slate-400 text-[9px] tracking-[0.2em]">OFFICIAL DIGITAL RECEIPT</span>
+                            <span class="text-slate-400 text-[9px] tracking-[0.2em]">OFFICIAL RECEIPT</span>
                         </div>
                         <div class="space-y-2 border-y border-dashed border-slate-200 py-4 my-4">
-                            <div class="flex justify-between"><span>OR NUMBER:</span><b>${lastP?.receipt_number || 'PENDING'}</b></div>
-                            <div class="flex justify-between"><span>TIMESTAMP:</span><b>${new Date().toLocaleDateString()}</b></div>
-                            <div class="flex justify-between"><span>CLIENT:</span><b>${student.full_name}</b></div>
-                            <div class="flex justify-between text-sm mt-4 border-t border-slate-100 pt-4"><span>TOTAL AMOUNT:</span><b style="color: ${color}">₱${amount.toLocaleString()}</b></div>
+                            <div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'PENDING'}</b></div>
+                            <div class="flex justify-between"><span>DATE:</span><b>${new Date().toLocaleDateString()}</b></div>
+                            <div class="flex justify-between"><span>NAME:</span><b>${student.full_name}</b></div>
+                            <div class="flex justify-between text-sm mt-4 border-t border-slate-100 pt-4"><span>TOTAL:</span><b style="color: ${color}">₱${amount.toLocaleString()}</b></div>
                         </div>
-                        <p class="text-center text-[8px] text-slate-300 uppercase italic">This serves as an official proof of payment.</p>
+                        <p class="text-center text-[8px] text-slate-300 uppercase italic">Validated Proof of Payment</p>
                     </div>
                     <div class="space-y-2 px-1">
-                        <label class="text-[9px] font-black text-slate-400 uppercase">Confirm Email Address</label>
+                        <label class="text-[9px] font-black text-slate-400 uppercase ml-1">Send to Email:</label>
                         <input type="email" id="manual-email-entry" value="${student.email || ''}" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold outline-none focus:border-indigo-500 transition-all text-sm">
                     </div>
                 </div>
             `,
-            showCancelButton: true, confirmButtonText: 'Send via Email', confirmButtonColor: color,
+            showCancelButton: true, confirmButtonText: 'Send Receipt', confirmButtonColor: color,
             preConfirm: () => {
                 const email = document.getElementById('manual-email-entry').value;
                 return (email && email.includes('@')) ? email : Swal.showValidationMessage('Valid email required');
