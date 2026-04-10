@@ -109,6 +109,18 @@
                         </a>
                     </div>
                 </div>
+
+                <div>
+                    <p class="px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4">System Access</p>
+                    <div class="space-y-1">
+                        <button id="btn-manage-users" class="nav-item group w-full flex items-center text-left">
+                            <i data-lucide="shield-check" class="nav-icon text-indigo-500"></i> Manage Admins
+                        </button>
+                        <button id="btn-manage-staff" class="nav-item group w-full flex items-center text-left">
+                            <i data-lucide="user-cog" class="nav-icon text-emerald-500"></i> Manage Staff
+                        </button>
+                    </div>
+                </div>
             </nav>
 
             <div class="p-4 mt-auto border-t border-slate-100 bg-slate-50/50">
@@ -165,11 +177,16 @@
             </header>
 
             <div id="content-viewport" class="p-8">
-                <div id="mod-dashboard" class="module-container"></div>
-                <div id="mod-students" class="module-container"></div>
-                <div id="mod-events" class="module-container"></div>
-                <div id="mod-finance" class="module-container"></div>
-                <div id="mod-attendance" class="module-container"></div>
+                <div id="mod-dashboard" class="module-container">
+                    <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm mt-6">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Live Audit Logs</h3>
+                        <div id="audit-log-list" class="space-y-1"></div>
+                    </div>
+                </div>
+                <div id="mod-students" class="module-container hidden"></div>
+                <div id="mod-events" class="module-container hidden"></div>
+                <div id="mod-finance" class="module-container hidden"></div>
+                <div id="mod-attendance" class="module-container hidden"></div>
             </div>
         </main>
     </div>
