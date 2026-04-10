@@ -306,23 +306,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.reload();
     });
 
-    // Independent Modules Click Interceptor
+    // Independent Modules Click Interceptor (Router-ready)
     document.addEventListener('click', async (e) => {
-        // Trigger for Super Admin (user-mgmt)
-        if (e.target.closest('#btn-manage-users')) {
-            userMgmt.init();
+        const userBtn = e.target.closest('#btn-manage-users');
+        const staffBtn = e.target.closest('#btn-manage-staff');
+
+        if (userBtn) {
+            e.preventDefault();
+            window.showSection('manage-users');
         }
         
-        // Trigger for Admin (staff-mgmt)
-        if (e.target.closest('#btn-manage-staff')) {
-            const { data: { user } } = await supabase.auth.getUser();
-            const orgId = user?.user_metadata?.organization_id;
-            const orgName = user?.user_metadata?.org_name || "Department";
-            if (orgId) {
-                staffMgmt.init(orgId, orgName);
-            } else {
-                window.showAlert("Organization ID not found for this account.");
-            }
+        if (staffBtn) {
+            e.preventDefault();
+            window.showSection('manage-staff');
         }
     });
 });
@@ -350,7 +346,7 @@ function setupUserUI(user) {
 /**
  * ROUTER / SECTION SWITCHER
  */
-window.showSection = function(sectionId) {
+window.showSection = async function(sectionId) {
     if (window.location.hash !== `#${sectionId}`) {
         window.history.pushState(null, null, `#${sectionId}`);
     }
@@ -374,16 +370,28 @@ window.showSection = function(sectionId) {
 
     logAction('NAVIGATE', `Viewed ${sectionId} section`);
 
+    // Injected: Logic to trigger management modules as sections
     switch(sectionId) {
         case 'dashboard': dashboardModule.init(); break;
         case 'students': studentModule.init(); break;
         case 'events': eventsModule.render(); break;
         case 'attendance': attendanceModule.render(); break;
         case 'finance': financeModule.render(); break;
+        
+        // NEW: Full Module Render
+        case 'manage-users': 
+            userMgmt.init(); 
+            break;
+        case 'manage-staff': 
+            const { data: { user } } = await supabase.auth.getUser();
+            const orgId = user?.user_metadata?.organization_id;
+            const orgName = user?.user_metadata?.org_name || "Department";
+            if (orgId) staffMgmt.init(orgId, orgName);
+            break;
     }
 
     const title = document.getElementById('current-page-title');
-    if (title) title.innerText = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+    if (title) title.innerText = sectionId.replace('-', ' ').toUpperCase();
     
     updateNavUI(sectionId);
 };
