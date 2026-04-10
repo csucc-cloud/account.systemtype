@@ -12,7 +12,8 @@ export const financeModule = {
         userOrgId: null, 
         userOrgName: null, 
         scanner: null,
-        isFetching: false 
+        isFetching: false,
+        users: [] // Para sa user/staff management
     },
 
     // --- SECURITY & HELPERS ---
@@ -27,7 +28,9 @@ export const financeModule = {
         return { 
             manage: ['super_admin', 'admin'].includes(r), 
             finance: ['super_admin', 'admin', 'finance_staff'].includes(r), 
-            rollover: ['super_admin', 'admin'].includes(r) 
+            rollover: ['super_admin', 'admin'].includes(r),
+            user_mgmt: r === 'super_admin',
+            staff_mgmt: ['super_admin', 'admin'].includes(r)
         }[action] ?? false;
     },
 
@@ -54,7 +57,6 @@ export const financeModule = {
                 .receipt-font { font-family: 'Courier New', Courier, monospace; }
                 .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
                 
-                /* Print Styles */
                 @media print {
                     body * { visibility: hidden; }
                     #print-area, #print-area * { visibility: visible; }
@@ -80,6 +82,8 @@ export const financeModule = {
                         </div>
                     </div>
                     <div class="flex gap-2">
+                        ${this.can('user_mgmt') ? `<button id="btn-manage-users" class="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-rose-700 transition-all">Users</button>` : ''}
+                        ${this.can('staff_mgmt') ? `<button id="btn-manage-staff" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-emerald-700 transition-all">Staff</button>` : ''}
                         ${this.can('rollover') ? `<button id="btn-rollover" class="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-all">Transition</button>` : ''}
                         <button id="btn-scan-receipt" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-indigo-700 transition-all">Verify QR</button>
                     </div>
@@ -108,24 +112,21 @@ export const financeModule = {
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">Total Collected</p>
                             <h2 class="text-3xl font-black mt-2 italic">₱<span id="total-val">0.00</span></h2>
                         </div>
-
                         <div class="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-xl">
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Student</p>
                             <h2 class="text-3xl font-black mt-2 italic" id="stat-total-students">0</h2>
                         </div>
-
                         <div class="bg-white p-8 rounded-[2.5rem] text-slate-800 shadow-sm border border-slate-100">
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Total Needed</p>
                             <h2 class="text-3xl font-black mt-2 italic text-indigo-600">₱<span id="stat-needed">0.00</span></h2>
                         </div>
-
                         <button id="btn-print-audit" class="w-full py-5 bg-white border border-slate-200 hover:bg-slate-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">Export Audit Sheet</button>
                     </div>
                 </div>
             </div>
 
             <div id="rollover-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[250] flex items-center justify-center p-4">
-                <div class="bg-white w-full max-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
+                <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
                     <h2 class="text-xl font-black text-slate-800 mb-6 italic">Semester Rollover</h2>
                     <div class="space-y-4">
                         <input type="text" id="roll-year" placeholder="Year (e.g. 2025-2026)" class="w-full p-4 bg-slate-50 rounded-xl border-none font-bold text-sm">
@@ -192,16 +193,103 @@ export const financeModule = {
         d.getElementById('btn-print-audit')?.addEventListener('click', () => this.printAuditSheet());
         d.getElementById('btn-rollover')?.addEventListener('click', () => d.getElementById('rollover-modal').classList.remove('hidden'));
         d.getElementById('btn-confirm-roll')?.addEventListener('click', () => this.executeRollover());
+        
+        // --- Added Management Listeners ---
+        d.getElementById('btn-manage-users')?.addEventListener('click', () => this.openUserMgmt('admin'));
+        d.getElementById('btn-manage-staff')?.addEventListener('click', () => this.openUserMgmt('staff'));
+
         d.getElementById('finance-list-body')?.addEventListener('click', e => {
             const btn = e.target.closest('.btn-manage-student');
             if (btn) this.viewStudentFinance(btn.closest('tr')?.dataset.studentId);
         });
     },
 
+    // --- USER & STAFF MANAGEMENT LOGIC ---
+    async openUserMgmt(targetRole) {
+        const isStaffMgmt = targetRole === 'staff';
+        const title = isStaffMgmt ? 'Staff Management' : 'Admin Management';
+        
+        let query = supabase.from('profiles').select('*');
+        if (isStaffMgmt && this.state.userRole === 'admin') {
+            query = query.eq('organization_id', this.state.userOrgId);
+        } else if (!isStaffMgmt) {
+            query = query.eq('role', 'admin');
+        }
+        
+        const { data: profiles } = await query;
+
+        Swal.fire({
+            title: `<span class="text-sm font-black uppercase tracking-widest">${title}</span>`,
+            html: `
+                <div class="text-left space-y-4 max-h-[400px] overflow-y-auto p-2">
+                    ${profiles?.length ? profiles.map(p => `
+                        <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div>
+                                <div class="text-xs font-black text-slate-700">${this._safe(p.full_name)}</div>
+                                <div class="text-[9px] text-slate-400 font-bold uppercase">${p.role} | ${p.organization_name}</div>
+                            </div>
+                        </div>
+                    `).join('') : '<p class="text-center text-slate-400 text-[10px] uppercase font-bold py-4">No accounts found</p>'}
+                    <button id="add-new-user-trigger" class="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-[10px] font-black text-slate-400 uppercase hover:bg-slate-50 transition-all">Add New ${targetRole}</button>
+                </div>
+            `,
+            showConfirmButton: false,
+            didOpen: () => {
+                document.getElementById('add-new-user-trigger').onclick = () => this.addNewAccount(targetRole);
+            }
+        });
+    },
+
+    async addNewAccount(role) {
+        const { value: formValues } = await Swal.fire({
+            title: `<span class="text-sm font-black uppercase tracking-widest">Add ${role}</span>`,
+            html: `
+                <div class="space-y-3 pt-4">
+                    <input id="swal-email" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm font-bold" placeholder="Email Address">
+                    <input id="swal-name" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm font-bold" placeholder="Full Name">
+                    ${role === 'admin' ? '<input id="swal-org" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm font-bold" placeholder="Organization Name">' : ''}
+                    <input id="swal-pass" type="password" class="w-full p-4 bg-slate-50 rounded-xl border-none text-sm font-bold" placeholder="Initial Password">
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Create Account',
+            confirmButtonColor: '#4f46e5',
+            preConfirm: () => {
+                return {
+                    email: document.getElementById('swal-email').value,
+                    name: document.getElementById('swal-name').value,
+                    org: role === 'admin' ? document.getElementById('swal-org').value : this.state.userOrgName,
+                    pass: document.getElementById('swal-pass').value
+                }
+            }
+        });
+
+        if (formValues) {
+            if (!formValues.email || !formValues.pass || !formValues.name) return this.notify("Complete all fields", "warning");
+            try {
+                this.notify("Creating account...", "info");
+                const { error } = await supabase.auth.signUp({
+                    email: formValues.email,
+                    password: formValues.pass,
+                    options: {
+                        data: {
+                            full_name: formValues.name,
+                            role: role,
+                            organization_name: formValues.org
+                        }
+                    }
+                });
+                if (error) throw error;
+                this.notify("Account created successfully", "success");
+            } catch (e) { this.notify(e.message, "error"); }
+        }
+    },
+
+    // --- CORE FINANCE LOGIC ---
     async fetchStudents(search = '') {
         if (this.state.isFetching) return; 
         this.state.isFetching = true;
-
         const start = (this.state.currentPage - 1) * this.state.pageSize;
         const end = start + this.state.pageSize - 1;
 
@@ -213,16 +301,13 @@ export const financeModule = {
 
             let q = supabase.from('students').select('*, payments(*)').contains('organization_owner', [this.state.userOrgName]);
             if (search) q = q.or(`full_name.ilike.%${search}%,student_id.ilike.%${search}%`);
-            
             const { data } = await q.order('full_name', { ascending: true }).range(start, end);
             this.state.students = data || [];
 
             this.renderStudentRows();
             this.updatePaginationUI();
             await this.updateStats(); 
-        } finally {
-            this.state.isFetching = false;
-        }
+        } finally { this.state.isFetching = false; }
     },
 
     updatePaginationUI() {
@@ -236,16 +321,17 @@ export const financeModule = {
     async updateStats() {
         const activeId = this.state.activePeriod?.id;
         const targetFee = this.state.activePeriod?.target_amount || 0;
-
         const { data: payments } = await supabase.from('payments').select('amount_paid').eq('academic_period_id', activeId);
         const totalCollected = payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-
         const { count: fullOrgCount } = await supabase.from('students').select('*', { count: 'exact', head: true }).contains('organization_owner', [this.state.userOrgName]);
         const totalNeeded = (fullOrgCount || 0) * targetFee;
 
-        document.getElementById('total-val').innerText = totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2 });
-        document.getElementById('stat-total-students').innerText = (fullOrgCount || 0).toLocaleString();
-        document.getElementById('stat-needed').innerText = totalNeeded.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        const tv = document.getElementById('total-val');
+        if (tv) tv.innerText = totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2 });
+        const ts = document.getElementById('stat-total-students');
+        if (ts) ts.innerText = (fullOrgCount || 0).toLocaleString();
+        const sn = document.getElementById('stat-needed');
+        if (sn) sn.innerText = totalNeeded.toLocaleString(undefined, { minimumFractionDigits: 2 });
     },
 
     async viewStudentFinance(studentId) {
@@ -254,29 +340,32 @@ export const financeModule = {
         const currentPeriodId = this.state.activePeriod?.id;
         const totalPaid = student.payments?.filter(p => p.academic_period_id === currentPeriodId).reduce((s, p) => s + p.amount_paid, 0) || 0;
         const themeColor = this.state.userOrgName.includes("HERO") ? "#ef4444" : "#4f46e5";
-        document.getElementById('finance-modal').classList.replace('hidden', 'flex');
+        
+        const modal = document.getElementById('finance-modal');
+        modal.classList.replace('hidden', 'flex');
         document.getElementById('finance-modal-content').innerHTML = `
             <div class="flex-[1.2] p-10 flex flex-col bg-slate-50 border-r border-slate-100">
                 <div class="mb-6 flex justify-between items-center"><h3 class="font-black text-slate-400 uppercase tracking-widest text-[10px]">Logs</h3></div>
                 <div class="flex-1 overflow-y-auto pr-2 space-y-2">
-                    ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => `<div class="p-4 bg-white rounded-2xl flex justify-between"><b>${p.receipt_number}</b><b>₱${p.amount_paid.toLocaleString()}</b></div>`).join('') : '<div class="text-center text-slate-300 mt-10">No logs</div>'}
+                    ${student.payments?.length ? student.payments.sort((a,b) => b.id - a.id).map(p => `<div class="p-4 bg-white rounded-2xl flex justify-between shadow-sm"><b>${p.receipt_number}</b><b>₱${p.amount_paid.toLocaleString()}</b></div>`).join('') : '<div class="text-center text-slate-300 mt-10">No logs</div>'}
                 </div>
-                ${this.can('finance') ? `<div class="mt-6 flex gap-2"><input type="number" id="pay-amount" placeholder="0.00" class="flex-1 p-4 bg-white rounded-2xl outline-none shadow-sm"><button id="btn-add-payment" class="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px]">Record</button></div>` : ''}
+                ${this.can('finance') ? `<div class="mt-6 flex gap-2"><input type="number" id="pay-amount" placeholder="0.00" class="flex-1 p-4 bg-white rounded-2xl outline-none shadow-sm font-bold"><button id="btn-add-payment" class="px-8 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px]">Record</button></div>` : ''}
             </div>
             <div class="flex-1 p-12 flex flex-col justify-between bg-white text-center">
                 <div>
                     <div class="w-20 h-20 rounded-[1.5rem] mb-6 mx-auto flex items-center justify-center text-white text-2xl font-black" style="background:${themeColor}">${student.full_name[0]}</div>
                     <h2 class="text-xl font-black text-slate-800">${this._safe(student.full_name)}</h2>
                     <div class="p-4 bg-indigo-50/50 rounded-2xl mt-8">
-                        <p class="text-[8px] font-black text-indigo-400 uppercase">Paid</p>
+                        <p class="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Paid for Current Period</p>
                         <p class="text-lg font-black text-indigo-600">₱${totalPaid.toLocaleString()}</p>
                     </div>
                 </div>
                 <div class="space-y-2">
-                    <button id="btn-open-receipt-preview" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase">E-Receipt</button>
+                    <button id="btn-open-receipt-preview" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg">E-Receipt</button>
                     <button onclick="document.getElementById('finance-modal').classList.replace('flex', 'hidden')" class="w-full py-2 text-slate-300 text-[9px] uppercase font-bold">Dismiss</button>
                 </div>
             </div>`;
+
         document.getElementById('btn-add-payment')?.addEventListener('click', () => this.submitPayment(student.student_id));
         document.getElementById('btn-open-receipt-preview')?.addEventListener('click', () => this.showEmailPreview(student, totalPaid));
         if (window.lucide) window.lucide.createIcons();
@@ -287,9 +376,18 @@ export const financeModule = {
         const color = org.includes("HERO") ? "#ef4444" : "#4f46e5";
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
         Swal.fire({
-            title: '<span class="text-xs font-black uppercase tracking-widest text-slate-400">Preview</span>',
-            html: `<div class="text-left mt-4 receipt-font"><div class="bg-white p-8 border-t-[8px] shadow-md text-[11px] mb-6" style="border-top-color: ${color}"><div class="text-center mb-6"><b style="color: ${color}">${org}</b></div><div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'PENDING'}</b></div><div class="flex justify-between"><span>NAME:</span><b>${student.full_name}</b></div><div class="flex justify-between text-sm mt-4 border-t border-slate-100 pt-4"><span>TOTAL:</span><b style="color: ${color}">₱${amount.toLocaleString()}</b></div></div><input type="email" id="manual-email-entry" value="${student.email || ''}" class="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none text-sm"></div>`,
-            showCancelButton: true, confirmButtonText: 'Send', confirmButtonColor: color,
+            title: '<span class="text-xs font-black uppercase tracking-widest text-slate-400">Receipt Preview</span>',
+            html: `
+                <div class="text-left mt-4 receipt-font">
+                    <div class="bg-white p-8 border-t-[8px] shadow-md text-[11px] mb-6" style="border-top-color: ${color}">
+                        <div class="text-center mb-6"><b style="color: ${color}">${org}</b></div>
+                        <div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'PENDING'}</b></div>
+                        <div class="flex justify-between"><span>NAME:</span><b>${student.full_name}</b></div>
+                        <div class="flex justify-between text-sm mt-4 border-t border-slate-100 pt-4"><span>TOTAL:</span><b style="color: ${color}">₱${amount.toLocaleString()}</b></div>
+                    </div>
+                    <input type="email" id="manual-email-entry" value="${student.email || ''}" class="w-full p-4 bg-slate-50 rounded-xl font-bold outline-none text-sm border-2 border-transparent focus:border-indigo-500">
+                </div>`,
+            showCancelButton: true, confirmButtonText: 'Send Receipt', confirmButtonColor: color,
             preConfirm: () => { const e = document.getElementById('manual-email-entry').value; return (e && e.includes('@')) ? e : Swal.showValidationMessage('Valid email required'); }
         }).then(res => res.isConfirmed && this.sendReceiptEmail({...student, email: res.value}, amount));
     },
@@ -309,37 +407,18 @@ export const financeModule = {
     async sendReceiptEmail(student, amount) {
         this.notify("Sending Receipt...", "info");
         const lastP = student.payments?.filter(p => p.academic_period_id === this.state.activePeriod?.id).sort((a,b) => b.id - a.id)[0];
-        
-        const payload = { 
-            recipientEmail: student.email, 
-            studentName: student.full_name, 
-            studentId: student.student_id, 
-            orNumber: lastP?.receipt_number || 'N/A', 
-            amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), 
-            orgName: this.state.userOrgName, 
-            semester: `${this.state.activePeriod?.semester} ${this.state.activePeriod?.year_range}`, 
-            date: new Date().toLocaleDateString() 
-        };
-
+        const payload = { recipientEmail: student.email, studentName: student.full_name, studentId: student.student_id, orNumber: lastP?.receipt_number || 'N/A', amount: amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), orgName: this.state.userOrgName, semester: `${this.state.activePeriod?.semester} ${this.state.activePeriod?.year_range}`, date: new Date().toLocaleDateString() };
         try {
             const GAS_URL = "https://script.google.com/macros/s/AKfycbwg4qrxrd85O2WvfAQkvpu43iKcLpeyYDTlMzwWMpYg4ovBrRcjr4SyJTtY-QXf2p77MA/exec";
-            await fetch(GAS_URL, { 
-                method: "POST", 
-                mode: "no-cors", 
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload) 
-            });
+            await fetch(GAS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
             this.notify("Receipt sent to " + student.email, "success");
-        } catch (e) { 
-            console.error("Email Error:", e);
-            this.notify("Email Error", "error"); 
-        }
+        } catch (e) { console.error("Email Error:", e); this.notify("Email Error", "error"); }
     },
 
     initScanner() {
         document.getElementById('scanner-container').classList.replace('hidden', 'flex');
         this.state.scanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 200 });
-        this.state.scanner.render(text => { this.notify("Verified: " + text, "success"); this.closeScanner(); });
+        this.state.scanner.render(text => { this.notify("Verified ID: " + text, "success"); this.closeScanner(); });
     },
 
     closeScanner() {
@@ -349,35 +428,20 @@ export const financeModule = {
 
     async executeRollover() {
         if (!this.can('rollover')) return this.notify("Unauthorized: Admins only", "error");
-
         const year = document.getElementById('roll-year').value;
         const sem = document.getElementById('roll-sem').value;
         const fee = document.getElementById('roll-fee').value;
-
         if (!year || !fee) return this.notify("Complete all fields", "warning");
 
-        const res = await Swal.fire({ 
-            title: `Rollover para sa ${this.state.userOrgName}?`, 
-            text: `Itatala nito ang ${sem} Sem SY ${year} bilang aktibong period ng inyong org.`, 
-            icon: 'warning', 
-            showCancelButton: true,
-            confirmButtonColor: '#4f46e5',
-            confirmButtonText: 'Yes, Proceed'
-        });
-
+        const res = await Swal.fire({ title: `Rollover for ${this.state.userOrgName}?`, text: `Set ${sem} Sem SY ${year} as the active period.`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#4f46e5', confirmButtonText: 'Yes, Proceed' });
         if (res.isConfirmed) {
             try {
                 await supabase.from('academic_periods').update({ is_active: false }).eq('organization_owner', this.state.userOrgName).eq('is_active', true);
-                const { error } = await supabase.from('academic_periods').insert([{ 
-                    year_range: year, semester: sem, target_amount: parseFloat(fee), is_active: true, organization_owner: this.state.userOrgName 
-                }]);
+                const { error } = await supabase.from('academic_periods').insert([{ year_range: year, semester: sem, target_amount: parseFloat(fee), is_active: true, organization_owner: this.state.userOrgName }]);
                 if (error) throw error;
                 this.notify("System Updated for " + this.state.userOrgName, "success");
                 setTimeout(() => location.reload(), 1500);
-            } catch (err) { 
-                console.error(err);
-                this.notify("Rollover Failed: " + err.message, "error"); 
-            }
+            } catch (err) { this.notify("Rollover Failed: " + err.message, "error"); }
         }
     },
 
@@ -386,93 +450,25 @@ export const financeModule = {
         const org = this.state.userOrgName;
         const color = org.includes("HERO") ? "#ef4444" : "#4f46e5";
         const semester = `${this.state.activePeriod?.semester} Sem ${this.state.activePeriod?.year_range}`;
-
-        // Kunin lang ang mga students na may bayad sa current period
-        const paidStudents = this.state.students.filter(s => 
-            s.payments?.some(p => p.academic_period_id === activeId)
-        );
-
-        if (paidStudents.length === 0) return this.notify("Walang records na may bayad sa period na ito.", "warning");
+        const paidStudents = this.state.students.filter(s => s.payments?.some(p => p.academic_period_id === activeId));
+        if (paidStudents.length === 0) return this.notify("No payment records found for this period.", "warning");
 
         const receiptHTML = paidStudents.map(s => {
             const lastP = s.payments.filter(p => p.academic_period_id === activeId).sort((a,b) => b.id - a.id)[0];
             const totalPaid = s.payments.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0);
-            
-            // Dito natin ginamit ang template design mo
-            return `
-                <div class="receipt-wrapper">
-                    <div class="receipt-font bg-white p-6 border-t-[8px] shadow-sm text-[11px] h-full flex flex-col justify-between" style="border-top-color: ${color}; border-left: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee;">
-                        <div>
-                            <div class="text-center mb-4">
-                                <b style="color: ${color}; font-size: 14px;">${org}</b>
-                                <div style="font-size: 9px; color: #666; margin-top: 2px;">OFFICIAL RECEIPT</div>
-                            </div>
-                            
-                            <div class="space-y-2">
-                                <div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'N/A'}</b></div>
-                                <div class="flex justify-between"><span>DATE:</span><b>${new Date(lastP?.created_at || Date.now()).toLocaleDateString()}</b></div>
-                                <div class="flex justify-between"><span>ID NO:</span><b>${s.student_id}</b></div>
-                                <div class="flex justify-between"><span>NAME:</span><b style="text-transform: uppercase;">${s.full_name}</b></div>
-                                <div class="flex justify-between"><span>PERIOD:</span><b>${semester}</b></div>
-                            </div>
-                        </div>
-
-                        <div class="mt-6">
-                            <div class="flex justify-between text-sm border-t border-slate-100 pt-4">
-                                <span>TOTAL PAID:</span>
-                                <b style="color: ${color}; font-size: 16px;">₱${totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</b>
-                            </div>
-                            <div class="text-center mt-4" style="font-size: 8px; color: #999; font-style: italic;">
-                                This serves as an official proof of payment.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            return `<div class="receipt-wrapper"><div class="receipt-font bg-white p-6 border-t-[8px] shadow-sm text-[11px] h-full flex flex-col justify-between" style="border-top-color: ${color}; border: 1px solid #eee;"><div class="text-center mb-4"><b style="color: ${color}; font-size: 14px;">${org}</b><div style="font-size: 9px; color: #666; margin-top: 2px;">OFFICIAL RECEIPT</div></div><div class="space-y-2"><div class="flex justify-between"><span>OR NO:</span><b>${lastP?.receipt_number || 'N/A'}</b></div><div class="flex justify-between"><span>DATE:</span><b>${new Date(lastP?.created_at || Date.now()).toLocaleDateString()}</b></div><div class="flex justify-between"><span>ID NO:</span><b>${s.student_id}</b></div><div class="flex justify-between"><span>NAME:</span><b style="text-transform: uppercase;">${s.full_name}</b></div><div class="flex justify-between"><span>PERIOD:</span><b>${semester}</b></div></div><div class="mt-6"><div class="flex justify-between text-sm border-t border-slate-100 pt-4"><span>TOTAL PAID:</span><b style="color: ${color}; font-size: 16px;">₱${totalPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</b></div><div class="text-center mt-4" style="font-size: 8px; color: #999; font-style: italic;">Proof of payment generated by Finance Hub.</div></div></div></div>`;
         }).join('');
 
-        document.getElementById('print-area').innerHTML = `
-            <style>
-                @media print {
-                    @page { size: A4; margin: 5mm; }
-                    body { background: white !important; }
-                    #print-area { 
-                        display: grid !important; 
-                        grid-template-columns: 1fr 1fr; 
-                        grid-template-rows: 1fr 1fr;
-                        gap: 10mm;
-                        padding: 5mm;
-                        background: white;
-                    }
-                    .receipt-wrapper { 
-                        height: 130mm; /* Saktong hati para sa 4 sa isang A4 */
-                        page-break-inside: avoid;
-                        display: block;
-                    }
-                    .receipt-font { font-family: 'Courier New', Courier, monospace; }
-                }
-            </style>
-            ${receiptHTML}
-        `;
-        
-        // Sandaling delay para masiguradong na-render ang HTML bago i-print
-        setTimeout(() => {
-            window.print();
-        }, 500);
+        document.getElementById('print-area').innerHTML = `<style>@media print { @page { size: A4; margin: 5mm; } #print-area { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10mm; padding: 5mm; } .receipt-wrapper { height: 130mm; page-break-inside: avoid; } }</style>${receiptHTML}`;
+        setTimeout(() => { window.print(); }, 500);
     },
+
     renderStudentRows() {
         const body = document.getElementById('finance-list-body'), activeId = this.state.activePeriod?.id;
         if (!body) return;
         body.innerHTML = this.state.students.map(s => {
             const paid = s.payments?.filter(p => p.academic_period_id === activeId).reduce((sum, p) => sum + p.amount_paid, 0) || 0;
-            return `<tr class="group hover:bg-indigo-50/50 border-b border-slate-50" data-student-id="${s.student_id}">
-                <td class="p-5">
-                    <div class="font-black text-slate-800 text-sm">${this._safe(s.full_name)}</div>
-                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div>
-                </td>
-                <td class="p-5 text-right font-black italic ${paid > 0 ? 'text-indigo-600' : 'text-slate-300'} text-sm">₱${paid.toLocaleString()}</td>
-                <td class="p-5 text-right"><button class="btn-manage-student px-4 py-2 bg-slate-100 rounded-xl text-[9px] font-black uppercase">Manage</button></td>
-            </tr>`;
+            return `<tr class="group hover:bg-indigo-50/50 border-b border-slate-50" data-student-id="${s.student_id}"><td class="p-5"><div class="font-black text-slate-800 text-sm">${this._safe(s.full_name)}</div><div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${s.student_id}</div></td><td class="p-5 text-right font-black italic ${paid > 0 ? 'text-indigo-600' : 'text-slate-300'} text-sm">₱${paid.toLocaleString()}</td><td class="p-5 text-right"><button class="btn-manage-student px-4 py-2 bg-slate-100 rounded-xl text-[9px] font-black uppercase shadow-sm hover:bg-white transition-all">Manage</button></td></tr>`;
         }).join('');
     },
 
