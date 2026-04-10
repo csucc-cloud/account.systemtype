@@ -1,19 +1,17 @@
 import { supabase } from './auth.js';
 
 export const userMgmt = {
-    async fetchAdmins() {
+    async fetchAllAdmins() {
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
-            .eq('role', 'admin')
-            .order('full_name', { ascending: true });
+            .eq('role', 'admin');
         
         if (error) throw error;
-        return data;
+        return data || [];
     },
 
-    async createAdmin(email, password, fullName, orgName) {
-        // Ang signUp na ito ay magti-trigger sa SQL function natin sa database
+    async createAdmin(email, password, fullName, orgId, dept) {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -21,23 +19,12 @@ export const userMgmt = {
                 data: {
                     full_name: fullName,
                     role: 'admin',
-                    organization_name: orgName
+                    organization_id: orgId,
+                    department: dept
                 }
             }
         });
-
         if (error) throw error;
         return data;
-    },
-
-    // Paalala: Ang pag-delete ng user ay nangangailangan ng Edge Function/Admin API
-    // Pero maaari nating i-disable ang profile sa database
-    async toggleUserStatus(userId, isActive) {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ is_active: isActive })
-            .eq('id', userId);
-        
-        if (error) throw error;
     }
 };
