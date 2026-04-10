@@ -62,7 +62,6 @@ const brainInterceptor = {
     init() {
         this.setupUI();
         this.interceptFetch();
-        // loadFromDB() is called after user is confirmed logged in
     },
 
     setupUI() {
@@ -99,7 +98,6 @@ const brainInterceptor = {
                 }));
                 this.render();
 
-                // Show badge if there are unread notifications
                 const hasUnread = data.some(n => !n.is_read);
                 if (hasUnread) {
                     document.getElementById('noti-badge')?.classList.remove('hidden');
@@ -121,7 +119,7 @@ const brainInterceptor = {
             const isInternal = url.includes('audit_logs') || 
                                url.includes('rpc') || 
                                url.includes('/auth/v1/user') ||
-                               url.includes('notifications'); // Prevent recursion
+                               url.includes('notifications');
             
             if (isInternal || _intercepting) {
                 return originalFetch(...args);
@@ -131,19 +129,16 @@ const brainInterceptor = {
             const response = await originalFetch(...args);
             _intercepting = false;
 
-            // Handle Successful Data Changes & Logins
             if (response.ok) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const userName = document.getElementById('user-full-name')?.innerText || "An officer";
                 let sentence = "";
                 let category = "Activity";
 
-                // LOGIN DETECTION
                 if (url.includes('/auth/v1/token') && method === 'POST') {
                     sentence = `${userName} authenticated into the portal at ${time}`;
                     category = "System";
                 }
-                // DATA CHANGES
                 else if (['POST', 'PATCH', 'DELETE'].includes(method)) {
                     if (url.includes('finance')) {
                         sentence = `${userName} added a new payment record at ${time}`;
@@ -170,10 +165,8 @@ const brainInterceptor = {
     },
 
     async push(message, title) {
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const entry = { id: Date.now(), title, message, time };
+        const entry = { id: Date.now(), title, message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
 
-        // Save to Supabase
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
@@ -187,7 +180,6 @@ const brainInterceptor = {
             console.error('Failed to save notification:', err);
         }
 
-        // Update in-memory list
         this.notifications.unshift(entry);
         if (this.notifications.length > 25) this.notifications.pop();
         
@@ -212,11 +204,9 @@ const brainInterceptor = {
             </div>
         `).join('');
 
-        // Update Header Dropdown
         const list = document.getElementById('noti-list');
         if (list) list.innerHTML = listHTML;
 
-        // Update Dashboard Live Monitor (audit-log-list)
         const dashboardFeed = document.getElementById('audit-log-list');
         if (dashboardFeed && this.notifications.length > 0) {
             dashboardFeed.innerHTML = listHTML;
@@ -278,7 +268,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.setItem('user_role', role);
             setupUserUI(user);
 
-            // Load notifications only after user is confirmed logged in
             await brainInterceptor.loadFromDB();
             
             const initialSection = window.location.hash.replace('#', '') || 'dashboard';
@@ -293,6 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Auth Connection Failed:", err.message);
     }
 
+    // Login logic
     document.getElementById('btn-login-exec')?.addEventListener('click', async () => {
         const email = document.getElementById('login-email')?.value;
         const pass = document.getElementById('login-password')?.value;
@@ -308,11 +298,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Logout logic
     document.getElementById('btn-logout')?.addEventListener('click', async () => {
         await logAction('LOGOUT', 'User initiated logout.');
         await authHandler.logout();
         localStorage.clear(); 
         window.location.reload();
+    });
+
+    // Independent Modules Click Interceptor
+    document.addEventListener('click', async (e) => {
+        // Trigger for Super Admin (user-mgmt)
+        if (e.target.closest('#btn-manage-users')) {
+            userMgmt.init();
+        }
+        
+        // Trigger for Admin (staff-mgmt)
+        if (e.target.closest('#btn-manage-staff')) {
+            const { data: { user } } = await supabase.auth.getUser();
+            const orgId = user?.user_metadata?.organization_id;
+            const orgName = user?.user_metadata?.org_name || "Department";
+            if (orgId) {
+                staffMgmt.init(orgId, orgName);
+            } else {
+                window.showAlert("Organization ID not found for this account.");
+            }
+        }
     });
 });
 
@@ -352,7 +363,6 @@ window.showSection = function(sectionId) {
     const target = document.getElementById(`mod-${sectionId}`) || document.getElementById(`section-${sectionId}`);
     
     if (!target) {
-        console.warn(`showSection fallback: ${sectionId}`);
         if (sectionId !== 'dashboard') window.showSection('dashboard');
         return;
     }
