@@ -2,6 +2,9 @@ import { supabase } from './auth.js';
 import architectPhoto from '../../assets/img/5646.png';
 
 export const dashboardModule = {
+    // Track chart instance to allow proper updates/re-renders
+    chartInstance: null,
+
     render() {
         const container = document.getElementById('mod-dashboard');
         if (!container) return;
@@ -44,7 +47,8 @@ export const dashboardModule = {
                                     <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">System Pulse</span>
                                 </div>
                             </div>
-                          <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations. It serves as the sophisticated digital backbone of the LSG operations, meticulously engineered by Lead Architect <strong class="text-slate-700">Davie P. Sialongo</strong> to transition administrative governance into a high-performance, paperless ecosystem. By integrating a real-time Supabase backend with a dynamic Chart.js visualization suite, the platform provides instantaneous data parity across student records, attendance tracking, and departmental distribution. This version introduces an optimized "Tactical Entry" interface featuring staggered CSS animations and professional-grade audit logging, ensuring that every system interaction is not only cryptographically secure via AES-256 standards but also visually intuitive for rapid, data-driven decision-making.</p>  <div class="grid grid-cols-2 gap-3 mb-2">
+                            <p class="text-slate-500 text-sm leading-relaxed mb-6">The <strong class="text-slate-700">Official Automation System</strong> is the backbone of LSG operations. It serves as the sophisticated digital backbone of the LSG operations, meticulously engineered by Lead Architect <strong class="text-slate-700">Davie P. Sialongo</strong> to transition administrative governance into a high-performance, paperless ecosystem. By integrating a real-time Supabase backend with a dynamic Chart.js visualization suite, the platform provides instantaneous data parity across student records, attendance tracking, and departmental distribution. This version introduces an optimized "Tactical Entry" interface featuring staggered CSS animations and professional-grade audit logging, ensuring that every system interaction is not only cryptographically secure via AES-256 standards but also visually intuitive for rapid, data-driven decision-making.</p> 
+                            <div class="grid grid-cols-2 gap-3 mb-2">
                                 <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                                     <p class="text-[10px] font-bold text-slate-400 uppercase">Avg Uptime</p>
                                     <p class="text-lg font-black text-[#000080]">99.9%</p>
@@ -75,9 +79,7 @@ export const dashboardModule = {
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     ${[1, 2, 3, 4].map(i => `
-                        <div id="stat-card-${i}" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start animate-in fade-in zoom-in duration-500" style="animation-delay: ${300 + (i * 100)}ms">
-                            <div id="stat-content-${i}"></div>
-                        </div>
+                        <div id="stat-card-${i}" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start animate-in fade-in zoom-in duration-500" style="animation-delay: ${300 + (i * 100)}ms"></div>
                     `).join('')}
                 </div>
 
@@ -108,11 +110,16 @@ export const dashboardModule = {
             </div>
         `;
         
-        // Populate static shells of stats
-        document.getElementById('stat-card-1').innerHTML = `<div><p class="text-sm font-medium text-slate-500">Total Students</p><h3 id="stat-total-students" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i></div>`;
-        document.getElementById('stat-card-2').innerHTML = `<div><p class="text-sm font-medium text-slate-500">Daily Attendance</p><h3 id="stat-attendance" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="eye" class="w-4 h-4 text-slate-400"></i></div>`;
-        document.getElementById('stat-card-3').innerHTML = `<div><p class="text-sm font-medium text-slate-500">Events Completed</p><h3 id="stat-events" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i></div>`;
-        document.getElementById('stat-card-4').innerHTML = `<div class="w-full flex flex-col items-center"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operation Effect</p><div class="relative flex items-center justify-center"><svg class="w-20 h-20 transform -rotate-90"><circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/><circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round" style="transition: stroke-dashoffset 1.5s ease-out;"/></svg><span id="stat-effect-percent" class="absolute text-xl font-black text-slate-700">0%</span></div></div>`;
+        // Populate static shells of stats directly
+        const card1 = document.getElementById('stat-card-1');
+        const card2 = document.getElementById('stat-card-2');
+        const card3 = document.getElementById('stat-card-3');
+        const card4 = document.getElementById('stat-card-4');
+
+        if (card1) card1.innerHTML = `<div><p class="text-sm font-medium text-slate-500">Total Students</p><h3 id="stat-total-students" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i></div>`;
+        if (card2) card2.innerHTML = `<div><p class="text-sm font-medium text-slate-500">Daily Attendance</p><h3 id="stat-attendance" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="eye" class="w-4 h-4 text-slate-400"></i></div>`;
+        if (card3) card3.innerHTML = `<div><p class="text-sm font-medium text-slate-500">Events Completed</p><h3 id="stat-events" class="text-3xl font-bold mt-2 text-slate-800">0</h3></div><div class="p-2 bg-slate-50 rounded-lg"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i></div>`;
+        if (card4) card4.innerHTML = `<div class="w-full flex flex-col items-center"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operation Effect</p><div class="relative flex items-center justify-center"><svg class="w-20 h-20 transform -rotate-90"><circle cx="40" cy="40" r="34" stroke="#f1f5f9" stroke-width="8" fill="transparent"/><circle id="progress-circle" cx="40" cy="40" r="34" stroke="#000080" stroke-width="8" fill="transparent" stroke-dasharray="213.6" stroke-dashoffset="213.6" stroke-linecap="round" style="transition: stroke-dashoffset 1.5s ease-out;"/></svg><span id="stat-effect-percent" class="absolute text-xl font-black text-slate-700">0%</span></div></div>`;
 
         if (window.lucide) window.lucide.createIcons();
     },
@@ -138,8 +145,11 @@ export const dashboardModule = {
             while (hasMore) {
                 const { data, error } = await supabase.from('students').select('department').range(from, from + step - 1);
                 if (error) throw error;
-                allDeptData = [...allDeptData, ...data];
-                if (data.length < step) hasMore = false; else from += step;
+                if (data && data.length > 0) {
+                    allDeptData = [...allDeptData, ...data];
+                }
+                if (!data || data.length < step) hasMore = false; 
+                else from += step;
             }
 
             // The "Source of Truth" for Distribution logic
@@ -159,9 +169,9 @@ export const dashboardModule = {
                 const { data: logs } = await supabase.from('system_audit_logs').select('*').order('created_at', { ascending: false }).limit(3);
                 auditContainer.innerHTML = (logs && logs.length > 0) ? logs.map((log, i) => `
                     <div class="flex gap-3 animate-in fade-in slide-in-from-right duration-500" style="animation-delay: ${i * 150}ms">
-                        <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">${log.action_type.substring(0,2)}</div>
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]">${log.action_type ? log.action_type.substring(0,2) : 'LOG'}</div>
                         <div>
-                            <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">${log.action_type.toLowerCase()}</span></p>
+                            <p class="text-[11px] font-bold text-slate-800">Admin <span class="font-normal text-slate-400">${log.action_type ? log.action_type.toLowerCase() : ''}</span></p>
                             <p class="text-[9px] text-blue-600 font-bold uppercase">${new Date(log.created_at).toLocaleTimeString()}</p>
                         </div>
                     </div>
@@ -173,7 +183,7 @@ export const dashboardModule = {
             const circle = document.getElementById('progress-circle');
             if (circle) {
                 circle.style.strokeDashoffset = 213.6 - (effectPercent / 100) * 213.6;
-                this.animateValue("stat-effect-percent", 0, effectPercent, 1500);
+                this.animateValue("stat-effect-percent", 0, effectPercent, 1500, true);
             }
 
         } catch (err) {
@@ -201,6 +211,11 @@ export const dashboardModule = {
         const ctx = document.getElementById('deptDistributionChart');
         if (!ctx) return;
 
+        // Clean up previous Chart instance if it exists
+        if (this.chartInstance) {
+            this.chartInstance.destroy();
+        }
+
         // Group counts into the 3 categories requested
         const categories = { 'Education': 0, 'Industrial': 0, 'Other': 0 };
         Object.entries(counts).forEach(([dept, count]) => {
@@ -209,7 +224,7 @@ export const dashboardModule = {
             else categories['Other'] += count;
         });
 
-        new Chart(ctx, {
+        this.chartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Education Dept.', 'Indus Tech Dept.', 'Other Dept.'],
@@ -235,14 +250,15 @@ export const dashboardModule = {
         });
     },
 
-    animateValue(id, start, end, duration) {
+    animateValue(id, start, end, duration, isPercentage = false) {
         const obj = document.getElementById(id);
         if (!obj) return;
         let startTimestamp = null;
         const step = (timestamp) => {
             if (!startTimestamp) startTimestamp = timestamp;
             const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+            const val = Math.floor(progress * (end - start) + start).toLocaleString();
+            obj.innerHTML = isPercentage ? `${val}%` : val;
             if (progress < 1) window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);
